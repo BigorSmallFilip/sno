@@ -167,10 +167,15 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="sno_state.c" />
     <ClCompile Include="sno_testmain.c" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="sno_state.h" />
     <ClInclude Include="sno_utility.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="onesno.txt" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

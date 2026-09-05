@@ -73,6 +73,8 @@
 // Assertions
 #ifdef sno_MSVC
 
+#include <stdio.h>
+
 #define sno_stringify(x) sno_stringify2(x)
 #define sno_stringify2(x) #x
 
@@ -153,6 +155,10 @@
 
 // Types
 #include <stdint.h>
+
+#ifndef NULL
+#define NULL ((void*)0)
+#endif
 
 #ifdef sno_MSVC
 #include <stdbool.h>

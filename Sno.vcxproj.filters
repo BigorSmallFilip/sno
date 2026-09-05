@@ -18,10 +18,21 @@
     <ClCompile Include="sno_testmain.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="sno_state.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="sno_utility.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="sno_state.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="onesno.txt">
+      <Filter>Source Files</Filter>
+    </Text>
   </ItemGroup>
 </Project>
