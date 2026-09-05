@@ -168,10 +168,14 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="sno_state.c" />
+    <ClCompile Include="sno_string.c" />
     <ClCompile Include="sno_testmain.c" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="sno_mem.h" />
+    <ClInclude Include="sno_parser.h" />
     <ClInclude Include="sno_state.h" />
+    <ClInclude Include="sno_string.h" />
     <ClInclude Include="sno_utility.h" />
   </ItemGroup>
   <ItemGroup>

@@ -199,4 +199,8 @@ typedef int64_t sno_Int;
 #define sno_number_is_valid_u32(num) (sno_floor(num) == num && num >= 0 && num <= UINT32_MAX)
 #define sno_number_is_valid_i32(num) (sno_floor(num) == num && num >= INT32_MIN && num <= INT32_MAX)
 
+#define sno_is_power_of_2(num) (((num) & ((num) - 1)) == 0)
+
+typedef uint32_t sno_Hash;
+
 #endif

@@ -21,12 +21,24 @@
     <ClCompile Include="sno_state.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="sno_string.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="sno_utility.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="sno_state.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="sno_parser.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="sno_string.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="sno_mem.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
