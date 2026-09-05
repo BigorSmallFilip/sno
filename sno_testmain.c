@@ -16,7 +16,3 @@ EMSCRIPTEN_EXPORT int main(int argc, char** argv) {
 
 	return 0;
 }
-
-EMSCRIPTEN_EXPORT void test(int argc, char** argv) {
-	printf("TEST C\n");
-}

@@ -233,5 +233,6 @@ typedef uint32_t sno_Hash;
 
 
 struct sno_State;
+struct sno_String;
 
 #endif

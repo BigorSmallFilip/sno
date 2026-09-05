@@ -3,7 +3,7 @@
 
 #include "sno_utility.h"
 
-enum {
+typedef enum sno_TokenType {
 	sno_TK_IF,
 	sno_TK_ELSE,
 	sno_TK_FOR,
@@ -78,11 +78,61 @@ enum {
 	sno_NUM_TOKENS,
 	sno_TK_EOF = -1,
 	sno_TK_ERROR = -2,
-};
-typedef int8_t sno_TokenType;
+} sno_TokenType;
+//typedef int8_t sno_TokenType;
 
 extern const char* const sno_token_strings[sno_NUM_TOKENS];
 
 #define sno_token_is_assignment(tokentype) ((tokentype) >= sno_TK_ASSIGN && (tokentype) <= sno_TK_ASSIGNSHR)
+
+typedef struct sno_Token {
+	sno_TokenType type;
+	sno_Bool stmt_end;
+	uint32_t linenum;
+	uint32_t column;
+	union {
+		sno_Number u_number;
+		struct sno_String* u_string;
+	} info;
+} sno_Token;
+
+typedef struct sno_Block {
+	struct sno_Block* prev;
+	uint8_t num_active_local_vars;
+	sno_Bool is_loop;
+	sno_Bool is_global;
+} sno_Block;
+
+typedef struct sno_Tokenizer {
+	sno_Token cur_token;
+	sno_Token next_token; // Look-ahead
+
+	struct sno_State* main_state;
+	const char* const sourcecode;
+	const char* cur_char;
+	const char* token_start;
+	uint32_t linenum;
+	struct sno_Compiler* cs;
+} sno_Tokenizer;
+
+typedef struct sno_Compiler {
+	sno_Tokenizer* ts;
+	sno_DynArray instructions;
+	sno_DynArray instruction_linenums;
+	sno_DynArray number_constants;
+	sno_DynArray string_constants;
+	sno_DynArray local_variables;
+	sno_DynArray sub_functions;
+	struct sno_Bytecode* bytecode;
+	struct sno_Compiler* parent;
+	sno_Block* current_block;
+	int num_active_local_vars;
+	uint8_t max_active_local_vars;
+	uint16_t max_stack_used;
+	uint16_t current_stack_idx;
+	uint16_t active_local_variables[sno_MAX_ACTIVE_LOCAL_VARS]; // Read the local_variables array
+	sno_Bool is_global_scope;
+	sno_Bool has_self_parameter;
+} sno_Compiler;
 
 #endif
