@@ -2,6 +2,9 @@
 #define sno_PARSER_H
 
 #include "sno_utility.h"
+#include "sno_mem.h"
+
+
 
 typedef enum sno_TokenType {
 	sno_TK_IF,
@@ -85,11 +88,16 @@ extern const char* const sno_token_strings[sno_NUM_TOKENS];
 
 #define sno_token_is_assignment(tokentype) ((tokentype) >= sno_TK_ASSIGN && (tokentype) <= sno_TK_ASSIGNSHR)
 
+
+
+typedef uint32_t sno_LineNumber;
+typedef uint32_t sno_ColumnNumber;
+
 typedef struct sno_Token {
 	sno_TokenType type;
 	sno_Bool stmt_end;
-	uint32_t linenum;
-	uint32_t column;
+	sno_LineNumber line;
+	sno_ColumnNumber column;
 	union {
 		sno_Number u_number;
 		struct sno_String* u_string;
@@ -111,28 +119,44 @@ typedef struct sno_Tokenizer {
 	const char* const sourcecode;
 	const char* cur_char;
 	const char* token_start;
-	uint32_t linenum;
+	sno_LineNumber line;
+	sno_ColumnNumber column;
 	struct sno_Compiler* cs;
 } sno_Tokenizer;
+
+#define sno_MAX_ACTIVE_LOCAL_VARS 200
+#define sno_MAX_LOCAL_VARS_PER_FUNCTION 50000
+
+typedef uint16_t sno_LocalID;
+typedef uint8_t sno_LocalSlot;
 
 typedef struct sno_Compiler {
 	sno_Tokenizer* ts;
 	sno_DynArray instructions;
 	sno_DynArray instruction_linenums;
+	sno_DynArray local_vars;
 	sno_DynArray number_constants;
 	sno_DynArray string_constants;
-	sno_DynArray local_variables;
 	sno_DynArray sub_functions;
 	struct sno_Bytecode* bytecode;
 	struct sno_Compiler* parent;
 	sno_Block* current_block;
-	int num_active_local_vars;
-	uint8_t max_active_local_vars;
-	uint16_t max_stack_used;
-	uint16_t current_stack_idx;
-	uint16_t active_local_variables[sno_MAX_ACTIVE_LOCAL_VARS]; // Read the local_variables array
+	sno_LocalSlot num_active_local_vars;
+	sno_LocalID max_active_local_vars; // Number of stack slots needed for local vars
+	sno_LocalID active_local_vars_stack[sno_MAX_ACTIVE_LOCAL_VARS]; // Indexes into the local_vars dynarray
+	uint32_t max_stack_used;
+	uint32_t current_stack_idx;
 	sno_Bool is_global_scope;
 	sno_Bool has_self_parameter;
 } sno_Compiler;
+
+void sno_init_tokenizer(sno_Tokenizer* ts);
+
+void sno_throw_syntax_error(struct sno_State* state, sno_LineNumber line, sno_ColumnNumber column);
+
+void sno_read_next_token(sno_Tokenizer* ts);
+
+void sno_parse_source_code(struct sno_State* state, const char* const string, size_t length);
+sno_Bool sno_print_source_code(struct sno_State* state, const char* const string, size_t length);
 
 #endif

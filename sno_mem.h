@@ -17,7 +17,7 @@ typedef struct {
 	size_t capacity;
 } sno_DynArray;
 
-#define sno_DYNARRAY_STD_CAPACITY 4
+#define sno_MIN_DYNARRAY_CAPACITY 2
 
 void sno_dynarray_init(struct sno_State* state, sno_DynArray* dynarray, size_t element_size, size_t capacity);
 void sno_dynarray_resize(struct sno_State* state, sno_DynArray* dynarray, size_t element_size, size_t new_capacity);

@@ -168,9 +168,12 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="sno_mem.c" />
+    <ClCompile Include="sno_parser.c" />
     <ClCompile Include="sno_state.c" />
     <ClCompile Include="sno_string.c" />
     <ClCompile Include="sno_testmain.c" />
+    <ClCompile Include="sno_tokenizer.c" />
+    <ClCompile Include="sno_value.c" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="sno_mem.h" />
@@ -178,6 +181,7 @@
     <ClInclude Include="sno_state.h" />
     <ClInclude Include="sno_string.h" />
     <ClInclude Include="sno_utility.h" />
+    <ClInclude Include="sno_value.h" />
   </ItemGroup>
   <ItemGroup>
     <Text Include="onesno.txt" />

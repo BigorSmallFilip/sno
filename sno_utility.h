@@ -230,7 +230,7 @@ typedef int64_t sno_Int;
 
 typedef uint32_t sno_Hash;
 
-
+#define sno_str_comma_len(str) (str), (sizeof(str) - 1)
 
 struct sno_State;
 struct sno_String;

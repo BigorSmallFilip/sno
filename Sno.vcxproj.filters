@@ -27,6 +27,15 @@
     <ClCompile Include="sno_mem.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="sno_value.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="sno_parser.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="sno_tokenizer.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="sno_utility.h">
@@ -42,6 +51,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="sno_mem.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="sno_value.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

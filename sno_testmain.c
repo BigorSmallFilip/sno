@@ -2,6 +2,7 @@
 
 #include "sno_utility.h"
 #include "sno_state.h"
+#include "sno_parser.h"
 
 EMSCRIPTEN_EXPORT int main(int argc, char** argv) {
 	printf("Hello Sno\n");
@@ -11,7 +12,7 @@ EMSCRIPTEN_EXPORT int main(int argc, char** argv) {
 	}
 
 	sno_State* state = sno_create_state();
-
+	sno_parse_source_code(state, sno_str_comma_len("what"));
 	sno_free_state(state);
 
 	return 0;

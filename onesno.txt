@@ -2,3 +2,5 @@
 #include "sno_string.c"
 #include "sno_state.c"
 #include "sno_testmain.c"
+#include "sno_parser.c"
+#include "sno_tokenizer.c"
