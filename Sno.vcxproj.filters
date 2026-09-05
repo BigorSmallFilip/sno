@@ -24,6 +24,9 @@
     <ClCompile Include="sno_string.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="sno_mem.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="sno_utility.h">

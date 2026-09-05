@@ -6,8 +6,8 @@
 typedef struct sno_String {
 	struct sno_String* next;
 	uint8_t gc_mark;
-	uint32_t length;
 	sno_Hash hash;
+	size_t length;
 } sno_String;
 
 #define sno_string_chars(str) ((str) + 1)

@@ -3,7 +3,7 @@
 #include "sno_utility.h"
 #include "sno_state.h"
 
-int main(int argc, char** argv) {
+EMSCRIPTEN_EXPORT int main(int argc, char** argv) {
 	printf("Hello Sno\n");
 
 	if (argc == 2) {
@@ -15,4 +15,8 @@ int main(int argc, char** argv) {
 	sno_free_state(state);
 
 	return 0;
+}
+
+EMSCRIPTEN_EXPORT void test(int argc, char** argv) {
+	printf("TEST C\n");
 }

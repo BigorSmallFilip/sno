@@ -1,6 +1,18 @@
 #ifndef sno_UTILITY_H
 #define sno_UTILITY_H
 
+
+
+#ifdef _MSC_VER
+#define sno_MSVC
+#endif
+
+#ifdef __EMSCRIPTEN__
+#define sno_EMSCRIPTEN
+#endif
+
+
+
 #ifdef _DEBUG
 #define sno_DEBUG
 #endif
@@ -24,10 +36,6 @@
 
 #if !(defined(sno_64_BIT) ^ defined(sno_32_BIT))
 #error "Could not determine if compilation target is 32-bit or 64-bit"
-#endif
-
-#ifdef _MSC_VER
-#define sno_MSVC
 #endif
 
 
@@ -70,16 +78,22 @@
 
 
 
+#include <stdlib.h>
+#include <stdio.h>
+
 // Assertions
 #ifdef sno_MSVC
-
-#include <stdio.h>
 
 #define sno_stringify(x) sno_stringify2(x)
 #define sno_stringify2(x) #x
 
-#ifdef sno_DEBUG
 #define sno_location_macro " | " __FILE__ " | " __FUNCTION__ "() | Line " sno_stringify(__LINE__)
+
+#define sno_panic(msg) \
+	fputs(sno_ANSI_RED "Sno fatal error!" sno_location_macro "\n" \
+	msg sno_ANSI_NORMAL "\n", stderr), exit(EXIT_FAILURE)
+
+#ifdef sno_DEBUG
 #define sno_assert(expr) if (!(expr)) \
 	fputs(sno_ANSI_RED "Assertion failed!" sno_location_macro "\n" \
 	"Expression: " #expr sno_ANSI_NORMAL "\n", stderr), sno_DEBUG_BREAK
@@ -102,6 +116,10 @@
 #endif
 
 #else
+
+#define sno_panic(msg) \
+	fputs(sno_ANSI_RED "Sno fatal error!\n" \
+	msg sno_ANSI_NORMAL "\n", stderr), exit(EXIT_FAILURE)
 
 #ifdef sno_DEBUG
 #define sno_assert(expr) if (!(expr)) \
@@ -127,6 +145,8 @@
 
 #endif
 
+
+
 #ifdef sno_MSVC
 #define sno_likely(expr) (expr)
 #define sno_unlikely(expr) (expr)
@@ -149,6 +169,13 @@
 #define sno_API __declspec(dllexport)
 #else
 #define sno_API extern
+#endif
+
+#ifdef sno_EMSCRIPTEN
+#include <emscripten/emscripten.h>
+#define EMSCRIPTEN_EXPORT extern EMSCRIPTEN_KEEPALIVE
+#else
+#define EMSCRIPTEN_EXPORT
 #endif
 
 
@@ -202,5 +229,9 @@ typedef int64_t sno_Int;
 #define sno_is_power_of_2(num) (((num) & ((num) - 1)) == 0)
 
 typedef uint32_t sno_Hash;
+
+
+
+struct sno_State;
 
 #endif
