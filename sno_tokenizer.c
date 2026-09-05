@@ -73,6 +73,142 @@ const char* const sno_token_strings[sno_NUM_TOKENS] = {
 	"identifier",
 };
 
+#ifdef sno_USE_ANSI_COLOR
+#define ANSI_KEYWORD    "\x1B[38;2;216;160;223m"
+#define ANSI_CONST      "\x1B[38;2;86;156;214m"
+#define ANSI_VARIABLE   "\x1B[38;2;156;220;254m"
+#define ANSI_TYPE       "\x1B[38;2;78;201;176m"
+#define ANSI_FUNCTION   "\x1B[38;2;220;220;170m"
+#define ANSI_NUMBER     "\x1B[38;2;181;206;168m"
+#define ANSI_STRING     "\x1B[38;2;206;145;120m"
+#define ANSI_OPERATOR   "\x1B[38;2;180;180;180m"
+#define ANSI_SEPARATOR  "\x1B[38;2;218;218;218m"
+#define ANSI_EOF        "\x1B[38;2;255;0;0m"
+#define ANSI_WHITE      "\x1B[38;2;218;218;218m"
+#define ANSI_BACKGROUND "\x1B[48;2;30;30;30m"
+#define ANSI_NORMAL     "\x1B[0m"
+#else
+#define ANSI_KEYWORD   	""
+#define ANSI_CONST     	""
+#define ANSI_VARIABLE  	""
+#define ANSI_TYPE      	""
+#define ANSI_FUNCTION  	""
+#define ANSI_NUMBER    	""
+#define ANSI_STRING    	""
+#define ANSI_OPERATOR  	""
+#define ANSI_SEPARATOR 	""
+#define ANSI_EOF       	""
+#define ANSI_WHITE     	""
+#define ANSI_BACKGROUND	""
+#define ANSI_NORMAL    	""
+#endif
+
+void sno_print_token(const sno_Token* token, const sno_Token* next_token) {
+	sno_assert_ptr(token);
+	if (token->type < 0) {
+		printf(ANSI_EOF "(End of file)");
+	} else {
+		switch (token->type) {
+		case sno_TK_IF: printf(ANSI_KEYWORD "if"); break;
+		case sno_TK_ELSE:  printf(ANSI_KEYWORD "else"); break;
+		case sno_TK_FOR: printf(ANSI_KEYWORD "for"); break;
+		case sno_TK_IN: printf(ANSI_KEYWORD "in"); break;
+		case sno_TK_WHILE: printf(ANSI_KEYWORD "while"); break;
+		case sno_TK_BREAK: printf(ANSI_KEYWORD "break"); break;
+		case sno_TK_CONTINUE: printf(ANSI_KEYWORD "continue"); break;
+		case sno_TK_FUNCTION: printf(ANSI_CONST "function"); break;
+		case sno_TK_RETURN: printf(ANSI_KEYWORD "return"); break;
+		case sno_TK_VAR: printf(ANSI_CONST "var"); break;
+		case sno_TK_CONST: printf(ANSI_CONST "const"); break;
+		case sno_TK_SELF: printf(ANSI_CONST "self"); break;
+		case sno_TK_TRUE: printf(ANSI_CONST "true"); break;
+		case sno_TK_FALSE: printf(ANSI_CONST "false"); break;
+		case sno_TK_NONE: printf(ANSI_CONST "none"); break;
+		case sno_TK_ADD: printf(ANSI_OPERATOR "+"); break;
+		case sno_TK_SUB: printf(ANSI_OPERATOR "-"); break;
+		case sno_TK_MUL: printf(ANSI_OPERATOR "*"); break;
+		case sno_TK_DIV: printf(ANSI_OPERATOR "/"); break;
+		case sno_TK_IDIV: printf(ANSI_OPERATOR "/-"); break;
+		case sno_TK_POW: printf(ANSI_OPERATOR "**"); break;
+		case sno_TK_MOD: printf(ANSI_OPERATOR "%%"); break;
+		case sno_TK_BAND: printf(ANSI_OPERATOR "&"); break;
+		case sno_TK_BOR: printf(ANSI_OPERATOR "|"); break;
+		case sno_TK_BXOR: printf(ANSI_OPERATOR "^"); break;
+		case sno_TK_SHL: printf(ANSI_OPERATOR "<<"); break;
+		case sno_TK_SHR: printf(ANSI_OPERATOR ">>"); break;
+		case sno_TK_ASSIGN: printf(ANSI_OPERATOR "="); break;
+		case sno_TK_ASSIGNADD: printf(ANSI_OPERATOR "+="); break;
+		case sno_TK_ASSIGNSUB: printf(ANSI_OPERATOR "-="); break;
+		case sno_TK_ASSIGNMUL: printf(ANSI_OPERATOR "*="); break;
+		case sno_TK_ASSIGNDIV: printf(ANSI_OPERATOR "/="); break;
+		case sno_TK_ASSIGNIDIV: printf(ANSI_OPERATOR "//="); break;
+		case sno_TK_ASSIGNPOW: printf(ANSI_OPERATOR "**="); break;
+		case sno_TK_ASSIGNMOD: printf(ANSI_OPERATOR "%%="); break;
+		case sno_TK_ASSIGNBAND: printf(ANSI_OPERATOR "&="); break;
+		case sno_TK_ASSIGNBOR: printf(ANSI_OPERATOR "|="); break;
+		case sno_TK_ASSIGNBXOR: printf(ANSI_OPERATOR "^="); break;
+		case sno_TK_ASSIGNSHL: printf(ANSI_OPERATOR "<<="); break;
+		case sno_TK_ASSIGNSHR: printf(ANSI_OPERATOR ">>="); break;
+		case sno_TK_INC: printf(ANSI_OPERATOR "++"); break;
+		case sno_TK_DEC: printf(ANSI_OPERATOR "--"); break;
+		case sno_TK_BITFLIP: printf(ANSI_OPERATOR "~"); break;
+		case sno_TK_LNOT: printf(ANSI_OPERATOR "!"); break;
+		case sno_TK_LAND: printf(ANSI_OPERATOR "&&"); break;
+		case sno_TK_LOR: printf(ANSI_OPERATOR "||"); break;
+		case sno_TK_EQ: printf(ANSI_OPERATOR "=="); break;
+		case sno_TK_NEQ: printf(ANSI_OPERATOR "!="); break;
+		case sno_TK_LT: printf(ANSI_OPERATOR "<"); break;
+		case sno_TK_GT: printf(ANSI_OPERATOR ">"); break;
+		case sno_TK_LE: printf(ANSI_OPERATOR "<="); break;
+		case sno_TK_GE: printf(ANSI_OPERATOR ">="); break;
+		case sno_TK_LPAREN: printf(ANSI_SEPARATOR "("); break;
+		case sno_TK_RPAREN: printf(ANSI_SEPARATOR ")"); break;
+		case sno_TK_LBRACKET: printf(ANSI_SEPARATOR "["); break;
+		case sno_TK_RBRACKET: printf(ANSI_SEPARATOR "]"); break;
+		case sno_TK_LBRACE: printf(ANSI_SEPARATOR "{"); break;
+		case sno_TK_RBRACE: printf(ANSI_SEPARATOR "}"); break;
+		case sno_TK_DOT: printf(ANSI_OPERATOR "."); break;
+		case sno_TK_COMMA: printf(ANSI_SEPARATOR ","); break;
+		case sno_TK_COLON: printf(ANSI_SEPARATOR ":"); break;
+		case sno_TK_NUMBER: printf(ANSI_NUMBER "%g", (double)token->info.u_number); break;
+		case sno_TK_STRING: printf(
+			ANSI_STRING "\"%.*s\"",
+			(unsigned int)token->info.u_string->length,
+			sno_string_chars(token->info.u_string)
+		); break;
+		case sno_TK_IDENTIFIER:
+		{
+			const char* const str = sno_string_chars(token->info.u_string);
+			const size_t len = token->info.u_string->length;
+			if (next_token && next_token->type == sno_TK_LPAREN) {
+				printf(ANSI_FUNCTION);
+				goto print_the_thing;
+			}
+			if (((str[0] >= 'A' && str[0] <= 'Z') || str[0] == '_')) {
+				printf(ANSI_TYPE);
+				for (size_t i = 1; i < len; i++) {
+					if (!((str[i] >= 'A' && str[i] <= 'Z') || str[i] == '_')) {
+						goto print_the_thing;
+					}
+				}
+				printf(ANSI_CONST);
+			} else {
+				printf(ANSI_VARIABLE);
+			}
+		print_the_thing:
+			for (size_t i = 0; i < len; i++) {
+				putchar(str[i]);
+			}
+			break;
+		}
+		default: sno_unreachable; break;
+		}
+	}
+	printf(ANSI_NORMAL);
+}
+
+
+
 static sno_inline sno_Bool check_next(sno_Tokenizer* ts, char c) {
 	if (*ts->cur_char == c) {
 		ts->cur_char++;
@@ -104,7 +240,7 @@ static sno_inline sno_Number string_to_number(const char* string, size_t length)
 }
 
 // Read number token which will be either int or float. Not hex or binary
-static sno_TokenType read_normal_number(sno_Tokenizer* ts, sno_Token* token) {
+static size_t read_normal_number(sno_Tokenizer* ts, sno_Token* token) {
 	sno_assert_ptr(ts);
 	sno_assert_ptr(token);
 
@@ -132,19 +268,20 @@ static sno_TokenType read_normal_number(sno_Tokenizer* ts, sno_Token* token) {
 	}
 	
 	token->info.u_number = string_to_number(ts->token_start, length);
-	return sno_TK_NUMBER;
+	return length;
 }
 
 
 
-static sno_TokenType read_string_literal(sno_Tokenizer* ts, sno_Token* token) {
+static size_t read_string_literal(sno_Tokenizer* ts, sno_Token* token) {
 	sno_assert_ptr(ts);
 	sno_assert_ptr(token);
 
 	sno_State* state = ts->main_state;
 	sno_DynArray formatted_string;
 	sno_dynarray_init(state, &formatted_string, 1, 512);
-	for (;;) {
+	const char* start = ts->cur_char;
+	while (1) {
 		ts->cur_char++;
 		switch (*ts->cur_char) {
 		case '\n': case '\r': case '\0':
@@ -190,11 +327,11 @@ endstring:
 	ts->cur_char++; // Skip the closing double quotes
 	token->info.u_string = sno_create_string(
 		state,
-		(char*)formatted_string.buffer,
+		(const char*)formatted_string.buffer,
 		formatted_string.count
 	);
 	sno_dynarray_clear(state, &formatted_string);
-	return sno_TK_STRING;
+	return ts->cur_char - start;
 }
 
 
@@ -247,384 +384,353 @@ static sno_TokenType lex_token(sno_Tokenizer* ts, sno_Token* token, sno_Bool* st
 	sno_assert_ptr(token);
 	sno_assert_ptr(stmt_end);
 
-	ts->token_start = ts->cur_char;
-
+	// First skip whitespace and comments
 	while (1) {
-		char c = *ts->cur_char;
-		switch (c) {
-		case '\0':
-		{
+		switch (*ts->cur_char) {
+		case '\0': {
 			*stmt_end = sno_TRUE;
 			return sno_TK_EOF;
 		}
-		case '\n':
-		{
+		case '\n': {
 			*stmt_end = sno_TRUE;
 			ts->line++;
-			ts->token_start++;
 			ts->cur_char++;
 			break;
 		}
-		case '\\':
-		{
+		case '\\': {
 			ts->cur_char++;
 			if (check_next(ts, '\n') || check_next(ts, '\r') && check_next(ts, '\n')) {
 				ts->line++;
-				ts->token_start++;
+				ts->column = 0;
 				break;
 			}
-			//throw_syntax_error(ts, "Invalid endline backslash character");
+			//throw_syntax_error(ts, "Invalid backslash character");
+			break;
 		}
-		case ' ': case '\f': case '\t': case '\v': case '\r':
-		{
-			ts->token_start++;
+		case ' ': case '\t': case '\r': {
 			ts->cur_char++;
 			break;
 		}
-		case ';':
-		{
+		case ';': {
 			*stmt_end = sno_TRUE;
-			ts->token_start++;
 			ts->cur_char++;
 			break;
 		}
+		default: {
+			goto not_whitespace;
+		}
+		}
+	}
+not_whitespace:
 
-		case '+':
-		{
-			ts->cur_char++;
-			if (check_next(ts, '=')) return sno_TK_ASSIGNADD;
-			else if (check_next(ts, '+')) return sno_TK_INC;
-			else return sno_TK_ADD;
-		}
-		case '-':
-		{
-			ts->cur_char++;
-			if (check_next(ts, '=')) return sno_TK_ASSIGNSUB;
-			else if (check_next(ts, '-')) return sno_TK_DEC;
-			else return sno_TK_SUB;
-		}
-		case '*':
-		{
-			ts->cur_char++;
-			if (check_next(ts, '=')) return sno_TK_ASSIGNMUL;
-			else if (check_next(ts, '*')) {
-				if (check_next(ts, '=')) return sno_TK_ASSIGNPOW;
-				else return sno_TK_POW;
-			} else return sno_TK_MUL;
-		}
-		case '/':
-		{
-			ts->cur_char++;
-			if (check_next(ts, '/')) {
-				read_comment(ts);
-				break;
-			}
-			if (check_next(ts, '*')) {
-				read_multiline_comment(ts);
-				break;
-			}
-			if (check_next(ts, '=')) return sno_TK_ASSIGNDIV;
-			else if (check_next(ts, '-')) {
-				if (check_next(ts, '=')) return sno_TK_ASSIGNIDIV;
-				else return sno_TK_IDIV;
-			} else return sno_TK_DIV;
-		}
-		case '%':
-		{
-			ts->cur_char++;
-			if (check_next(ts, '=')) return sno_TK_ASSIGNMOD;
-			else return sno_TK_MOD;
-		}
-		case '&':
-		{
-			ts->cur_char++;
-			if (check_next(ts, '=')) return sno_TK_ASSIGNBAND;
-			else if (check_next(ts, '&')) return sno_TK_LAND;
-			else return sno_TK_BAND;
-		}
-		case '|':
-		{
-			ts->cur_char++;
-			if (check_next(ts, '=')) return sno_TK_ASSIGNBOR;
-			else if (check_next(ts, '|')) return sno_TK_LOR;
-			else return sno_TK_BOR;
-		}
-		case '^':
-		{
-			ts->cur_char++;
-			if (check_next(ts, '=')) return sno_TK_ASSIGNBXOR;
-			else return sno_TK_BXOR;
-		}
-		case '<':
-		{
-			ts->cur_char++;
-			if (check_next(ts, '=')) return sno_TK_LE;
-			else if (check_next(ts, '<')) {
-				if (check_next(ts, '=')) return sno_TK_ASSIGNSHL;
-				else return sno_TK_SHL;
-			} else return sno_TK_LT;
-		}
-		case '>':
-		{
-			ts->cur_char++;
-			if (check_next(ts, '=')) return sno_TK_GE;
-			else if (check_next(ts, '>')) {
-				if (check_next(ts, '=')) return sno_TK_ASSIGNSHR;
-				else return sno_TK_SHR;
-			} else return sno_TK_GT;
-		}
-		case '=':
-		{
-			ts->cur_char++;
-			if (check_next(ts, '=')) return sno_TK_EQ;
-			else return sno_TK_ASSIGN;
-		}
-		case '~':
-		{
-			ts->cur_char++;
-			return sno_TK_BITFLIP;
-		}
-		case '!':
-		{
-			ts->cur_char++;
-			if (check_next(ts, '=')) return sno_TK_NEQ;
-			else return sno_TK_LNOT;
-		}
-		case '(':
-		{
-			ts->cur_char++;
-			return sno_TK_LPAREN;
-		}
-		case ')':
-		{
-			ts->cur_char++;
-			return sno_TK_RPAREN;
-		}
-		case '[':
-		{
-			ts->cur_char++;
-			return sno_TK_LBRACKET;
-		}
-		case ']':
-		{
-			ts->cur_char++;
-			return sno_TK_RBRACKET;
-		}
-		case '{':
-		{
-			ts->cur_char++;
-			return sno_TK_LBRACE;
-		}
-		case '}':
-		{
-			ts->cur_char++;
-			return sno_TK_RBRACE;
-		}
-		case '.':
-		{
-			ts->cur_char++;
-			return sno_TK_DOT;
-		}
-		case ',':
-		{
-			ts->cur_char++;
-			return sno_TK_COMMA;
-		}
-		case ':':
-		{
-			ts->cur_char++;
-			return sno_TK_COLON;
-		}
-		case '\'': case '\"':
-		{
-			return read_string_literal(ts, token);
-		}
+	ts->token_start = ts->cur_char;
+	token->source_code = ts->token_start;
+	token->line = ts->line;
 
-		case '0':
-		{
-			if (check_next(ts, 'x')) {
-				// Hex number
-				sno_not_implemented;
-			}
-			if (check_next(ts, 'b')) {
-				// Binary number
-				sno_not_implemented;
-			}
-			// Fall through
+	switch (*ts->cur_char) {
+	case '+': {
+		ts->cur_char++;
+		if (check_next(ts, '=')) return sno_TK_ASSIGNADD;
+		else if (check_next(ts, '+')) return sno_TK_INC;
+		else return sno_TK_ADD;
+	}
+	case '-': {
+		ts->cur_char++;
+		if (check_next(ts, '=')) return sno_TK_ASSIGNSUB;
+		else if (check_next(ts, '-')) return sno_TK_DEC;
+		else return sno_TK_SUB;
+	}
+	case '*': {
+		ts->cur_char++;
+		if (check_next(ts, '=')) return sno_TK_ASSIGNMUL;
+		else if (check_next(ts, '*')) {
+			if (check_next(ts, '=')) return sno_TK_ASSIGNPOW;
+			else return sno_TK_POW;
+		} else return sno_TK_MUL;
+	}
+	case '/': {
+		ts->cur_char++;
+		if (check_next(ts, '/')) {
+			read_comment(ts);
+			break;
 		}
-		case '1': case '2': case '3': case '4':
-		case '5': case '6': case '7': case '8': case '9':
-		{
-			return read_normal_number(ts, token);
+		if (check_next(ts, '*')) {
+			read_multiline_comment(ts);
+			break;
 		}
+		if (check_next(ts, '=')) return sno_TK_ASSIGNDIV;
+		else if (check_next(ts, '-')) {
+			if (check_next(ts, '=')) return sno_TK_ASSIGNIDIV;
+			else return sno_TK_IDIV;
+		} else return sno_TK_DIV;
+	}
+	case '%': {
+		ts->cur_char++;
+		if (check_next(ts, '=')) return sno_TK_ASSIGNMOD;
+		else return sno_TK_MOD;
+	}
+	case '&': {
+		ts->cur_char++;
+		if (check_next(ts, '=')) return sno_TK_ASSIGNBAND;
+		else if (check_next(ts, '&')) return sno_TK_LAND;
+		else return sno_TK_BAND;
+	}
+	case '|': {
+		ts->cur_char++;
+		if (check_next(ts, '=')) return sno_TK_ASSIGNBOR;
+		else if (check_next(ts, '|')) return sno_TK_LOR;
+		else return sno_TK_BOR;
+	}
+	case '^': {
+		ts->cur_char++;
+		if (check_next(ts, '=')) return sno_TK_ASSIGNBXOR;
+		else return sno_TK_BXOR;
+	}
+	case '<': {
+		ts->cur_char++;
+		if (check_next(ts, '=')) return sno_TK_LE;
+		else if (check_next(ts, '<')) {
+			if (check_next(ts, '=')) return sno_TK_ASSIGNSHL;
+			else return sno_TK_SHL;
+		} else return sno_TK_LT;
+	}
+	case '>': {
+		ts->cur_char++;
+		if (check_next(ts, '=')) return sno_TK_GE;
+		else if (check_next(ts, '>')) {
+			if (check_next(ts, '=')) return sno_TK_ASSIGNSHR;
+			else return sno_TK_SHR;
+		} else return sno_TK_GT;
+	}
+	case '=': {
+		ts->cur_char++;
+		if (check_next(ts, '=')) return sno_TK_EQ;
+		else return sno_TK_ASSIGN;
+	}
+	case '~': {
+		ts->cur_char++;
+		return sno_TK_BITFLIP;
+	}
+	case '!': {
+		ts->cur_char++;
+		if (check_next(ts, '=')) return sno_TK_NEQ;
+		else return sno_TK_LNOT;
+	}
+	case '(': {
+		ts->cur_char++;
+		return sno_TK_LPAREN;
+	}
+	case ')': {
+		ts->cur_char++;
+		return sno_TK_RPAREN;
+	}
+	case '[': {
+		ts->cur_char++;
+		return sno_TK_LBRACKET;
+	}
+	case ']': {
+		ts->cur_char++;
+		return sno_TK_RBRACKET;
+	}
+	case '{': {
+		ts->cur_char++;
+		return sno_TK_LBRACE;
+	}
+	case '}': {
+		ts->cur_char++;
+		return sno_TK_RBRACE;
+	}
+	case '.': {
+		ts->cur_char++;
+		return sno_TK_DOT;
+	}
+	case ',': {
+		ts->cur_char++;
+		return sno_TK_COMMA;
+	}
+	case ':': {
+		ts->cur_char++;
+		return sno_TK_COLON;
+	}
+	case '\'': case '\"': {
+		token->length = (uint32_t)read_string_literal(ts, token);
+		return sno_TK_STRING;
+	}
 
-		case 'b':
-		{
-			ts->cur_char++;
-			if (!check_next(ts, 'r')) goto identifier;
-			if (!check_next(ts, 'e')) goto identifier;
-			if (!check_next(ts, 'a')) goto identifier;
-			if (!check_next(ts, 'k')) goto identifier;
+	case '0': {
+		if (check_next(ts, 'x')) {
+			// Hex number
+			sno_not_implemented;
+		}
+		if (check_next(ts, 'b')) {
+			// Binary number
+			sno_not_implemented;
+		}
+		// Fall through
+	}
+	case '1': case '2': case '3': case '4':
+	case '5': case '6': case '7': case '8': case '9': {
+		token->length = (uint32_t)read_normal_number(ts, token);
+		return sno_TK_NUMBER;
+	}
+
+	case 'b': {
+		ts->cur_char++;
+		if (!check_next(ts, 'r')) goto identifier;
+		if (!check_next(ts, 'e')) goto identifier;
+		if (!check_next(ts, 'a')) goto identifier;
+		if (!check_next(ts, 'k')) goto identifier;
+		if (check_next_alphanumeric(ts)) goto identifier;
+		return sno_TK_BREAK;
+	}
+	case 'c': {
+		ts->cur_char++;
+		if (!check_next(ts, 'o')) goto identifier;
+		if (!check_next(ts, 'n')) goto identifier;
+		if (check_next(ts, 's')) {
+			if (!check_next(ts, 't')) goto identifier;
 			if (check_next_alphanumeric(ts)) goto identifier;
-			return sno_TK_BREAK;
-		}
-		case 'c':
-		{
-			ts->cur_char++;
-			if (!check_next(ts, 'o')) goto identifier;
+			return sno_TK_CONST;
+		} else if (check_next(ts, 't')) {
+			if (!check_next(ts, 'i')) goto identifier;
 			if (!check_next(ts, 'n')) goto identifier;
-			if (check_next(ts, 's')) {
-				if (!check_next(ts, 't')) goto identifier;
-				if (check_next_alphanumeric(ts)) goto identifier;
-				return sno_TK_CONST;
-			} else if (check_next(ts, 't')) {
-				if (!check_next(ts, 'i')) goto identifier;
-				if (!check_next(ts, 'n')) goto identifier;
-				if (!check_next(ts, 'u')) goto identifier;
-				if (!check_next(ts, 'e')) goto identifier;
-				if (check_next_alphanumeric(ts)) goto identifier;
-				return sno_TK_CONTINUE;
-			}
-			goto identifier;
+			if (!check_next(ts, 'u')) goto identifier;
+			if (!check_next(ts, 'e')) goto identifier;
+			if (check_next_alphanumeric(ts)) goto identifier;
+			return sno_TK_CONTINUE;
 		}
-		case 'e':
-		{
-			ts->cur_char++;
+		goto identifier;
+	}
+	case 'e': {
+		ts->cur_char++;
+		if (!check_next(ts, 'l')) goto identifier;
+		if (!check_next(ts, 's')) goto identifier;
+		if (!check_next(ts, 'e')) goto identifier;
+		if (check_next_alphanumeric(ts)) goto identifier;
+		return sno_TK_ELSE;
+	}
+	case 'f': {
+		ts->cur_char++;
+		if (check_next(ts, 'a')) {
 			if (!check_next(ts, 'l')) goto identifier;
 			if (!check_next(ts, 's')) goto identifier;
 			if (!check_next(ts, 'e')) goto identifier;
 			if (check_next_alphanumeric(ts)) goto identifier;
-			return sno_TK_ELSE;
-		}
-		case 'f':
-		{
-			ts->cur_char++;
-			if (check_next(ts, 'a')) {
-				if (!check_next(ts, 'l')) goto identifier;
-				if (!check_next(ts, 's')) goto identifier;
-				if (!check_next(ts, 'e')) goto identifier;
-				if (check_next_alphanumeric(ts)) goto identifier;
-				return sno_TK_FALSE;
-			} else if (check_next(ts, 'o')) {
-				if (!check_next(ts, 'r')) goto identifier;
-				if (check_next_alphanumeric(ts)) goto identifier;
-				return sno_TK_FOR;
-			} else if (check_next(ts, 'u')) {
-				if (!check_next(ts, 'n')) goto identifier;
-				if (!check_next(ts, 'c')) goto identifier;
-				if (!check_next(ts, 't')) goto identifier;
-				if (!check_next(ts, 'i')) goto identifier;
-				if (!check_next(ts, 'o')) goto identifier;
-				if (!check_next(ts, 'n')) goto identifier;
-				if (check_next_alphanumeric(ts)) goto identifier;
-				return sno_TK_FUNCTION;
-			}
-			goto identifier;
-		}
-		case 'i':
-		{
-			ts->cur_char++;
-			if (check_next(ts, 'f')) {
-				if (check_next_alphanumeric(ts)) goto identifier;
-				return sno_TK_IF;
-			} else if (check_next(ts, 'n')) {
-				if (check_next_alphanumeric(ts)) goto identifier;
-				return sno_TK_IN;
-			}
-			goto identifier;
-		}
-		case 'n':
-		{
-			ts->cur_char++;
+			return sno_TK_FALSE;
+		} else if (check_next(ts, 'o')) {
+			if (!check_next(ts, 'r')) goto identifier;
+			if (check_next_alphanumeric(ts)) goto identifier;
+			return sno_TK_FOR;
+		} else if (check_next(ts, 'u')) {
+			if (!check_next(ts, 'n')) goto identifier;
+			if (!check_next(ts, 'c')) goto identifier;
+			if (!check_next(ts, 't')) goto identifier;
+			if (!check_next(ts, 'i')) goto identifier;
 			if (!check_next(ts, 'o')) goto identifier;
 			if (!check_next(ts, 'n')) goto identifier;
-			if (!check_next(ts, 'e')) goto identifier;
 			if (check_next_alphanumeric(ts)) goto identifier;
-			return sno_TK_NONE;
+			return sno_TK_FUNCTION;
 		}
-		case 'r':
-		{
-			ts->cur_char++;
-			if (!check_next(ts, 'e')) goto identifier;
-			if (!check_next(ts, 't')) goto identifier;
-			if (!check_next(ts, 'u')) goto identifier;
+		goto identifier;
+	}
+	case 'i': {
+		ts->cur_char++;
+		if (check_next(ts, 'f')) {
+			if (check_next_alphanumeric(ts)) goto identifier;
+			return sno_TK_IF;
+		} else if (check_next(ts, 'n')) {
+			if (check_next_alphanumeric(ts)) goto identifier;
+			return sno_TK_IN;
+		}
+		goto identifier;
+	}
+	case 'n': {
+		ts->cur_char++;
+		if (!check_next(ts, 'o')) goto identifier;
+		if (!check_next(ts, 'n')) goto identifier;
+		if (!check_next(ts, 'e')) goto identifier;
+		if (check_next_alphanumeric(ts)) goto identifier;
+		return sno_TK_NONE;
+	}
+	case 'r': {
+		ts->cur_char++;
+		if (!check_next(ts, 'e')) goto identifier;
+		if (!check_next(ts, 't')) goto identifier;
+		if (!check_next(ts, 'u')) goto identifier;
+		if (!check_next(ts, 'r')) goto identifier;
+		if (!check_next(ts, 'n')) goto identifier;
+		if (check_next_alphanumeric(ts)) goto identifier;
+		return sno_TK_RETURN;
+	}
+	case 's': {
+		ts->cur_char++;
+		if (!check_next(ts, 'e')) goto identifier;
+		if (!check_next(ts, 'l')) goto identifier;
+		if (!check_next(ts, 'f')) goto identifier;
+		if (check_next_alphanumeric(ts)) goto identifier;
+		return sno_TK_SELF;
+	}
+	case 't': {
+		ts->cur_char++;
+		if (!check_next(ts, 'r')) goto identifier;
+		if (!check_next(ts, 'u')) goto identifier;
+		if (!check_next(ts, 'e')) goto identifier;
+		if (check_next_alphanumeric(ts)) goto identifier;
+		return sno_TK_TRUE;
+	}
+	case 'v': {
+		ts->cur_char++;
+		if (check_next(ts, 'a')) {
 			if (!check_next(ts, 'r')) goto identifier;
-			if (!check_next(ts, 'n')) goto identifier;
 			if (check_next_alphanumeric(ts)) goto identifier;
-			return sno_TK_RETURN;
+			return sno_TK_VAR;
 		}
-		case 's':
-		{
+		goto identifier;
+	}
+	case 'w': {
+		ts->cur_char++;
+		if (!check_next(ts, 'h')) goto identifier;
+		if (!check_next(ts, 'i')) goto identifier;
+		if (!check_next(ts, 'l')) goto identifier;
+		if (!check_next(ts, 'e')) goto identifier;
+		if (check_next_alphanumeric(ts)) goto identifier;
+		return sno_TK_WHILE;
+	}
+
+	case 'a':                     case 'd':
+	case 'g': case 'h': case 'j': case 'k': case 'l':
+	case 'm':           case 'o': case 'p': case 'q':
+	case 'u':                     case 'x':
+	case 'y': case 'z':
+	case 'A': case 'B': case 'C': case 'D': case 'E': case 'F':
+	case 'G': case 'H': case 'I': case 'J': case 'K': case 'L':
+	case 'M': case 'N': case 'O': case 'P': case 'Q': case 'R':
+	case 'S': case 'T': case 'U': case 'V': case 'W': case 'X':
+	case 'Y': case 'Z': case '_':
+	identifier:
+	{
+		if (is_alpha(*ts->cur_char) || is_digit(*ts->cur_char)) {
 			ts->cur_char++;
-			if (!check_next(ts, 'e')) goto identifier;
-			if (!check_next(ts, 'l')) goto identifier;
-			if (!check_next(ts, 'f')) goto identifier;
-			if (check_next_alphanumeric(ts)) goto identifier;
-			return sno_TK_SELF;
-		}
-		case 't':
-		{
-			ts->cur_char++;
-			if (!check_next(ts, 'r')) goto identifier;
-			if (!check_next(ts, 'u')) goto identifier;
-			if (!check_next(ts, 'e')) goto identifier;
-			if (check_next_alphanumeric(ts)) goto identifier;
-			return sno_TK_TRUE;
-		}
-		case 'v':
-		{
-			ts->cur_char++;
-			if (check_next(ts, 'a')) {
-				if (!check_next(ts, 'r')) goto identifier;
-				if (check_next_alphanumeric(ts)) goto identifier;
-				return sno_TK_VAR;
-			}
 			goto identifier;
 		}
-		case 'w':
-		{
-			ts->cur_char++;
-			if (!check_next(ts, 'h')) goto identifier;
-			if (!check_next(ts, 'i')) goto identifier;
-			if (!check_next(ts, 'l')) goto identifier;
-			if (!check_next(ts, 'e')) goto identifier;
-			if (check_next_alphanumeric(ts)) goto identifier;
-			return sno_TK_WHILE;
-		}
+		size_t length = ts->cur_char - ts->token_start;
+		token->info.u_string = sno_create_string(
+			ts->main_state,
+			ts->token_start,
+			length
+		);
+		token->length = (uint32_t)length;
+		return sno_TK_IDENTIFIER;
+	}
 
-		case 'a':                     case 'd':
-		case 'g': case 'h': case 'j': case 'k': case 'l':
-		case 'm':           case 'o': case 'p': case 'q':
-		case 'u':                     case 'x':
-		case 'y': case 'z':
-		case 'A': case 'B': case 'C': case 'D': case 'E': case 'F':
-		case 'G': case 'H': case 'I': case 'J': case 'K': case 'L':
-		case 'M': case 'N': case 'O': case 'P': case 'Q': case 'R':
-		case 'S': case 'T': case 'U': case 'V': case 'W': case 'X':
-		case 'Y': case 'Z': case '_':
-		identifier:
-		{
-			if (is_alpha(*ts->cur_char) || is_digit(*ts->cur_char)) {
-				ts->cur_char++;
-				goto identifier;
-			}
-			size_t len = ts->cur_char - ts->token_start;
-			token->info.u_string = sno_create_string(
-				ts->main_state,
-				ts->token_start,
-				len
-			);
-			return sno_TK_IDENTIFIER;
-		}
-
-		default:
-		{
-			/* All other characters are invalid */
-			//throw_syntax_error(ts, "Invalid character");
-		}
-		}
+	default:
+	{
+		/* All other characters are invalid */
+		//throw_syntax_error(ts, "Invalid character");
+	}
 	}
 	sno_unreachable;
+	return sno_TK_ERROR;
 }
 
 
@@ -644,12 +750,67 @@ void sno_throw_syntax_error(sno_State* state, sno_LineNumber line, sno_ColumnNum
 }
 
 void sno_read_next_token(sno_Tokenizer* ts) {
-
+	sno_assert_ptr(ts);
+	ts->cur_token = ts->next_token;
+	if (ts->cur_token.type < 0) {
+		return;
+	}
+	ts->cur_token.stmt_end = sno_FALSE;
+	ts->next_token.type = lex_token(ts, &ts->next_token, &ts->cur_token.stmt_end);
 }
 
 
 
-static void print_source_code_throws(sno_State* state, const char* const string, size_t length) {
+static const char* find_line_start(const char* string, size_t length, const char* view) {
+	const char* p = view;
+	while (p > string) {
+		if (*p == '\n') {
+			break;
+		}
+		p--;
+	}
+	return p + 1;
+}
+
+static void print_line_and_underline_token(const char* string, size_t length, const sno_Token* token) {
+	//printf("\n");
+	//printf("token starts with %c\n", *token->source_code);
+	//return;
+	const char* string_end = string + length;
+	const char* line_start = find_line_start(string, length, token->source_code);
+	const char* p = line_start;
+	size_t spaces_before_token = 0;
+	sno_Bool reached_token = sno_FALSE;
+	while (p < string_end) {
+		if (p == token->source_code) {
+			reached_token = sno_TRUE;
+		}
+		if (*p == '\t') {
+			printf("    ");
+			if (!reached_token) {
+				spaces_before_token += 4;
+			}
+		} else {
+			putchar(*p);
+			if (!reached_token) {
+				spaces_before_token++;
+			}
+		}
+		if (*p == '\n') {
+			break;
+		}
+		p++;
+	}
+	for (int i = 0; i < spaces_before_token; i++) {
+		putchar(' ');
+	}
+	for (int i = 0; i < token->length; i++) {
+		putchar('~');
+	}
+	putchar('\n');
+}
+
+static void print_source_code_throws(sno_State* state, const char* string, size_t length) {
 	sno_Tokenizer ts = { 0 };
 	ts.main_state = state;
 	ts.source_code_string = string;
@@ -662,22 +823,27 @@ static void print_source_code_throws(sno_State* state, const char* const string,
 
 	sno_init_tokenizer(&ts);
 
-	/*sno_Bool new_stmt = sno_TRUE;
+	sno_Bool new_stmt = sno_TRUE;
 	while (1) {
 		if (new_stmt) {
 			printf("stmt on line % 5i | ", ts.cur_token.line);
 		}
-		sno_PrintToken(&ts.cur_token, &ts.next_token, sno_TRUE);
-		putchar(' ');
-		new_stmt = ts.cur_token.stmt_end;
-		sno_ReadNextToken(&ts);
+		printf("line %2u   len %2u   ", ts.cur_token.line, ts.cur_token.length);
+		sno_print_token(&ts.cur_token, &ts.next_token);
+		if (ts.cur_token.stmt_end) {
+			putchar(';');
+		}
+		putchar('\n');
+
+		if (ts.cur_token.type == sno_TK_IDENTIFIER) {
+			print_line_and_underline_token(string, length, &ts.cur_token);
+		}
+
+		sno_read_next_token(&ts);
 		if (ts.cur_token.type < 0) {
 			break;
 		}
-		if (new_stmt) {
-			putchar('\n');
-		}
-	}*/
+	}
 	putchar('\n');
 	putchar('\n');
 }
@@ -687,7 +853,15 @@ sno_Bool sno_print_source_code(sno_State* state, const char* const string, size_
 	sno_assert_ptr(string);
 	sno_assert(length <= sno_SIZE_T_LIMIT);
 
-
-
+	sno_ExceptionJump exception_jump;
+	exception_jump.prev = state->exception_jump;
+	state->exception_jump = &exception_jump;
+	if (setjmp(exception_jump.buf) == 0) {
+		print_source_code_throws(state, string, length);
+	} else {
+		fputs(sno_ANSI_RED "Code contains invalid tokens!" sno_ANSI_NORMAL "\n", stderr);
+		return sno_FALSE;
+	}
+	state->exception_jump = state->exception_jump->prev;
 	return sno_TRUE;
 }

@@ -1,0 +1,11 @@
+
+function a() {
+	for i = 0, 10 {
+		print(i)
+	}
+	if true == true {
+		print("what")
+	}
+}
+
+var a = none

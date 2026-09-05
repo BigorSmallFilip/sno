@@ -97,13 +97,15 @@ typedef struct sno_Token {
 	sno_TokenType type;
 	sno_Bool stmt_end;
 	sno_LineNumber line;
-	sno_ColumnNumber column;
 	uint32_t length;
+	const char* source_code; // Pointer to this token in the source code string
 	union {
 		sno_Number u_number;
 		const struct sno_String* u_string;
 	} info;
 } sno_Token;
+
+void sno_print_token(const sno_Token* token, const sno_Token* next_token);
 
 typedef struct sno_Block {
 	struct sno_Block* prev;
