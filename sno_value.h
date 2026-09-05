@@ -26,7 +26,7 @@ typedef union sno_ValueUnion {
 	void* u_ptr;
 	struct sno_Value* u_stack_ptr;
 	sno_Number u_number;
-	struct sno_String* u_string;
+	const struct sno_String* u_string;
 	struct sno_Array* u_array;
 	struct sno_Table* u_table;
 	struct sno_Function* u_function;

@@ -25,7 +25,7 @@ void sno_dynarray_push_back(struct sno_State* state, sno_DynArray* dynarray, siz
 void sno_dynarray_push_back_no_resize(struct sno_State* state, sno_DynArray* dynarray, size_t element_size, const void* sno_restrict data);
 void sno_dynarray_push_back_ptr(struct sno_State* state, sno_DynArray* dynarray, void* ptr);
 void sno_dynarray_push_back_ptr_no_resize(struct sno_State* state, sno_DynArray* dynarray, void* ptr);
-void sno_dynarray_pop_back(struct sno_State* state, sno_DynArray* dynarray, size_t element_size, const void* sno_restrict data);
+void sno_dynarray_pop_back(struct sno_State* state, sno_DynArray* dynarray, size_t element_size, void* sno_restrict data);
 void* sno_dynarray_get(struct sno_State* state, sno_DynArray* dynarray, size_t element_size, size_t index);
 void* sno_dynarray_get_ptr(struct sno_State* state, sno_DynArray* dynarray, size_t index);
 void sno_dynarray_clear(struct sno_State* state, sno_DynArray* dynarray);

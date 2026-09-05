@@ -95,7 +95,7 @@ static sno_inline sno_Bool check_next_alphanumeric(sno_Tokenizer* ts) {
 
 
 
-sno_Number sno_string_to_number(const char* string, size_t length) {
+static sno_inline sno_Number string_to_number(const char* string, size_t length) {
 	sno_assert(length < 256);
 	char zero_terminated[256];
 	memcpy(zero_terminated, string, length);
@@ -131,7 +131,7 @@ static sno_TokenType read_normal_number(sno_Tokenizer* ts, sno_Token* token) {
 		//throw_syntax_error(ts, "Number token is too long");
 	}
 	
-	token->info.u_number = sno_string_to_number(ts->token_start, length);
+	token->info.u_number = string_to_number(ts->token_start, length);
 	return sno_TK_NUMBER;
 }
 
@@ -141,15 +141,16 @@ static sno_TokenType read_string_literal(sno_Tokenizer* ts, sno_Token* token) {
 	sno_assert_ptr(ts);
 	sno_assert_ptr(token);
 
+	sno_State* state = ts->main_state;
 	sno_DynArray formatted_string;
-	sno_DynArray_Init(&formatted_string, 1, 512);
-	const char* source = ts->token_start + 1; // Plus 1 to avoid opening double quotes
+	sno_dynarray_init(state, &formatted_string, 1, 512);
 	for (;;) {
 		ts->cur_char++;
 		switch (*ts->cur_char) {
 		case '\n': case '\r': case '\0':
 		{
-			throw_syntax_error(ts, "String is missing closing double quotes");
+			//throw_syntax_error(ts, "String is missing closing double quotes");
+			break;
 		}
 		case '\\':
 		{
@@ -169,9 +170,10 @@ static sno_TokenType read_string_literal(sno_Tokenizer* ts, sno_Token* token) {
 			case '{':  escapedchar = '{';  break;
 			case '0':  escapedchar = '\0'; break;
 			default:
-				throw_syntax_error(ts, "Invalid escape character");
+				//throw_syntax_error(ts, "Invalid escape character");
+				break;
 			}
-			sno_DynArray_PushBack(&formatted_string, 1, &escapedchar);
+			sno_dynarray_push_back(state, &formatted_string, 1, &escapedchar);
 			break;
 		}
 		case '\'': case '\"':
@@ -180,18 +182,18 @@ static sno_TokenType read_string_literal(sno_Tokenizer* ts, sno_Token* token) {
 		}
 
 		default:
-			sno_DynArray_PushBack(&formatted_string, 1, ts->cur_char);
+			sno_dynarray_push_back(state, &formatted_string, 1, ts->cur_char);
 			break;
 		}
 	}
 endstring:
 	ts->cur_char++; // Skip the closing double quotes
-	token->info.u_string = sno_CreateString(
-		&ts->main_state->string_table,
+	token->info.u_string = sno_create_string(
+		state,
 		(char*)formatted_string.buffer,
 		formatted_string.count
 	);
-	sno_dynarray_clear(ts->main_state, &formatted_string);
+	sno_dynarray_clear(state, &formatted_string);
 	return sno_TK_STRING;
 }
 
@@ -212,7 +214,7 @@ static void read_multiline_comment(sno_Tokenizer* ts) {
 	sno_assert_ptr(ts);
 	for (;;) {
 		if (*ts->cur_char == '\0') {
-			throw_syntax_error(ts, "Multi-line comment doesn't end");
+			//throw_syntax_error(ts, "Multi-line comment doesn't end");
 		}
 		if (check_next(ts, '*')) {
 			if (check_next(ts, '/')) {
@@ -247,7 +249,7 @@ static sno_TokenType lex_token(sno_Tokenizer* ts, sno_Token* token, sno_Bool* st
 
 	ts->token_start = ts->cur_char;
 
-	for (;;) {
+	while (1) {
 		char c = *ts->cur_char;
 		switch (c) {
 		case '\0':
@@ -271,7 +273,7 @@ static sno_TokenType lex_token(sno_Tokenizer* ts, sno_Token* token, sno_Bool* st
 				ts->token_start++;
 				break;
 			}
-			throw_syntax_error(ts, "Invalid endline backslash character");
+			//throw_syntax_error(ts, "Invalid endline backslash character");
 		}
 		case ' ': case '\f': case '\t': case '\v': case '\r':
 		{
@@ -606,9 +608,9 @@ static sno_TokenType lex_token(sno_Tokenizer* ts, sno_Token* token, sno_Bool* st
 				ts->cur_char++;
 				goto identifier;
 			}
-			uint32_t len = ts->cur_char - ts->token_start;
+			size_t len = ts->cur_char - ts->token_start;
 			token->info.u_string = sno_create_string(
-				&ts->main_state->string_table,
+				ts->main_state,
 				ts->token_start,
 				len
 			);
@@ -618,7 +620,7 @@ static sno_TokenType lex_token(sno_Tokenizer* ts, sno_Token* token, sno_Bool* st
 		default:
 		{
 			/* All other characters are invalid */
-			throw_syntax_error(ts, "Invalid character");
+			//throw_syntax_error(ts, "Invalid character");
 		}
 		}
 	}
@@ -628,15 +630,64 @@ static sno_TokenType lex_token(sno_Tokenizer* ts, sno_Token* token, sno_Bool* st
 
 
 void sno_init_tokenizer(sno_Tokenizer* ts) {
-
+	sno_Bool unused;
+	ts->cur_token.type = lex_token(ts, &ts->cur_token, &unused);
+	if (ts->cur_token.type < 0) {
+		return;
+	}
+	ts->cur_token.stmt_end = sno_FALSE;
+	ts->next_token.type = lex_token(ts, &ts->next_token, &ts->cur_token.stmt_end);
 }
 
 void sno_throw_syntax_error(sno_State* state, sno_LineNumber line, sno_ColumnNumber column) {
+
 }
 
 void sno_read_next_token(sno_Tokenizer* ts) {
+
+}
+
+
+
+static void print_source_code_throws(sno_State* state, const char* const string, size_t length) {
+	sno_Tokenizer ts = { 0 };
+	ts.main_state = state;
+	ts.source_code_string = string;
+	ts.source_code_length = length;
+	ts.cur_char = string;
+	ts.token_start = string;
+	ts.line = 1;
+	ts.column = 1;
+	ts.cs = NULL;
+
+	sno_init_tokenizer(&ts);
+
+	/*sno_Bool new_stmt = sno_TRUE;
+	while (1) {
+		if (new_stmt) {
+			printf("stmt on line % 5i | ", ts.cur_token.line);
+		}
+		sno_PrintToken(&ts.cur_token, &ts.next_token, sno_TRUE);
+		putchar(' ');
+		new_stmt = ts.cur_token.stmt_end;
+		sno_ReadNextToken(&ts);
+		if (ts.cur_token.type < 0) {
+			break;
+		}
+		if (new_stmt) {
+			putchar('\n');
+		}
+	}*/
+	putchar('\n');
+	putchar('\n');
 }
 
 sno_Bool sno_print_source_code(sno_State* state, const char* const string, size_t length) {
+	sno_assert_ptr(state);
+	sno_assert_ptr(string);
+	sno_assert(length <= sno_SIZE_T_LIMIT);
+
+
+
 	return sno_TRUE;
 }

@@ -38,6 +38,12 @@
 #error "Could not determine if compilation target is 32-bit or 64-bit"
 #endif
 
+#ifdef sno_64_BIT
+#define sno_SIZE_T_LIMIT 0x4000000000000000
+#else
+#define sno_SIZE_T_LIMIT 0x40000000
+#endif
+
 
 
 // For me

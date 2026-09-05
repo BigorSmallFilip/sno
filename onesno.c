@@ -4,3 +4,4 @@
 #include "sno_testmain.c"
 #include "sno_parser.c"
 #include "sno_tokenizer.c"
+#include "sno_value.c"

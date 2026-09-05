@@ -140,7 +140,7 @@ void sno_dynarray_pop_back(
 	sno_State* state,
 	sno_DynArray* dynarray,
 	size_t element_size,
-	const void* sno_restrict data
+	void* sno_restrict data
 ) {
 	sno_assert_ptr(state);
 	sno_assert_ptr(dynarray);

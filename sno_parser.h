@@ -98,9 +98,10 @@ typedef struct sno_Token {
 	sno_Bool stmt_end;
 	sno_LineNumber line;
 	sno_ColumnNumber column;
+	uint32_t length;
 	union {
 		sno_Number u_number;
-		struct sno_String* u_string;
+		const struct sno_String* u_string;
 	} info;
 } sno_Token;
 
@@ -116,7 +117,8 @@ typedef struct sno_Tokenizer {
 	sno_Token next_token; // Look-ahead
 
 	struct sno_State* main_state;
-	const char* const sourcecode;
+	const char* source_code_string;
+	size_t source_code_length;
 	const char* cur_char;
 	const char* token_start;
 	sno_LineNumber line;

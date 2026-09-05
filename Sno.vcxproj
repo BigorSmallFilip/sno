@@ -184,7 +184,7 @@
     <ClInclude Include="sno_value.h" />
   </ItemGroup>
   <ItemGroup>
-    <Text Include="onesno.txt" />
+    <Text Include="onesno.c" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

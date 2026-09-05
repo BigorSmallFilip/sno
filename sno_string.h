@@ -10,14 +10,20 @@ typedef struct sno_String {
 	size_t length;
 } sno_String;
 
-#define sno_string_chars(str) ((str) + 1)
+#define sno_string_chars(str) ((const char*)((str) + 1))
 
 typedef struct sno_StringInterningTable {
 	sno_String** strings;
-	uint32_t num_strings;
-	uint32_t capacity_mask; // Capacity - 1 since it is mainly used like a bitmask
+	size_t num_strings;
+	size_t capacity_mask; // Capacity - 1 since it is mainly used like a bitmask
 } sno_StringInterningTable;
 
-void sno_init_string_interning_table(struct sno_State* state, uint32_t capacity);
+void sno_init_string_interning_table(struct sno_State* state, size_t capacity);
+void sno_resize_string_interning_table(struct sno_State* state, size_t new_capacity);
+void sno_free_string_interning_table(struct sno_State* state);
+void sno_print_string_interning_table(const struct sno_State* state);
+
+const sno_String* sno_create_string(struct sno_State* state, const char* string, size_t length);
+#define sno_create_string_from_literal(state, string) (sno_create_string(state, sno_str_comma_len(string)))
 
 #endif
