@@ -410,10 +410,14 @@ static sno_Bytecode* parse_source_code(sno_Tokenizer* ts) {
 
 	parse_block(ts, sno_FALSE, sno_TRUE);
 	if (ts->cur_token.type != sno_TK_EOF) {
-		//sno_ThrowSyntaxError(ts->main_state, ts->cur_token_linenum, "Global scope ends early");
+		sno_throw_syntax_error_at_token(
+			ts,
+			&ts->cur_token,
+			"Global scope ended early here"
+		);
 	}
-	//code_instruction(ts, sno_OP_LOAD_NULL);
-	//code_instruction(ts, sno_OP_RETURN);
+	emit_instruction(ts, sno_I_LOAD_NONE);
+	emit_instruction(ts, sno_I_RETURN);
 
 	free_function_compiler(ts, &cs);
 
@@ -434,6 +438,7 @@ struct sno_Bytecode* sno_parse_source_code(
 	sno_assert_ptr(state);
 	sno_assert_ptr(source_code);
 
+	sno_Bool success = sno_TRUE;
 	sno_Bytecode* bytecode = NULL;
 	sno_ExceptionJump exception_jump;
 	exception_jump.prev = state->exception_jump;
@@ -452,8 +457,13 @@ struct sno_Bytecode* sno_parse_source_code(
 
 		bytecode = parse_source_code(&ts);
 	} else {
-		fputs(sno_ANSI_RED "Failed to parse the thing!" sno_ANSI_NORMAL "\n", stderr);
-		return sno_FALSE;
+		fprintf(
+			stderr,
+			"%.*s\n",
+			(unsigned int)state->exception_msg->length,
+			sno_string_chars(state->exception_msg)
+		);
+		success = sno_FALSE;
 	}
 
 	//fputs(sno_ANSI_GREEN "Parsing success!" sno_ANSI_NORMAL "\n", stdout);

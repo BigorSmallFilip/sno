@@ -1038,18 +1038,35 @@ void sno_no_return sno_throw_syntax_error_at_token(
 ) {
 	sno_assert_ptr(ts);
 	sno_assert_ptr(ts->main_state);
-	sno_assert_ptr(token);
+	sno_assert_ptr(ts->source_code_name);
+	sno_assert_ptr(token->source_code);
 	sno_assert_ptr(format);
 	sno_State* state = ts->main_state;
 
 	va_list args;
-	char msg[1024];
+	char msg[sno_STACK_BUFFER_LENGTH];
 	int msg_len = 0;
-	msg_len += sprintf_s(msg, 512, "Syntax error! Line %i\n", token->line);
+	msg_len += sprint_error_location(
+		msg,
+		sno_STACK_BUFFER_LENGTH - 1 - msg_len,
+		ts,
+		token->line,
+		0,
+		sno_TRUE
+	);
+	msg_len += sprint_and_underline_view_on_line(
+		msg + msg_len,
+		sno_STACK_BUFFER_LENGTH - 1 - msg_len,
+		ts,
+		token->line,
+		0,
+		token->source_code,
+		1
+	);
 	va_start(args, format);
-	msg_len += vsprintf_s(msg + msg_len, 512 - msg_len, format, args);
+	msg_len += vsnprintf(msg + msg_len, sno_STACK_BUFFER_LENGTH - 1 - msg_len, format, args);
 	va_end(args);
-	//Sno_PushString(state, msg, msg_len);
+	msg_len += snprintf(msg + msg_len, sno_STACK_BUFFER_LENGTH - 1 - msg_len, sno_ANSI_NORMAL);
 	sno_throw(state, sno_create_string(state, msg, msg_len));
 }
 
