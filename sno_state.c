@@ -14,6 +14,14 @@ sno_API void sno_free_state(sno_State* state) {
 	}
 }
 
-sno_API sno_no_return void sno_throw(sno_State* state) {
-	
+sno_API sno_no_return void sno_throw(sno_State* state, const sno_String* exception_msg) {
+	sno_assert_ptr(state);
+	sno_assert_ptr(exception_msg);
+	if (state->exception_jump) {
+		state->exception_msg = exception_msg;
+		longjmp(state->exception_jump->buf, 1);
+	} else {
+		fputs(sno_ANSI_RED "Uncaught exception thrown!\n" sno_ANSI_NORMAL, stderr);
+		exit(EXIT_FAILURE);
+	}
 }

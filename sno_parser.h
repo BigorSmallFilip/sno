@@ -76,6 +76,7 @@ typedef enum sno_TokenType {
 
 	sno_TK_NUMBER,
 	sno_TK_STRING,
+	sno_TK_INTERPOLATED_STRING,
 	sno_TK_IDENTIFIER,
 
 	sno_NUM_TOKENS,
@@ -107,6 +108,29 @@ typedef struct sno_Token {
 
 void sno_print_token(const sno_Token* token, const sno_Token* next_token);
 
+typedef struct sno_Tokenizer {
+	sno_Token cur_token;
+	sno_Token next_token; // Look-ahead
+
+	struct sno_State* main_state;
+	const struct sno_String* source_code_name;
+	const struct sno_String* source_code;
+	const char* cur_char;
+	const char* token_start;
+	sno_LineNumber line;
+	sno_ColumnNumber column;
+	uint8_t string_interpolation_depth;
+	struct sno_Compiler* cs;
+} sno_Tokenizer;
+
+#define sno_MAX_LOCAL_VARS_PER_FUNCTION 50000
+typedef uint16_t sno_LocalID;
+
+#define sno_MAX_ACTIVE_LOCAL_VARS 200
+typedef uint8_t sno_LocalSlot;
+
+#define sno_MAX_BLOCK_DEPTH 50
+
 typedef struct sno_Block {
 	struct sno_Block* prev;
 	uint8_t num_active_local_vars;
@@ -114,30 +138,10 @@ typedef struct sno_Block {
 	sno_Bool is_global;
 } sno_Block;
 
-typedef struct sno_Tokenizer {
-	sno_Token cur_token;
-	sno_Token next_token; // Look-ahead
-
-	struct sno_State* main_state;
-	const char* source_code_string;
-	size_t source_code_length;
-	const char* cur_char;
-	const char* token_start;
-	sno_LineNumber line;
-	sno_ColumnNumber column;
-	struct sno_Compiler* cs;
-} sno_Tokenizer;
-
-#define sno_MAX_ACTIVE_LOCAL_VARS 200
-#define sno_MAX_LOCAL_VARS_PER_FUNCTION 50000
-
-typedef uint16_t sno_LocalID;
-typedef uint8_t sno_LocalSlot;
-
 typedef struct sno_Compiler {
 	sno_Tokenizer* ts;
 	sno_DynArray instructions;
-	sno_DynArray instruction_linenums;
+	sno_DynArray instruction_source_code_offsets;
 	sno_DynArray local_vars;
 	sno_DynArray number_constants;
 	sno_DynArray string_constants;
@@ -145,8 +149,9 @@ typedef struct sno_Compiler {
 	struct sno_Bytecode* bytecode;
 	struct sno_Compiler* parent;
 	sno_Block* current_block;
+	uint8_t current_block_depth;
 	sno_LocalSlot num_active_local_vars;
-	sno_LocalID max_active_local_vars; // Number of stack slots needed for local vars
+	sno_LocalSlot max_active_local_vars; // Number of stack slots needed for local vars
 	sno_LocalID active_local_vars_stack[sno_MAX_ACTIVE_LOCAL_VARS]; // Indexes into the local_vars dynarray
 	uint32_t max_stack_used;
 	uint32_t current_stack_idx;
@@ -154,13 +159,37 @@ typedef struct sno_Compiler {
 	sno_Bool has_self_parameter;
 } sno_Compiler;
 
-void sno_init_tokenizer(sno_Tokenizer* ts);
-
-void sno_throw_syntax_error(struct sno_State* state, sno_LineNumber line, sno_ColumnNumber column);
-
+void sno_read_initial_tokens(sno_Tokenizer* ts);
 void sno_read_next_token(sno_Tokenizer* ts);
 
-void sno_parse_source_code(struct sno_State* state, const char* const string, size_t length);
-sno_Bool sno_print_source_code(struct sno_State* state, const char* const string, size_t length);
+
+
+void sno_no_return sno_throw_syntax_error(
+	sno_Tokenizer* ts,
+	const char* source_view,
+	size_t source_view_length,
+	sno_LineNumber line,
+	sno_ColumnNumber column,
+	const char* format,
+	...
+);
+
+void sno_no_return sno_throw_syntax_error_at_token(
+	sno_Tokenizer* ts,
+	const sno_Token* token,
+	const char* format,
+	...
+);
+
+struct sno_Bytecode* sno_parse_source_code(
+	struct sno_State* state,
+	const struct sno_String* name,
+	const struct sno_String* source_code
+);
+sno_Bool sno_print_source_code(
+	struct sno_State* state,
+	const struct sno_String* name,
+	const struct sno_String* source_code
+);
 
 #endif

@@ -83,9 +83,15 @@ EMSCRIPTEN_EXPORT int main(int argc, char** argv) {
 		&source_code_length
 	);
 
-	printf("%s\n", source_code_string);
+	const sno_String* name = sno_create_string_from_literal(state, "test.sno");
+	const sno_String* source_code = sno_create_string(state, source_code_string, source_code_length);
+
+	//printf("%.*s\n", (unsigned int)source_code->length, sno_string_chars(source_code));
 	
-	sno_print_source_code(state, source_code_string, source_code_length);
+	sno_print_source_code(state, name, source_code);
+	
+	sno_parse_source_code(state, name, source_code);
+
 	sno_free_state(state);
 
 	return 0;

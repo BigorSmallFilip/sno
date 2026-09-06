@@ -39,10 +39,13 @@
 #endif
 
 #ifdef sno_64_BIT
-#define sno_SIZE_T_LIMIT 0x4000000000000000
+#define sno_SIZE_T_LIMIT (0x4000000000000000)
 #else
-#define sno_SIZE_T_LIMIT 0x40000000
+#define sno_SIZE_T_LIMIT (0x40000000)
 #endif
+
+// String buffers on the stack
+#define sno_STACK_BUFFER_LENGTH (4096)
 
 
 

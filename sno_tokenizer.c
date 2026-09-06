@@ -2,7 +2,9 @@
 
 #include "sno_state.h"
 #include <string.h>
+#include <stdarg.h>
 
+#define is_whitespace(c) ((c) == ' ' || (c) == '\t')
 #define is_alpha(c) (((c) >= 'a' && (c) <= 'z') || ((c) >= 'A' && c <= 'Z') || (c) == '_')
 #define is_digit(c) ((c) >= '0' && (c) <= '9')
 
@@ -70,6 +72,7 @@ const char* const sno_token_strings[sno_NUM_TOKENS] = {
 	":",
 	"number",
 	"string",
+	"interpolated_string",
 	"identifier",
 };
 
@@ -176,6 +179,11 @@ void sno_print_token(const sno_Token* token, const sno_Token* next_token) {
 			(unsigned int)token->info.u_string->length,
 			sno_string_chars(token->info.u_string)
 		); break;
+		case sno_TK_INTERPOLATED_STRING: printf(
+			ANSI_STRING "interpolated\"%.*s\"",
+			(unsigned int)token->info.u_string->length,
+			sno_string_chars(token->info.u_string)
+		); break;
 		case sno_TK_IDENTIFIER:
 		{
 			const char* const str = sno_string_chars(token->info.u_string);
@@ -251,12 +259,26 @@ static size_t read_normal_number(sno_Tokenizer* ts, sno_Token* token) {
 			continue;
 		} else if (*ts->cur_char == '.') {
 			if (has_decimal) {
-				//throw_syntax_error(ts, "Two decimal points in one number");
+				sno_throw_syntax_error(
+					ts,
+					ts->token_start,
+					ts->cur_char - ts->token_start + 1,
+					ts->line,
+					ts->column,
+					"There are multiple decimal points in this number"
+				);
 			}
 			has_decimal = sno_TRUE;
 			continue;
 		} else if (is_alpha(*ts->cur_char)) {
-			//throw_syntax_error(ts, "Alpha token directly after number");
+			sno_throw_syntax_error(
+				ts,
+				ts->cur_char,
+				1,
+				ts->line,
+				ts->column,
+				"There is a letter character in this number"
+			);
 		} else {
 			break;
 		}
@@ -264,6 +286,14 @@ static size_t read_normal_number(sno_Tokenizer* ts, sno_Token* token) {
 
 	uint32_t length = (uint32_t)(ts->cur_char - ts->token_start);
 	if (length >= 255) {
+		sno_throw_syntax_error(
+			ts,
+			ts->token_start,
+			1,
+			ts->line,
+			ts->column,
+			"This number is way too long"
+		);
 		//throw_syntax_error(ts, "Number token is too long");
 	}
 	
@@ -273,9 +303,10 @@ static size_t read_normal_number(sno_Tokenizer* ts, sno_Token* token) {
 
 
 
-static size_t read_string_literal(sno_Tokenizer* ts, sno_Token* token) {
+static size_t read_string_literal(sno_Tokenizer* ts, sno_Token* token, sno_Bool* interpolated) {
 	sno_assert_ptr(ts);
 	sno_assert_ptr(token);
+	sno_assert_ptr(interpolated);
 
 	sno_State* state = ts->main_state;
 	sno_DynArray formatted_string;
@@ -284,13 +315,29 @@ static size_t read_string_literal(sno_Tokenizer* ts, sno_Token* token) {
 	while (1) {
 		ts->cur_char++;
 		switch (*ts->cur_char) {
-		case '\n': case '\r': case '\0':
-		{
-			//throw_syntax_error(ts, "String is missing closing double quotes");
+		case '\n': case '\r': case '\0': {
+			sno_throw_syntax_error(
+				ts,
+				ts->token_start,
+				ts->cur_char - ts->token_start,
+				ts->line,
+				ts->column,
+				"This string is missing closing quotes"
+			);
 			break;
 		}
-		case '\\':
-		{
+		case '\t': {
+			sno_throw_syntax_error(
+				ts,
+				ts->cur_char,
+				1,
+				ts->line,
+				ts->column,
+				"Strings cannot contain tabs"
+			);
+			break;
+		}
+		case '\\': {
 			ts->cur_char++;
 			char escapedchar;
 			switch (*ts->cur_char) {
@@ -304,17 +351,29 @@ static size_t read_string_literal(sno_Tokenizer* ts, sno_Token* token) {
 			case '\\': escapedchar = '\\'; break;
 			case '\"': escapedchar = '\"'; break;
 			case '\'': escapedchar = '\''; break;
-			case '{':  escapedchar = '{';  break;
 			case '0':  escapedchar = '\0'; break;
+			case '(': {
+				// Interpolated string
+				ts->string_interpolation_depth++;
+				*interpolated = sno_TRUE;
+				goto endstring;
+			}
 			default:
-				//throw_syntax_error(ts, "Invalid escape character");
+				sno_throw_syntax_error(
+					ts,
+					ts->cur_char - 1,
+					2,
+					ts->line,
+					ts->column + ts->cur_char - ts->token_start,
+					"Invalid string escape character '\\%c'",
+					*ts->cur_char
+				);
 				break;
 			}
 			sno_dynarray_push_back(state, &formatted_string, 1, &escapedchar);
 			break;
 		}
-		case '\'': case '\"':
-		{
+		case '\'': case '\"': {
 			goto endstring;
 		}
 
@@ -349,9 +408,19 @@ static void read_comment(sno_Tokenizer* ts) {
 
 static void read_multiline_comment(sno_Tokenizer* ts) {
 	sno_assert_ptr(ts);
+	const char* start = ts->cur_char;
+	sno_LineNumber line = ts->line;
+	sno_ColumnNumber column = ts->column;
 	for (;;) {
 		if (*ts->cur_char == '\0') {
-			//throw_syntax_error(ts, "Multi-line comment doesn't end");
+			sno_throw_syntax_error(
+				ts,
+				start - 2,
+				2,
+				line,
+				column,
+				"This multi-line comment doesn't close"
+			);
 		}
 		if (check_next(ts, '*')) {
 			if (check_next(ts, '/')) {
@@ -401,14 +470,23 @@ static sno_TokenType lex_token(sno_Tokenizer* ts, sno_Token* token, sno_Bool* st
 			ts->cur_char++;
 			if (check_next(ts, '\n') || check_next(ts, '\r') && check_next(ts, '\n')) {
 				ts->line++;
-				ts->column = 0;
+				ts->column = 1;
 				break;
 			}
+			sno_throw_syntax_error(
+				ts,
+				ts->cur_char - 1,
+				1,
+				ts->line,
+				ts->column,
+				"Backslash characters must be the last character on a line, including spaces"
+			);
 			//throw_syntax_error(ts, "Invalid backslash character");
 			break;
 		}
-		case ' ': case '\t': case '\r': {
+		case ' ': case '\t': {
 			ts->cur_char++;
+			ts->column++;
 			break;
 		}
 		case ';': {
@@ -553,8 +631,9 @@ not_whitespace:
 		return sno_TK_COLON;
 	}
 	case '\'': case '\"': {
-		token->length = (uint32_t)read_string_literal(ts, token);
-		return sno_TK_STRING;
+		sno_Bool interpolated = sno_FALSE;
+		token->length = (uint32_t)read_string_literal(ts, token, &interpolated);
+		return sno_TK_STRING + interpolated;
 	}
 
 	case '0': {
@@ -723,10 +802,16 @@ not_whitespace:
 		return sno_TK_IDENTIFIER;
 	}
 
-	default:
-	{
-		/* All other characters are invalid */
-		//throw_syntax_error(ts, "Invalid character");
+	default: {
+		// All other characters are invalid
+		sno_throw_syntax_error(
+			ts,
+			ts->token_start,
+			1,
+			ts->line,
+			ts->column,
+			"There is an invalid character here"
+		);
 	}
 	}
 	sno_unreachable;
@@ -735,7 +820,7 @@ not_whitespace:
 
 
 
-void sno_init_tokenizer(sno_Tokenizer* ts) {
+void sno_read_initial_tokens(sno_Tokenizer* ts) {
 	sno_Bool unused;
 	ts->cur_token.type = lex_token(ts, &ts->cur_token, &unused);
 	if (ts->cur_token.type < 0) {
@@ -745,9 +830,7 @@ void sno_init_tokenizer(sno_Tokenizer* ts) {
 	ts->next_token.type = lex_token(ts, &ts->next_token, &ts->cur_token.stmt_end);
 }
 
-void sno_throw_syntax_error(sno_State* state, sno_LineNumber line, sno_ColumnNumber column) {
 
-}
 
 void sno_read_next_token(sno_Tokenizer* ts) {
 	sno_assert_ptr(ts);
@@ -761,6 +844,8 @@ void sno_read_next_token(sno_Tokenizer* ts) {
 
 
 
+
+
 static const char* find_line_start(const char* string, size_t length, const char* view) {
 	const char* p = view;
 	while (p > string) {
@@ -770,6 +855,18 @@ static const char* find_line_start(const char* string, size_t length, const char
 		p--;
 	}
 	return p + 1;
+}
+
+static const char* find_first_non_whitespace_char_on_line(const char* string, size_t length, const char* view) {
+	const char* p = find_line_start(string, length, view);
+	const char* string_end = string + length;
+	while (p < string_end) {
+		if (!is_whitespace(*p)) {
+			break;
+		}
+		p++;
+	}
+	return p;
 }
 
 static void print_line_and_underline_token(const char* string, size_t length, const sno_Token* token) {
@@ -810,18 +907,172 @@ static void print_line_and_underline_token(const char* string, size_t length, co
 	putchar('\n');
 }
 
-static void print_source_code_throws(sno_State* state, const char* string, size_t length) {
+
+
+static int sprint_error_location(
+	char* buffer,
+	size_t buffer_size,
+	sno_Tokenizer* ts,
+	sno_LineNumber line,
+	sno_ColumnNumber column,
+	sno_Bool is_syntax_error
+) {
+	return snprintf(
+		buffer,
+		buffer_size,
+		sno_ANSI_RED "Syntax error in \"%.*s\" on line %u : %u\n",
+		(unsigned int)ts->source_code_name->length,
+		sno_string_chars(ts->source_code_name),
+		line,
+		column
+	);
+}
+
+static int sprint_and_underline_view_on_line(
+	char* buffer,
+	size_t buffer_size,
+	sno_Tokenizer* ts,
+	sno_LineNumber line,
+	sno_ColumnNumber column,
+	const char* source_view,
+	size_t source_view_length
+) {
+	const char* source_code = sno_string_chars(ts->source_code);
+	size_t source_code_length = ts->source_code->length;
+	const char* string_end = source_code + source_code_length;
+	const char* line_start = find_line_start(
+		source_code,
+		source_code_length,
+		source_view
+	);
+	const char* p = find_first_non_whitespace_char_on_line(
+		source_code,
+		source_code_length,
+		source_view
+	);
+	int length = 0;
+	length += snprintf(buffer + length, buffer_size - length, sno_ANSI_CYAN "        |  \n");
+	length += snprintf(buffer + length, buffer_size - length, " % 5u  |  " sno_ANSI_NORMAL, (unsigned int)line);
+	size_t spaces_before_token = 0;
+	while (p < source_view) {
+		if (*p == '\t') {
+			spaces_before_token &= ~(7);
+			spaces_before_token += 4;
+			length &= ~(7);
+			buffer[length++] = ' ';
+			buffer[length++] = ' ';
+			buffer[length++] = ' ';
+			buffer[length++] = ' ';
+		} else {
+			spaces_before_token++;
+			buffer[length++] = *p;
+		}
+		p++;
+	}
+	while (p < string_end) {
+		if (*p == '\n') {
+			break;
+		}
+		buffer[length++] = *(p++);
+	}
+	length += snprintf(buffer + length, buffer_size - length, "\n" sno_ANSI_CYAN "        |  " sno_ANSI_RED);
+
+	for (size_t i = 0; i < spaces_before_token; i++) {
+		buffer[length++] = ' ';
+	}
+	for (size_t i = 0; i < source_view_length; i++) {
+		buffer[length++] = '~';
+	}
+	buffer[length++] = ' ';
+	return length;
+}
+
+void sno_no_return sno_throw_syntax_error(
+	sno_Tokenizer* ts,
+	const char* source_view,
+	size_t source_view_length,
+	sno_LineNumber line,
+	sno_LineNumber column,
+	const char* format,
+	...
+) {
+	sno_assert_ptr(ts);
+	sno_assert_ptr(ts->main_state);
+	sno_assert_ptr(ts->source_code_name);
+	sno_assert_ptr(source_view);
+	sno_assert_ptr(format);
+	sno_State* state = ts->main_state;
+
+	va_list args;
+	char msg[sno_STACK_BUFFER_LENGTH];
+	int msg_len = 0;
+	msg_len += sprint_error_location(
+		msg,
+		sno_STACK_BUFFER_LENGTH - 1 - msg_len,
+		ts,
+		line,
+		column,
+		sno_TRUE
+	);
+	msg_len += sprint_and_underline_view_on_line(
+		msg + msg_len,
+		sno_STACK_BUFFER_LENGTH - 1 - msg_len,
+		ts,
+		line,
+		column,
+		source_view,
+		source_view_length
+	);
+	va_start(args, format);
+	msg_len += vsnprintf(msg + msg_len, sno_STACK_BUFFER_LENGTH - 1 - msg_len, format, args);
+	va_end(args);
+	msg_len += snprintf(msg + msg_len, sno_STACK_BUFFER_LENGTH - 1 - msg_len, sno_ANSI_NORMAL);
+	sno_throw(state, sno_create_string(state, msg, msg_len));
+}
+
+void sno_no_return sno_throw_syntax_error_at_token(
+	sno_Tokenizer* ts,
+	const sno_Token* token,
+	const char* format,
+	...
+) {
+	sno_assert_ptr(ts);
+	sno_assert_ptr(ts->main_state);
+	sno_assert_ptr(token);
+	sno_assert_ptr(format);
+	sno_State* state = ts->main_state;
+
+	va_list args;
+	char msg[1024];
+	int msg_len = 0;
+	msg_len += sprintf_s(msg, 512, "Syntax error! Line %i\n", token->line);
+	va_start(args, format);
+	msg_len += vsprintf_s(msg + msg_len, 512 - msg_len, format, args);
+	va_end(args);
+	//Sno_PushString(state, msg, msg_len);
+	sno_throw(state, sno_create_string(state, msg, msg_len));
+}
+
+
+
+
+
+static void print_source_code_throws(
+	sno_State* state,
+	const sno_String* name,
+	const sno_String* source_code
+) {
 	sno_Tokenizer ts = { 0 };
 	ts.main_state = state;
-	ts.source_code_string = string;
-	ts.source_code_length = length;
-	ts.cur_char = string;
-	ts.token_start = string;
+	ts.source_code_name = name;
+	ts.source_code = source_code;
+	ts.cur_char = sno_string_chars(source_code);
+	ts.token_start = sno_string_chars(source_code);
 	ts.line = 1;
 	ts.column = 1;
 	ts.cs = NULL;
 
-	sno_init_tokenizer(&ts);
+	sno_read_initial_tokens(&ts);
 
 	sno_Bool new_stmt = sno_TRUE;
 	while (1) {
@@ -836,7 +1087,7 @@ static void print_source_code_throws(sno_State* state, const char* string, size_
 		putchar('\n');
 
 		if (ts.cur_token.type == sno_TK_IDENTIFIER) {
-			print_line_and_underline_token(string, length, &ts.cur_token);
+			//print_line_and_underline_token(string, length, &ts.cur_token);
 		}
 
 		sno_read_next_token(&ts);
@@ -848,20 +1099,30 @@ static void print_source_code_throws(sno_State* state, const char* string, size_
 	putchar('\n');
 }
 
-sno_Bool sno_print_source_code(sno_State* state, const char* const string, size_t length) {
+sno_Bool sno_print_source_code(
+	sno_State* state,
+	const sno_String* name,
+	const sno_String* source_code
+) {
 	sno_assert_ptr(state);
-	sno_assert_ptr(string);
-	sno_assert(length <= sno_SIZE_T_LIMIT);
+	sno_assert_ptr(source_code);
+	sno_assert(source_code->length <= sno_SIZE_T_LIMIT);
 
+	sno_Bool success = sno_TRUE;
 	sno_ExceptionJump exception_jump;
 	exception_jump.prev = state->exception_jump;
 	state->exception_jump = &exception_jump;
 	if (setjmp(exception_jump.buf) == 0) {
-		print_source_code_throws(state, string, length);
+		print_source_code_throws(state, name, source_code);
 	} else {
-		fputs(sno_ANSI_RED "Code contains invalid tokens!" sno_ANSI_NORMAL "\n", stderr);
-		return sno_FALSE;
+		fprintf(
+			stderr,
+			"%.*s\n",
+			(unsigned int)state->exception_msg->length,
+			sno_string_chars(state->exception_msg)
+		);
+		success = sno_FALSE;
 	}
 	state->exception_jump = state->exception_jump->prev;
-	return sno_TRUE;
+	return success;
 }
