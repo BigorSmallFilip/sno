@@ -38,28 +38,33 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="sno_utility.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="sno_state.h">
-      <Filter>Header Files</Filter>
+    <ClInclude Include="sno_mem.h">
+      <Filter>Source Files</Filter>
     </ClInclude>
     <ClInclude Include="sno_parser.h">
-      <Filter>Header Files</Filter>
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="sno_state.h">
+      <Filter>Source Files</Filter>
     </ClInclude>
     <ClInclude Include="sno_string.h">
-      <Filter>Header Files</Filter>
+      <Filter>Source Files</Filter>
     </ClInclude>
-    <ClInclude Include="sno_mem.h">
-      <Filter>Header Files</Filter>
+    <ClInclude Include="sno_utility.h">
+      <Filter>Source Files</Filter>
     </ClInclude>
     <ClInclude Include="sno_value.h">
-      <Filter>Header Files</Filter>
+      <Filter>Source Files</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <Text Include="onesno.txt">
+    <Text Include="onesno.c">
       <Filter>Source Files</Filter>
     </Text>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="test.sno">
+      <Filter>Source Files</Filter>
+    </None>
   </ItemGroup>
 </Project>
