@@ -6,7 +6,56 @@
 
 
 
-static uint32_t code_instruction(sno_Tokenizer* ts, sno_Instruction i) {
+static uint8_t add_number_constant(sno_Compiler* cs, sno_Number number) {
+	sno_State* state = cs->ts->main_state;
+	if (cs->number_constants.count > sno_MAX_NUMBER_CONSTANTS) {
+		sno_throw_syntax_error_at_token(
+			cs->ts,
+			&cs->ts->cur_token,
+			"There are too many numbers in this function"
+		);
+	}
+	for (size_t i = 0; i < cs->number_constants.count; i++) {
+		sno_Number c = *(sno_Number*)sno_dynarray_get(state, &cs->number_constants, sizeof(sno_Number), i);
+		if (c == number) {
+			return i;
+		}
+	}
+	sno_ConstID const_id = (sno_ConstID)cs->number_constants.count;
+	sno_dynarray_push_back(state, &cs->number_constants, sizeof(sno_Number), &number);
+	return const_id;
+}
+
+static uint8_t add_string_constant(sno_Compiler* cs, const sno_String* string) {
+	sno_State* state = cs->ts->main_state;
+	if (cs->string_constants.count > sno_MAX_NUMBER_CONSTANTS) {
+		sno_throw_syntax_error_at_token(
+			cs->ts,
+			&cs->ts->cur_token,
+			"There are too many strings in this function"
+		);
+	}
+	for (size_t i = 0; i < cs->string_constants.count; i++) {
+		const sno_String* c = (sno_String*)sno_dynarray_get_ptr(state, &cs->string_constants, i);
+		if (c == string) {
+			return i;
+		}
+	}
+	sno_ConstID const_id = (sno_ConstID)cs->string_constants.count;
+	sno_dynarray_push_back_ptr(state, &cs->string_constants, string);
+	return const_id;
+}
+
+static uint8_t add_sub_function(sno_Compiler* cs, sno_Bytecode* bytecode) {
+	sno_Assert(cs->sub_functions.count < 256);
+	uint8_t sub_function_index = cs->sub_functions.count;
+	sno_DynArray_PushBackPtr(&cs->sub_functions, bytecode);
+	return sub_function_index;
+}
+
+
+
+static uint32_t emit_instruction(sno_Tokenizer* ts, sno_Instruction i) {
 	sno_State* state = ts->main_state;
 	sno_Compiler* cs = ts->cs;
 	sno_dynarray_push_back(state, &cs->instructions, sizeof(sno_Instruction), &i);
@@ -14,13 +63,21 @@ static uint32_t code_instruction(sno_Tokenizer* ts, sno_Instruction i) {
 	return cs->instructions.count - 1;
 }
 
-static uint32_t code_instruction_1(sno_Tokenizer* ts, uint8_t op, uint8_t arg) {
+static uint32_t emit_instruction_1(sno_Tokenizer* ts, uint8_t op, uint8_t arg) {
 	sno_State* state = ts->main_state;
 	sno_Compiler* cs = ts->cs;
 	sno_Instruction i = op | (arg << 8);
 	sno_dynarray_push_back(state, &cs->instructions, sizeof(sno_Instruction), &i);
 	sno_dynarray_push_back(state, &cs->instruction_source_code_offsets, sizeof(uint32_t), &ts->cur_token.source_code);
 	return cs->instructions.count - 1;
+}
+
+static uint32_t emit_instruction_number(sno_Tokenizer* ts, sno_Number number) {
+	return emit_instruction_1(ts, sno_I_LOAD_NUMBER, add_number_constant(ts->cs, number));
+}
+
+static uint32_t emit_instruction_string(sno_Tokenizer* ts, const sno_String* string) {
+	return emit_instruction_1(ts, sno_I_LOAD_STRING, add_string_constant(ts->cs, string));
 }
 
 
@@ -47,7 +104,6 @@ static void enter_block(sno_Compiler* cs, sno_Block* block, sno_Bool is_loop, sn
 
 static void exit_block(sno_Compiler* cs) {
 	sno_Block* block = cs->current_block; // The block to exit out of
-	sno_assert_ptr(block->prev);
 	cs->current_block = block->prev;
 	cs->current_block_depth--;
 	//deactivate_local_variables(cs, block->num_active_local_vars);
@@ -130,19 +186,19 @@ static void free_function_compiler(sno_Tokenizer* ts, sno_Compiler* cs) {
 static void parse_operand_primary(sno_Tokenizer* ts) {
 	switch (ts->cur_token.type) {
 	case sno_TK_NONE: {
-		code_instruction(ts, sno_I_LOAD_NONE);
+		emit_instruction(ts, sno_I_LOAD_NONE);
 		break;
 	}
 	case sno_TK_FALSE: {
-		code_instruction(ts, sno_I_LOAD_FALSE);
+		emit_instruction(ts, sno_I_LOAD_FALSE);
 		break;
 	}
 	case sno_TK_TRUE: {
-		code_instruction(ts, sno_I_LOAD_TRUE);
+		emit_instruction(ts, sno_I_LOAD_TRUE);
 		break;
 	}
 	case sno_TK_NUMBER: {
-		//code_instruction_1(ts, sno_I_LOAD_NUMBER, add_number_constant(ts->cs, ts->cur_token.info.u_number));
+		emit_instruction_number(ts, ts->cur_token.info.u_number);
 		break;
 	}
 	case sno_TK_STRING: {
@@ -183,7 +239,7 @@ static void parse_operand_primary(sno_Tokenizer* ts) {
 		//sno_ThrowSyntaxError(ts->main_state, ts->cur_token_linenum, "Invalid expression token '%s'", sno_token_strings[ts->cur_token.type]);
 	}
 	}
-	//sno_ReadNextToken(ts);
+	sno_read_next_token(ts);
 }
 
 static void parse_operand(sno_Tokenizer* ts) {
@@ -248,7 +304,7 @@ static sno_BinOp parse_subexpression(sno_Tokenizer* ts, unsigned int precedence)
 		// Unary op
 		sno_read_next_token(ts);
 		parse_subexpression(ts, UNOP_PRECEDENCE);
-		//code_instruction_1(ts, sno_OP_UNOP, unary_op);
+		emit_instruction_1(ts, sno_I_UNOP, unary_op);
 	} else {
 		parse_operand(ts);
 	}
@@ -257,21 +313,21 @@ static sno_BinOp parse_subexpression(sno_Tokenizer* ts, unsigned int precedence)
 		sno_BinOp next_op;
 		sno_read_next_token(ts);
 		next_op = parse_subexpression(ts, operator_precedence[binary_op].right);
-		code_instruction_1(ts, sno_I_BINOP, binary_op);
+		emit_instruction_1(ts, sno_I_BINOP, binary_op);
 		binary_op = next_op;
 	}
 	return binary_op;
 }
 
 static void parse_expression(sno_Tokenizer* ts) {
-	//parse_subexpression(ts, 0);
+	parse_subexpression(ts, 0);
 
 }
 
 
 
 static void parse_expression_statement(sno_Tokenizer* ts) {
-
+	parse_expression(ts);
 }
 
 /// @brief Parse a single statement, which should be the smallest completely separate pieces of code?
@@ -279,9 +335,9 @@ static void parse_expression_statement(sno_Tokenizer* ts) {
 /// @return sno_TRUE if this statement must be the last in a block,
 /// because if it isn't, there would be unreachable code. sno_FALSE otherwise.
 static sno_Bool parse_statement(sno_Tokenizer* ts) {
-	//printf("   Parsing statement starting with token ");
-	//sno_PrintToken(&ts->cur_token, &ts->next_token, sno_TRUE);
-	//printf("\n");
+	printf("   Parsing statement starting with token ");
+	sno_print_token(&ts->cur_token, &ts->next_token);
+	printf("\n");
 
 	switch (ts->cur_token.type) {
 	case sno_TK_IF: {
@@ -339,7 +395,7 @@ static void parse_block(sno_Tokenizer* ts, sno_Bool is_loop, sno_Bool is_global_
 			// End of block
 			break;
 		}
-		//is_last = parse_statement(ts);
+		is_last = parse_statement(ts);
 	}
 	exit_block(ts->cs);
 }
@@ -362,7 +418,7 @@ static sno_Bytecode* parse_source_code(sno_Tokenizer* ts) {
 	free_function_compiler(ts, &cs);
 
 #ifdef sno_DEBUG
-	//sno_PrintBytecode(cs.bytecode);
+	sno_print_bytecode(cs.bytecode);
 #endif
 
 	return cs.bytecode;
@@ -387,6 +443,7 @@ struct sno_Bytecode* sno_parse_source_code(
 		ts.main_state = state;
 		ts.source_code_name = name;
 		ts.source_code = source_code;
+		ts.source_code_end = sno_string_chars(source_code) + source_code->length;
 		ts.cur_char = sno_string_chars(source_code);
 		ts.token_start = sno_string_chars(source_code);
 		ts.line = 1;

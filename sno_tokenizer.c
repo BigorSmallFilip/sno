@@ -455,11 +455,11 @@ static sno_TokenType lex_token(sno_Tokenizer* ts, sno_Token* token, sno_Bool* st
 
 	// First skip whitespace and comments
 	while (1) {
-		switch (*ts->cur_char) {
-		case '\0': {
+		if (ts->cur_char >= ts->source_code_end) {
 			*stmt_end = sno_TRUE;
 			return sno_TK_EOF;
 		}
+		switch (*ts->cur_char) {
 		case '\n': {
 			*stmt_end = sno_TRUE;
 			ts->line++;
@@ -1066,6 +1066,7 @@ static void print_source_code_throws(
 	ts.main_state = state;
 	ts.source_code_name = name;
 	ts.source_code = source_code;
+	ts.source_code_end = sno_string_chars(source_code) + source_code->length;
 	ts.cur_char = sno_string_chars(source_code);
 	ts.token_start = sno_string_chars(source_code);
 	ts.line = 1;

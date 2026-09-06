@@ -115,6 +115,7 @@ typedef struct sno_Tokenizer {
 	struct sno_State* main_state;
 	const struct sno_String* source_code_name;
 	const struct sno_String* source_code;
+	const char* source_code_end;
 	const char* cur_char;
 	const char* token_start;
 	sno_LineNumber line;
@@ -129,8 +130,12 @@ typedef uint16_t sno_LocalID;
 #define sno_MAX_ACTIVE_LOCAL_VARS 200
 typedef uint8_t sno_LocalSlot;
 
-#define sno_MAX_BLOCK_DEPTH 50
+typedef uint16_t sno_ConstID;
+#define sno_MAX_NUMBER_CONSTANTS 50000
+#define sno_MAX_STRING_CONSTANTS 50000
+#define sno_MAX_SUB_FUNCTIONS 50000
 
+#define sno_MAX_BLOCK_DEPTH 50
 typedef struct sno_Block {
 	struct sno_Block* prev;
 	uint8_t num_active_local_vars;

@@ -102,4 +102,6 @@ typedef struct sno_Bytecode {
 	uint32_t* instruction_source_code_offsets;
 } sno_Bytecode;
 
+void sno_print_bytecode(const sno_Bytecode* bytecode);
+
 #endif
