@@ -88,9 +88,15 @@ EMSCRIPTEN_EXPORT int main(int argc, char** argv) {
 
 	//printf("%.*s\n", (unsigned int)source_code->length, sno_string_chars(source_code));
 	
-	sno_print_source_code(state, name, source_code);
+	//sno_print_source_code(state, name, source_code);
 	
-	sno_parse_source_code(state, name, source_code);
+	if (!sno_try_compile_source_code(state, name, source_code)) {
+		sno_print_exception_msg(state);
+		return -1;
+	} else {
+
+	}
+	
 
 	sno_free_state(state);
 

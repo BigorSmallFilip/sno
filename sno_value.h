@@ -2,7 +2,6 @@
 #define sno_VALUE_H
 
 #include "sno_utility.h"
-#include "sno_string.h"
 #include "sno_mem.h"
 
 enum {
@@ -94,5 +93,7 @@ void sno_print_value(const sno_Value* v);
 sno_Bool sno_value_equals(sno_Value a, sno_Value b);
 sno_Bool sno_value_to_bool(const sno_Value* v);
 sno_Hash sno_hash_value(sno_Value value);
+
+sno_Function* sno_create_function(struct sno_State* state, const struct sno_Bytecode* bytecode);
 
 #endif

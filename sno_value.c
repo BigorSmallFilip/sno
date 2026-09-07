@@ -1,5 +1,7 @@
 #include "sno_value.h"
 
+#include "sno_state.h"
+#include "sno_vm.h"
 #include <string.h>
 
 
@@ -81,4 +83,11 @@ sno_Hash sno_hash_value(sno_Value value) {
 	}
 	sno_unreachable;
 	return 0;
+}
+
+sno_Function* sno_create_function(sno_State* state, const sno_Bytecode* bytecode) {
+	sno_Function* function = sno_alloc_type(state, sno_Function);
+	function->is_c_function = sno_FALSE;
+	function->u.bytecode = bytecode;
+	return function;
 }

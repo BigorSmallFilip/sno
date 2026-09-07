@@ -990,6 +990,7 @@ struct sno_Bytecode* sno_parse_source_code(
 	const sno_String* source_code
 ) {
 	sno_assert_ptr(state);
+	sno_assert_ptr(name);
 	sno_assert_ptr(source_code);
 
 	sno_Bool success = sno_TRUE;
@@ -1011,12 +1012,7 @@ struct sno_Bytecode* sno_parse_source_code(
 
 		bytecode = parse_source_code(&ts);
 	} else {
-		fprintf(
-			stderr,
-			"%.*s\n",
-			(unsigned int)state->exception_msg->length,
-			sno_string_chars(state->exception_msg)
-		);
+		sno_print_exception_msg(state);
 		success = sno_FALSE;
 	}
 
