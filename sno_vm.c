@@ -167,3 +167,6 @@ void sno_print_bytecode(const sno_Bytecode* bytecode) {
 	}
 	printf("  ]\n");
 }
+
+void sno_execute(sno_State* state, uint8_t num_args) {
+}

@@ -554,6 +554,30 @@ static void parse_if_statement(sno_Tokenizer* ts) {
 	}
 }
 
+static void parse_while_statement(sno_Tokenizer* ts) {
+	skip_token(ts, sno_TK_WHILE);
+	uint32_t back_to = ts->cs->instructions.count;
+	parse_expression(ts);
+	uint32_t condition_jump_from = emit_instruction(ts, sno_I_JUMP_IF_FALSE);
+	parse_brace_block(ts, sno_TRUE);
+	uint32_t back_from = ts->cs->instructions.count;
+	int8_t back_offset = back_to - back_from;
+	uint32_t jump_back = emit_instruction_1(ts, sno_I_JUMP, (uint8_t)back_offset);
+	sno_Instruction* instruction = ts->cs->instructions.buffer;
+	uint32_t condition_jump_to = ts->cs->instructions.count;
+	instruction[condition_jump_from] |= ((int8_t)(condition_jump_to - condition_jump_from)) << 8;
+}
+
+static void parse_break_statement(sno_Tokenizer* ts) {
+	skip_token(ts, sno_TK_BREAK);
+	emit_instruction_1(ts, sno_I_JUMP, 69);
+}
+
+static void parse_continue_statement(sno_Tokenizer* ts) {
+	skip_token(ts, sno_TK_CONTINUE);
+	emit_instruction_1(ts, sno_I_JUMP, 69);
+}
+
 static void parse_return_statement(sno_Tokenizer* ts) {
 	if (ts->cs->is_global_scope) {
 		sno_throw_syntax_error_at_cur_token(ts, "Only functions can have return statements");
@@ -571,24 +595,51 @@ static void parse_return_statement(sno_Tokenizer* ts) {
 static void parse_declaration_statement(sno_Tokenizer* ts) {
 	sno_Bool is_const = ts->cur_token.type == sno_TK_CONST;
 	sno_read_next_token(ts);
-	if (ts->cur_token.type != sno_TK_IDENTIFIER) {
-		sno_throw_syntax_error_at_cur_token(ts, "Expected the name for a local variable here");
+	sno_Token name_tokens[16];
+	uint8_t num_declarations = 0;
+	sno_Bool no_assignment = sno_FALSE;
+	while (1) {
+		if (ts->cur_token.type != sno_TK_IDENTIFIER) {
+			sno_throw_syntax_error_at_cur_token(ts, "Expected the name for a local variable here");
+		}
+		name_tokens[num_declarations] = ts->cur_token;
+		num_declarations++;
+		if (num_declarations > sno_MAX_ASSIGNMENTS_PER_LINE) {
+			sno_throw_syntax_error_at_cur_token(ts, "Too many declarations on one line");
+		}
+		sno_Bool name_is_stmt_end = ts->cur_token.stmt_end;
+		skip_token(ts, sno_TK_IDENTIFIER);
+		if (name_is_stmt_end) {
+			no_assignment = sno_TRUE;
+			break;
+		}
+		if (ts->cur_token.type != sno_TK_COMMA) {
+			break;
+		}
+		skip_token(ts, sno_TK_COMMA);
 	}
-	const char* name_at = ts->cur_token.source_code;
-	sno_Token name_token = ts->cur_token;
-	sno_Bool name_is_stmt_end = ts->cur_token.stmt_end;
-	sno_read_next_token(ts);
-	if (name_is_stmt_end) {
-		emit_instruction(ts, sno_I_LOAD_NONE);
+	if (no_assignment) {
+		for (uint8_t i = 0; i < num_declarations; i++) {
+			emit_instruction(ts, sno_I_LOAD_NONE);
+		}
 	} else {
+		sno_assert(num_declarations >= 1);
 		expect_token_and_skip(ts, sno_TK_ASSIGN);
 		parse_expression(ts);
+		for (uint8_t i = 0; i < num_declarations - 1; i++) {
+			expect_token_and_skip(ts, sno_TK_COMMA);
+			parse_expression(ts);
+		}
 	}
-	if (ts->cs->current_block->is_global) {
-		emit_instruction_1_at(ts, sno_I_NEW_GLOBAL, add_string_constant(ts->cs, name_token.info.u_string), name_at);
-	} else {
-		sno_LocalSlot local_slot = try_declare_local_variable(ts, name_token);
-		emit_instruction_1(ts, sno_I_SET_LOCAL, local_slot);
+	sno_assert(num_declarations >= 1 && num_declarations <= sno_MAX_ASSIGNMENTS_PER_LINE);
+	for (int8_t i = (int8_t)num_declarations - 1; i >= 0; i--) {
+		sno_Token name_token = name_tokens[i];
+		if (ts->cs->current_block->is_global) {
+			emit_instruction_1_at(ts, sno_I_NEW_GLOBAL, add_string_constant(ts->cs, name_token.info.u_string), name_token.source_code);
+		} else {
+			sno_LocalSlot local_slot = try_declare_local_variable(ts, name_token);
+			emit_instruction_1(ts, sno_I_SET_LOCAL, local_slot);
+		}
 	}
 }
 
@@ -615,15 +666,15 @@ static sno_Bool parse_statement(sno_Tokenizer* ts) {
 		return sno_FALSE;
 	}
 	case sno_TK_WHILE: {
-		//parse_while_statement(ts);
+		parse_while_statement(ts);
 		return sno_FALSE;
 	}
 	case sno_TK_BREAK: {
-		//parse_break_statement(ts);
+		parse_break_statement(ts);
 		return sno_TRUE;
 	}
 	case sno_TK_CONTINUE: {
-		//parse_continue_statement(ts);
+		parse_continue_statement(ts);
 		return sno_TRUE;
 	}
 	case sno_TK_RETURN: {

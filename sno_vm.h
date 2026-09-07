@@ -106,4 +106,6 @@ typedef struct sno_Bytecode {
 
 void sno_print_bytecode(const sno_Bytecode* bytecode);
 
+void sno_execute(sno_State* state, uint8_t num_args);
+
 #endif
