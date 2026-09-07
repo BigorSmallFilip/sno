@@ -72,7 +72,6 @@ const char* const sno_token_strings[sno_NUM_TOKENS] = {
 	":",
 	"number",
 	"string",
-	"interpolated_string",
 	"identifier",
 };
 
@@ -179,11 +178,6 @@ void sno_print_token(const sno_Token* token, const sno_Token* next_token) {
 			(unsigned int)token->info.u_string->length,
 			sno_string_chars(token->info.u_string)
 		); break;
-		case sno_TK_INTERPOLATED_STRING: printf(
-			ANSI_STRING "interpolated\"%.*s\"",
-			(unsigned int)token->info.u_string->length,
-			sno_string_chars(token->info.u_string)
-		); break;
 		case sno_TK_IDENTIFIER:
 		{
 			const char* const str = sno_string_chars(token->info.u_string);
@@ -213,6 +207,23 @@ void sno_print_token(const sno_Token* token, const sno_Token* next_token) {
 		}
 	}
 	printf(ANSI_NORMAL);
+}
+
+
+
+uint16_t sno_get_token_length(const sno_Token* token) {
+	sno_assert_ptr(token);
+	if (token->type == sno_TK_IDENTIFIER) {
+		return (uint16_t)token->info.u_string->length;
+	}
+	if (token->type == sno_TK_STRING) {
+		//sno_unreachable;
+		return token->info.u_string->length + 1;
+	}
+	if (token->type == sno_TK_NUMBER) {
+		return token->length;
+	}
+	return (uint16_t)strlen(sno_token_strings[token->type]);
 }
 
 
@@ -823,6 +834,7 @@ not_whitespace:
 void sno_read_initial_tokens(sno_Tokenizer* ts) {
 	sno_Bool unused;
 	ts->cur_token.type = lex_token(ts, &ts->cur_token, &unused);
+	ts->prev_token = ts->cur_token;
 	if (ts->cur_token.type < 0) {
 		return;
 	}
@@ -834,6 +846,7 @@ void sno_read_initial_tokens(sno_Tokenizer* ts) {
 
 void sno_read_next_token(sno_Tokenizer* ts) {
 	sno_assert_ptr(ts);
+	ts->prev_token = ts->cur_token;
 	ts->cur_token = ts->next_token;
 	if (ts->cur_token.type < 0) {
 		return;

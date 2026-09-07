@@ -40,8 +40,8 @@ const char* const sno_instruction_names[] = {
 	"LOAD_FUNCTION",
 	"NEW_ARRAY",
 	"NEW_TABLE",
-	"DUP",
-	"DUP2",
+	"COPY",
+	"REV",
 	"POP",
 	"GET_LOCAL",
 	"SET_LOCAL",
@@ -76,26 +76,22 @@ static void print_instruction(const sno_Bytecode* bytecode, const sno_Instructio
 	uint8_t arg = instruction >> 8;
 	printf("%i > %s ", i - bytecode->instructions, sno_instruction_names[op]);
 	switch (op) {
-	case sno_I_LOAD_NUMBER:
-	{
+	case sno_I_LOAD_NUMBER: {
 		printf("%g", bytecode->number_constants[arg]);
 		break;
 	}
-	case sno_I_LOAD_STRING:
-	{
+	case sno_I_LOAD_STRING: {
 		const sno_String* s = bytecode->string_constants[arg];
 		printf("\"%.*s\"", s->length, sno_string_chars(s));
 		break;
 	}
-	case sno_I_LOAD_FUNCTION:
-	{
+	case sno_I_LOAD_FUNCTION: {
 		const sno_Bytecode* f = bytecode->sub_functions[arg];
 		printf("function: %p", f);
 		break;
 	}
 	case sno_I_GET_LOCAL:
-	case sno_I_SET_LOCAL:
-	{
+	case sno_I_SET_LOCAL: {
 		printf("%i", arg);
 		break;
 	}
@@ -104,24 +100,25 @@ static void print_instruction(const sno_Bytecode* bytecode, const sno_Instructio
 	case sno_I_GET_FIELD:
 	case sno_I_SET_FIELD:
 	case sno_I_NEW_GLOBAL:
-	case sno_I_GET_METHOD:
-	{
+	case sno_I_GET_METHOD: {
 		const sno_String* s = bytecode->string_constants[arg];
 		printf("%.*s", s->length, sno_string_chars(s));
 		break;
 	}
 	case sno_I_GET_INDEX:
-	case sno_I_SET_INDEX:
-	{
+	case sno_I_SET_INDEX: {
 		break;
 	}
-	case sno_I_BINOP:
-	{
+	case sno_I_COPY:
+	case sno_I_REV: {
+		printf("%ix", arg);
+		break;
+	}
+	case sno_I_BINOP: {
 		printf("%s", sno_binop_names[arg]);
 		break;
 	}
-	case sno_I_UNOP:
-	{
+	case sno_I_UNOP: {
 		printf("%s", sno_unop_names[arg]);
 		break;
 	}
@@ -133,20 +130,21 @@ static void print_instruction(const sno_Bytecode* bytecode, const sno_Instructio
 	case sno_I_END_CONTAINER_FORLOOP:
 	case sno_I_JUMP:
 	case sno_I_JUMP_IF_TRUE:
-	case sno_I_JUMP_IF_FALSE:
-	{
-		printf("to %i", i - bytecode->instructions + (int8_t)arg);
+	case sno_I_JUMP_IF_FALSE: {
+		printf("to %i", i - bytecode->instructions + (int8_t)arg + 1);
 		break;
 	}
 	case sno_I_NEW_ARRAY:
-	case sno_I_NEW_TABLE:
-	{
+	case sno_I_NEW_TABLE: {
 		printf("size %i", arg);
 		break;
 	}
-	case sno_I_CALL:
-	{
-		printf("with %i args", arg);
+	case sno_I_CALL: {
+		printf("with %i args, %i returns", arg & 0x0F, arg >> 4);
+		break;
+	}
+	case sno_I_RETURN: {
+		printf("%i values", arg);
 		break;
 	}
 	default:

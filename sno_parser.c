@@ -53,6 +53,47 @@ static uint8_t add_sub_function(sno_Compiler* cs, sno_Bytecode* bytecode) {
 
 
 
+#define get_instruction_buffer(cs) ((sno_Instruction*)((cs)->instructions.buffer))
+#define get_opcode(i) ((i) & 0xFF)
+
+#define set_call_num_returns(i, n) (((i) & (~(0x0F << 12))) | ((n) << (12)))
+#define set_jump_dst(ts, from, to) get_instruction_buffer((ts)->cs)[from] |= (((int8_t)((to) - (from) - 1)) << 8)
+
+static sno_inline sno_Instruction get_last_instruction(const sno_Compiler* cs) {
+	sno_assert_ptr(cs);
+	sno_assert(cs->instructions.count > 0);
+	const sno_Instruction* instructions = get_instruction_buffer(cs);
+	sno_Instruction last_instruction = instructions[cs->instructions.count - 1];
+	return last_instruction;
+}
+
+static sno_inline sno_Instruction* get_ptr_to_last_instruction(const sno_Compiler* cs) {
+	sno_assert_ptr(cs);
+	sno_assert(cs->instructions.count > 0);
+	const sno_Instruction* instructions = get_instruction_buffer(cs);
+	return &instructions[cs->instructions.count - 1];
+}
+
+static sno_inline void check_last_expression_is_valid_lhs(
+	const sno_Tokenizer* ts,
+	const sno_Token* first_token
+) {
+	sno_Instruction op = get_opcode(get_last_instruction(ts->cs));
+	if (op == sno_I_GET_LOCAL ||
+		op == sno_I_GET_GLOBAL ||
+		op == sno_I_GET_FIELD ||
+		op == sno_I_GET_INDEX) {
+		return;
+	}
+	sno_throw_syntax_error_open_close(
+		ts,
+		first_token->source_code,
+		first_token->line,
+		ts->prev_token.source_code - 1,
+		"You cannot assign a value to this" // TODO: Work on this error msg
+	);
+}
+
 static uint32_t emit_instruction(sno_Tokenizer* ts, sno_Instruction i) {
 	sno_State* state = ts->main_state;
 	sno_Compiler* cs = ts->cs;
@@ -156,7 +197,7 @@ static void deactivate_local_variables(sno_Compiler* cs, sno_LocalSlot to_id) {
 	cs->num_active_local_var_slots = to_id;
 }
 
-int search_local_variable_in_function(sno_Compiler* cs, const sno_String* name) {
+static int search_local_variable_in_function(sno_Compiler* cs, const sno_String* name) {
 	sno_assert(cs->num_active_local_var_slots < sno_MAX_ACTIVE_LOCAL_VARS);
 	for (int i = cs->num_active_local_var_slots - 1; i >= 1; i--) {
 		sno_LocalVar* local = sno_dynarray_get(cs->ts->main_state, &cs->local_vars, sizeof(sno_LocalVar), cs->active_local_vars[i]);
@@ -424,7 +465,8 @@ static void parse_operand(sno_Tokenizer* ts) {
 			skip_token(ts, sno_TK_LPAREN);
 			emit_instruction(ts, sno_I_LOAD_NONE); // Self parameter = null
 			int num_args = parse_closed_expression_list(ts, sno_TK_RPAREN);
-			emit_instruction_1_at(ts, sno_I_CALL, num_args, lparen_at);
+			sno_Instruction call = sno_I_CALL | (num_args << 8) | (1 << 12);
+			emit_instruction_at(ts, call, lparen_at);
 			break;
 		}
 		default: {
@@ -512,6 +554,8 @@ static void parse_expression(sno_Tokenizer* ts) {
 }
 
 static uint32_t parse_closed_expression_list(sno_Tokenizer* ts, sno_TokenType end_token) {
+	const char* open = ts->prev_token.source_code;
+	sno_LineNumber line = ts->prev_token.line;
 	if (ts->cur_token.type == end_token) {
 		skip_token(ts, end_token);
 		return 0;
@@ -524,11 +568,21 @@ static uint32_t parse_closed_expression_list(sno_Tokenizer* ts, sno_TokenType en
 			if (ts->cur_token.type == end_token) {
 				break;
 			}
+			parse_expression(ts);
+			len++;
 		} else if (ts->cur_token.type == end_token) {
 			break;
+		} else {
+			sno_throw_syntax_error_open_close(
+				ts,
+				open,
+				line,
+				ts->prev_token.source_code + sno_get_token_length(&ts->prev_token),
+				"Missing a closing '%s'",
+				sno_token_strings[end_token]
+			);
 		}
-		parse_expression(ts);
-		len++;
+		
 	}
 	skip_token(ts, end_token);
 	return len;
@@ -541,9 +595,11 @@ static void parse_if_statement(sno_Tokenizer* ts) {
 	parse_expression(ts);
 	uint32_t jump_from = emit_instruction(ts, sno_I_JUMP_IF_FALSE);
 	parse_brace_block(ts, sno_FALSE);
+	uint32_t jump_to = ts->cs->instructions.count;
 	if (ts->cur_token.type == sno_TK_ELSE) {
+		jump_to++;
 		skip_token(ts, sno_TK_ELSE);
-		uint32_t else_jump_from = emit_instruction(ts, sno_I_JUMP_IF_FALSE);
+		uint32_t else_jump_from = emit_instruction(ts, sno_I_JUMP);
 		if (ts->cur_token.type == sno_TK_IF) {
 			parse_if_statement(ts);
 		} else {
@@ -551,7 +607,9 @@ static void parse_if_statement(sno_Tokenizer* ts) {
 			parse_brace_block(ts, sno_FALSE);
 		}
 		uint32_t else_jump_to = ts->cs->instructions.count;
+		set_jump_dst(ts, else_jump_from, else_jump_to);
 	}
+	set_jump_dst(ts, jump_from, jump_to);
 }
 
 static void parse_while_statement(sno_Tokenizer* ts) {
@@ -600,12 +658,16 @@ static void parse_declaration_statement(sno_Tokenizer* ts) {
 	sno_Bool no_assignment = sno_FALSE;
 	while (1) {
 		if (ts->cur_token.type != sno_TK_IDENTIFIER) {
-			sno_throw_syntax_error_at_cur_token(ts, "Expected the name for a local variable here");
+			sno_throw_syntax_error_at_cur_token(ts, "Expected a name for a local variable here");
 		}
 		name_tokens[num_declarations] = ts->cur_token;
 		num_declarations++;
-		if (num_declarations > sno_MAX_ASSIGNMENTS_PER_LINE) {
-			sno_throw_syntax_error_at_cur_token(ts, "Too many declarations on one line");
+		if (num_declarations > sno_MAX_ASSIGNMENTS_PER_STATEMENT) {
+			sno_throw_syntax_error_at_cur_token(
+				ts,
+				"Too many declarations in one statement. The max is "
+				sno_stringify(sno_MAX_ASSIGNMENTS_PER_STATEMENT)
+			);
 		}
 		sno_Bool name_is_stmt_end = ts->cur_token.stmt_end;
 		skip_token(ts, sno_TK_IDENTIFIER);
@@ -624,14 +686,42 @@ static void parse_declaration_statement(sno_Tokenizer* ts) {
 		}
 	} else {
 		sno_assert(num_declarations >= 1);
+		sno_Token assignment_token = ts->cur_token;
 		expect_token_and_skip(ts, sno_TK_ASSIGN);
-		parse_expression(ts);
-		for (uint8_t i = 0; i < num_declarations - 1; i++) {
-			expect_token_and_skip(ts, sno_TK_COMMA);
+		for (uint8_t i = 0;; i++) {
+			if (i > num_declarations) {
+				sno_throw_syntax_error_at_token(
+					ts,
+					&assignment_token,
+					"There are %i item(s) on the left but %i item(s) on the right",
+					num_declarations,
+					i + 1
+				);
+			}
 			parse_expression(ts);
+			if (ts->prev_token.stmt_end) {
+				sno_Instruction* last_instruction = get_ptr_to_last_instruction(ts->cs);
+				if (get_opcode(*last_instruction) == sno_I_CALL) {
+					*last_instruction = set_call_num_returns(*last_instruction, num_declarations - i);
+					break;
+				} else if (i + 1 != num_declarations) {
+					// Wrong number of declarations on either side
+					sno_throw_syntax_error_at_token(
+						ts,
+						&assignment_token,
+						"There are %i item(s) on the left but %i item(s) on the right",
+						num_declarations,
+						i + 1
+					);
+				} else {
+					break;
+				}
+			}
+			expect_token_and_skip(ts, sno_TK_COMMA);
 		}
+		sno_Instruction* instructions = get_instruction_buffer(ts->cs);
 	}
-	sno_assert(num_declarations >= 1 && num_declarations <= sno_MAX_ASSIGNMENTS_PER_LINE);
+	sno_assert(num_declarations >= 1 && num_declarations <= sno_MAX_ASSIGNMENTS_PER_STATEMENT);
 	for (int8_t i = (int8_t)num_declarations - 1; i >= 0; i--) {
 		sno_Token name_token = name_tokens[i];
 		if (ts->cs->current_block->is_global) {
@@ -644,7 +734,153 @@ static void parse_declaration_statement(sno_Tokenizer* ts) {
 }
 
 static void parse_expression_statement(sno_Tokenizer* ts) {
+	const sno_Token first_stmt_token = ts->cur_token;
 	parse_expression(ts);
+	sno_Instruction last_instruction = get_last_instruction(ts->cs);
+	if (get_opcode(last_instruction) == sno_I_CALL) {
+		*get_ptr_to_last_instruction(ts->cs) = set_call_num_returns(last_instruction, 0);
+		// Make sure it was the last thing on the statement
+		if (!ts->prev_token.stmt_end) {
+			sno_throw_syntax_error_open_close(
+				ts,
+				first_stmt_token.source_code,
+				first_stmt_token.line,
+				ts->prev_token.source_code + sno_get_token_length(&ts->prev_token) - 2,
+				"This function call should be the only thing in this statement" // TODO: work on this
+			);
+		} else {
+			return;
+		}
+	}
+	// Assignment statement
+	check_last_expression_is_valid_lhs(ts, &first_stmt_token);
+	if (sno_token_is_assignment(ts->cur_token.type)) {
+		sno_TokenType assignment_token = ts->cur_token.type;
+		sno_read_next_token(ts); // Skip assignment token
+		if (assignment_token == sno_TK_ASSIGN) {
+			ts->cs->instructions.count--; // Remove the final get-instruction, convert to set later
+		} else {
+			// Binop assignment
+			if (get_opcode(last_instruction) == sno_I_GET_INDEX) {
+				ts->cs->instructions.count--; // Remove the final get-instruction, convert to set later
+				emit_instruction_1(ts, sno_I_COPY, 2);
+				emit_instruction(ts, last_instruction);
+			}
+		}
+		parse_expression(ts);
+		if (assignment_token != sno_TK_ASSIGN) {
+			// Binop assignment
+			emit_instruction_1(ts, sno_I_BINOP, assignment_token - sno_TK_ASSIGNADD);
+		}
+		emit_instruction(ts, last_instruction + 1);
+		return;
+	}
+	if (ts->cur_token.type == sno_TK_INC || ts->cur_token.type == sno_TK_DEC) {
+		sno_Bool is_inc = (ts->cur_token.type == sno_TK_INC);
+		sno_not_implemented;
+	}
+
+	sno_Instruction deferred_instructions[sno_MAX_ASSIGNMENTS_PER_STATEMENT];
+	// Defer the last instruction
+	deferred_instructions[0] = last_instruction;
+	ts->cs->instructions.count--;
+
+	uint8_t num_lhs = 1;
+	while (1) {
+		if (ts->cur_token.type == sno_TK_COMMA) {
+			num_lhs++;
+			if (num_lhs > sno_MAX_ASSIGNMENTS_PER_STATEMENT) {
+				sno_throw_syntax_error_at_cur_token(
+					ts,
+					"Too many assignments in one statement. The max is "
+					sno_stringify(sno_MAX_ASSIGNMENTS_PER_STATEMENT)
+				);
+			}
+			skip_token(ts, sno_TK_COMMA);
+			const sno_Token first_token = ts->cur_token;
+			parse_expression(ts);
+			check_last_expression_is_valid_lhs(ts, &first_token);
+			// Defer the last instruction
+			deferred_instructions[num_lhs - 1] = get_last_instruction(ts->cs);
+			ts->cs->instructions.count--;
+			continue;
+		} else {
+			break;
+		}
+	}
+	sno_assert(num_lhs < sno_MAX_ASSIGNMENTS_PER_STATEMENT);
+	sno_assert(num_lhs > 1);
+	if (ts->cur_token.type != sno_TK_ASSIGN) {
+		if (sno_token_is_assignment(ts->cur_token.type)) {
+			// TODO: Better error message
+		}
+		sno_throw_syntax_error_at_token(
+			ts,
+			&ts->prev_token,
+			"Expected an '=' here. "
+			"All expression statements except function calls must assign to something"
+		);
+	}
+	sno_Token assignment_token = ts->cur_token;
+	skip_token(ts, sno_TK_ASSIGN);
+	uint8_t num_rhs = 1;
+	for (uint8_t i = 0; i < num_lhs; i++) {
+		parse_expression(ts);
+		sno_Instruction* instructions = get_instruction_buffer(ts->cs);
+		last_instruction = get_last_instruction(ts->cs);
+		if (get_opcode(last_instruction) == sno_I_CALL) {
+			uint8_t num_returns = 1;
+			if (ts->prev_token.stmt_end) {
+				// This is the last rhs expression
+				// so call should get values for all remaining lhs
+				num_returns = num_lhs - i;
+			}
+			instructions[ts->cs->instructions.count - 1] =
+				set_call_num_returns(last_instruction, num_returns);
+		}
+		if (ts->prev_token.stmt_end) {
+			break;
+		}
+		if (ts->cur_token.type == sno_TK_COMMA) {
+			skip_token(ts, sno_TK_COMMA);
+			num_rhs++;
+			if (num_rhs > sno_MAX_ASSIGNMENTS_PER_STATEMENT) {
+				sno_throw_syntax_error_at_cur_token(
+					ts,
+					"Too many expressions in one statement. The max is "
+					sno_stringify(sno_MAX_ASSIGNMENTS_PER_STATEMENT)
+				);
+			}
+			if (num_rhs > num_lhs) {
+				sno_throw_syntax_error_at_token(
+					ts,
+					&assignment_token,
+					"There are %i item(s) on the left but %i item(s) on the right",
+					num_lhs,
+					num_rhs
+				);
+			}
+		}
+	}
+	if (get_opcode(last_instruction) != sno_I_CALL) {
+		if (num_lhs != num_rhs) {
+			sno_throw_syntax_error_at_token(
+				ts,
+				&assignment_token,
+				"There are %i item(s) on the left but %i item(s) on the right",
+				num_lhs,
+				num_rhs
+			);
+		}
+	}
+	emit_instruction_1(ts, sno_I_REV, num_lhs);
+	for (int8_t i = num_lhs - 1; i >= 0; i--) {
+		sno_Instruction deferred_instruction = deferred_instructions[i];
+		emit_instruction(ts, deferred_instruction + 1);
+	}
+	if (ts->cur_token.type == sno_TK_COMMA) {
+		sno_throw_syntax_error_at_cur_token(ts, "More expressions than assignments here");
+	}
 }
 
 /// @brief Parse a single statement, which should be the smallest completely separate pieces of code?
@@ -737,8 +973,7 @@ static sno_Bytecode* parse_source_code(sno_Tokenizer* ts) {
 		sno_unreachable;
 		//sno_throw_syntax_error_at_cur_token(ts, "Global scope ended early here");
 	}
-	emit_instruction(ts, sno_I_LOAD_NONE);
-	emit_instruction(ts, sno_I_RETURN);
+	emit_instruction_1(ts, sno_I_RETURN, 0);
 
 	free_function_compiler(ts, &cs);
 
@@ -784,7 +1019,7 @@ struct sno_Bytecode* sno_parse_source_code(
 			(unsigned int)state->exception_msg->length,
 			sno_string_chars(state->exception_msg)
 		);
-		success = NULL;
+		success = sno_FALSE;
 	}
 
 	//fputs(sno_ANSI_GREEN "Parsing success!" sno_ANSI_NORMAL "\n", stdout);

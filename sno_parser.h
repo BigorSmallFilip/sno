@@ -76,7 +76,6 @@ enum {
 
 	sno_TK_NUMBER,
 	sno_TK_STRING,
-	sno_TK_INTERPOLATED_STRING,
 	sno_TK_IDENTIFIER,
 
 	sno_NUM_TOKENS,
@@ -97,8 +96,8 @@ typedef uint32_t sno_ColumnNumber;
 typedef struct sno_Token {
 	sno_TokenType type;
 	sno_Bool stmt_end;
+	uint16_t length;
 	sno_LineNumber line;
-	uint32_t length;
 	const char* source_code; // Pointer to this token in the source code string
 	union {
 		sno_Number u_number;
@@ -107,10 +106,12 @@ typedef struct sno_Token {
 } sno_Token;
 
 void sno_print_token(const sno_Token* token, const sno_Token* next_token);
+uint16_t sno_get_token_length(const sno_Token* token);
 
 typedef struct sno_Tokenizer {
 	sno_Token cur_token;
 	sno_Token next_token; // Look-ahead
+	sno_Token prev_token; // Look-behind. For error messages
 
 	struct sno_State* main_state;
 	const struct sno_String* source_code_name;
@@ -129,7 +130,7 @@ typedef struct sno_Tokenizer {
 #define sno_MAX_NUMBER_CONSTANTS 50000
 #define sno_MAX_STRING_CONSTANTS 50000
 #define sno_MAX_SUB_FUNCTIONS 50000
-#define sno_MAX_ASSIGNMENTS_PER_LINE 16
+#define sno_MAX_ASSIGNMENTS_PER_STATEMENT 16
 
 #define sno_MAX_BLOCK_DEPTH 50
 typedef struct sno_Block {

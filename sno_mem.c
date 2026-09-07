@@ -108,7 +108,7 @@ void sno_dynarray_push_back_no_resize(
 void sno_dynarray_push_back_ptr(
 	sno_State* state,
 	sno_DynArray* dynarray,
-	void* ptr
+	const void* sno_restrict ptr
 ) {
 	sno_assert_ptr(state);
 	sno_assert_ptr(dynarray);
@@ -125,7 +125,7 @@ void sno_dynarray_push_back_ptr(
 void sno_dynarray_push_back_ptr_no_resize(
 	sno_State* state,
 	sno_DynArray* dynarray,
-	void* ptr
+	const void* sno_restrict ptr
 ) {
 	sno_assert_ptr(state);
 	sno_assert_ptr(dynarray);
