@@ -898,10 +898,10 @@ static void print_line_and_underline_token(const char* string, size_t length, co
 		}
 		p++;
 	}
-	for (int i = 0; i < spaces_before_token; i++) {
+	for (size_t i = 0; i < spaces_before_token; i++) {
 		putchar(' ');
 	}
-	for (int i = 0; i < token->length; i++) {
+	for (uint32_t i = 0; i < token->length; i++) {
 		putchar('~');
 	}
 	putchar('\n');
@@ -928,33 +928,28 @@ static int sprint_error_location(
 	);
 }
 
-static int sprint_and_underline_view_on_line(
+static int sprint_line(
 	char* buffer,
 	size_t buffer_size,
-	sno_Tokenizer* ts,
+	const char* source_code,
+	size_t source_code_length,
 	sno_LineNumber line,
-	sno_ColumnNumber column,
-	const char* source_view,
-	size_t source_view_length
+	const char* view,
+	const char* other_view,
+	size_t* out_spaces_before_view,
+	sno_Bool* out_other_view_on_same_line
 ) {
-	const char* source_code = sno_string_chars(ts->source_code);
-	size_t source_code_length = ts->source_code->length;
 	const char* string_end = source_code + source_code_length;
-	const char* line_start = find_line_start(
-		source_code,
-		source_code_length,
-		source_view
-	);
 	const char* p = find_first_non_whitespace_char_on_line(
 		source_code,
 		source_code_length,
-		source_view
+		view
 	);
 	int length = 0;
+	size_t spaces_before_token = 0;
 	length += snprintf(buffer + length, buffer_size - length, sno_ANSI_CYAN "        |  \n");
 	length += snprintf(buffer + length, buffer_size - length, " % 5u  |  " sno_ANSI_NORMAL, (unsigned int)line);
-	size_t spaces_before_token = 0;
-	while (p < source_view) {
+	while (p < view) {
 		if (*p == '\t') {
 			spaces_before_token &= ~(7);
 			spaces_before_token += 4;
@@ -973,13 +968,49 @@ static int sprint_and_underline_view_on_line(
 		if (*p == '\n') {
 			break;
 		}
+		if (p == other_view) {
+			*out_other_view_on_same_line = sno_TRUE;
+		}
 		buffer[length++] = *(p++);
 	}
 	length += snprintf(buffer + length, buffer_size - length, "\n" sno_ANSI_CYAN "        |  " sno_ANSI_RED);
-
 	for (size_t i = 0; i < spaces_before_token; i++) {
 		buffer[length++] = ' ';
 	}
+	*out_spaces_before_view = spaces_before_token;
+	return length;
+}
+
+static int sprint_and_underline_view_on_line(
+	char* buffer,
+	size_t buffer_size,
+	const char* source_code,
+	size_t source_code_length,
+	sno_LineNumber line,
+	sno_ColumnNumber column,
+	const char* source_view,
+	size_t source_view_length
+) {
+	const char* string_end = source_code + source_code_length;
+	const char* p = find_first_non_whitespace_char_on_line(
+		source_code,
+		source_code_length,
+		source_view
+	);
+	int length = 0;
+	size_t spaces_before_token = 0;
+	sno_Bool unused = sno_FALSE;
+	length += sprint_line(
+		buffer,
+		buffer_size,
+		source_code,
+		source_code_length,
+		line,
+		source_view,
+		NULL,
+		&spaces_before_token,
+		&unused
+	);
 	for (size_t i = 0; i < source_view_length; i++) {
 		buffer[length++] = '~';
 	}
@@ -1002,6 +1033,8 @@ void sno_no_return sno_throw_syntax_error(
 	sno_assert_ptr(source_view);
 	sno_assert_ptr(format);
 	sno_State* state = ts->main_state;
+	const char* source_code = sno_string_chars(ts->source_code);
+	size_t source_code_length = ts->source_code->length;
 
 	va_list args;
 	char msg[sno_STACK_BUFFER_LENGTH];
@@ -1017,7 +1050,8 @@ void sno_no_return sno_throw_syntax_error(
 	msg_len += sprint_and_underline_view_on_line(
 		msg + msg_len,
 		sno_STACK_BUFFER_LENGTH - 1 - msg_len,
-		ts,
+		source_code,
+		source_code_length,
 		line,
 		column,
 		source_view,
@@ -1042,6 +1076,8 @@ void sno_no_return sno_throw_syntax_error_at_token(
 	sno_assert_ptr(token->source_code);
 	sno_assert_ptr(format);
 	sno_State* state = ts->main_state;
+	const char* source_code = sno_string_chars(ts->source_code);
+	size_t source_code_length = ts->source_code->length;
 
 	va_list args;
 	char msg[sno_STACK_BUFFER_LENGTH];
@@ -1057,11 +1093,98 @@ void sno_no_return sno_throw_syntax_error_at_token(
 	msg_len += sprint_and_underline_view_on_line(
 		msg + msg_len,
 		sno_STACK_BUFFER_LENGTH - 1 - msg_len,
-		ts,
+		source_code,
+		source_code_length,
 		token->line,
 		0,
 		token->source_code,
 		1
+	);
+	va_start(args, format);
+	msg_len += vsnprintf(msg + msg_len, sno_STACK_BUFFER_LENGTH - 1 - msg_len, format, args);
+	va_end(args);
+	msg_len += snprintf(msg + msg_len, sno_STACK_BUFFER_LENGTH - 1 - msg_len, sno_ANSI_NORMAL);
+	sno_throw(state, sno_create_string(state, msg, msg_len));
+}
+
+
+
+static int sprint_and_underline_open_close_on_line(
+	char* buffer,
+	size_t buffer_size,
+	sno_Tokenizer* ts,
+	sno_LineNumber line,
+	const char* source_view_open,
+	const char* source_view_close
+) {
+	const char* source_code = sno_string_chars(ts->source_code);
+	size_t source_code_length = ts->source_code->length;
+	const char* string_end = source_code + source_code_length;
+	const char* p = find_first_non_whitespace_char_on_line(
+		source_code,
+		source_code_length,
+		source_view_open
+	);
+	int length = 0;
+	size_t spaces_before_token = 0;
+	sno_Bool close_on_same_line = sno_FALSE;
+	length += sprint_line(
+		buffer,
+		buffer_size,
+		source_code,
+		source_code_length,
+		line,
+		source_view_open,
+		source_view_close,
+		&spaces_before_token,
+		&close_on_same_line
+	);
+	buffer[length++] = '^';
+	if (close_on_same_line) {
+		for (const char* p = source_view_open; p < source_view_close; p++) {
+			sno_assert(*p != '\n');
+			buffer[length++] = '-';
+		}
+		buffer[length++] = '^';
+	}
+	buffer[length++] = ' ';
+	return length;
+}
+
+void sno_no_return sno_throw_syntax_error_open_close(
+	sno_Tokenizer* ts,
+	const char* source_view_open,
+	sno_LineNumber line,
+	const char* source_view_close,
+	const char* format,
+	...
+) {
+	sno_assert_ptr(ts);
+	sno_assert_ptr(ts->main_state);
+	sno_assert_ptr(ts->source_code_name);
+	sno_assert_ptr(source_view_open);
+	sno_assert_ptr(source_view_close);
+	sno_assert_ptr(format);
+	sno_State* state = ts->main_state;
+
+	va_list args;
+	char msg[sno_STACK_BUFFER_LENGTH];
+	int msg_len = 0;
+	msg_len += sprint_error_location(
+		msg,
+		sno_STACK_BUFFER_LENGTH - 1 - msg_len,
+		ts,
+		line,
+		0,
+		sno_TRUE
+	);
+	msg_len += sprint_and_underline_open_close_on_line(
+		msg + msg_len,
+		sno_STACK_BUFFER_LENGTH - 1 - msg_len,
+		ts,
+		line,
+		source_view_open,
+		source_view_close
 	);
 	va_start(args, format);
 	msg_len += vsnprintf(msg + msg_len, sno_STACK_BUFFER_LENGTH - 1 - msg_len, format, args);

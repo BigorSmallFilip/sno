@@ -9,9 +9,8 @@
 static uint8_t add_number_constant(sno_Compiler* cs, sno_Number number) {
 	sno_State* state = cs->ts->main_state;
 	if (cs->number_constants.count > sno_MAX_NUMBER_CONSTANTS) {
-		sno_throw_syntax_error_at_token(
+		sno_throw_syntax_error_at_cur_token(
 			cs->ts,
-			&cs->ts->cur_token,
 			"There are too many numbers in this function"
 		);
 	}
@@ -29,9 +28,8 @@ static uint8_t add_number_constant(sno_Compiler* cs, sno_Number number) {
 static uint8_t add_string_constant(sno_Compiler* cs, const sno_String* string) {
 	sno_State* state = cs->ts->main_state;
 	if (cs->string_constants.count > sno_MAX_NUMBER_CONSTANTS) {
-		sno_throw_syntax_error_at_token(
+		sno_throw_syntax_error_at_cur_token(
 			cs->ts,
-			&cs->ts->cur_token,
 			"There are too many strings in this function"
 		);
 	}
@@ -47,9 +45,9 @@ static uint8_t add_string_constant(sno_Compiler* cs, const sno_String* string) {
 }
 
 static uint8_t add_sub_function(sno_Compiler* cs, sno_Bytecode* bytecode) {
-	sno_Assert(cs->sub_functions.count < 256);
+	sno_assert(cs->sub_functions.count < 256);
 	uint8_t sub_function_index = cs->sub_functions.count;
-	sno_DynArray_PushBackPtr(&cs->sub_functions, bytecode);
+	sno_dynarray_push_back_ptr(cs->ts->main_state, &cs->sub_functions, bytecode);
 	return sub_function_index;
 }
 
@@ -59,7 +57,17 @@ static uint32_t emit_instruction(sno_Tokenizer* ts, sno_Instruction i) {
 	sno_State* state = ts->main_state;
 	sno_Compiler* cs = ts->cs;
 	sno_dynarray_push_back(state, &cs->instructions, sizeof(sno_Instruction), &i);
-	sno_dynarray_push_back(state, &cs->instruction_source_code_offsets, sizeof(uint32_t), &ts->cur_token.source_code);
+	size_t source_code_offset = 0;
+	sno_dynarray_push_back(state, &cs->instruction_source_code_offsets, sizeof(uint32_t), &source_code_offset);
+	return cs->instructions.count - 1;
+}
+
+static uint32_t emit_instruction_at(sno_Tokenizer* ts, sno_Instruction i, const char* at) {
+	sno_State* state = ts->main_state;
+	sno_Compiler* cs = ts->cs;
+	sno_dynarray_push_back(state, &cs->instructions, sizeof(sno_Instruction), &i);
+	uint32_t source_code_offset = (uint32_t)(at - sno_string_chars(ts->source_code));
+	sno_dynarray_push_back(state, &cs->instruction_source_code_offsets, sizeof(uint32_t), &source_code_offset);
 	return cs->instructions.count - 1;
 }
 
@@ -68,7 +76,18 @@ static uint32_t emit_instruction_1(sno_Tokenizer* ts, uint8_t op, uint8_t arg) {
 	sno_Compiler* cs = ts->cs;
 	sno_Instruction i = op | (arg << 8);
 	sno_dynarray_push_back(state, &cs->instructions, sizeof(sno_Instruction), &i);
-	sno_dynarray_push_back(state, &cs->instruction_source_code_offsets, sizeof(uint32_t), &ts->cur_token.source_code);
+	size_t source_code_offset = 0;
+	sno_dynarray_push_back(state, &cs->instruction_source_code_offsets, sizeof(uint32_t), &source_code_offset);
+	return cs->instructions.count - 1;
+}
+
+static uint32_t emit_instruction_1_at(sno_Tokenizer* ts, uint8_t op, uint8_t arg, const char* at) {
+	sno_State* state = ts->main_state;
+	sno_Compiler* cs = ts->cs;
+	sno_Instruction i = op | (arg << 8);
+	sno_dynarray_push_back(state, &cs->instructions, sizeof(sno_Instruction), &i);
+	uint32_t source_code_offset = (uint32_t)(at - sno_string_chars(ts->source_code));
+	sno_dynarray_push_back(state, &cs->instruction_source_code_offsets, sizeof(uint32_t), &source_code_offset);
 	return cs->instructions.count - 1;
 }
 
@@ -82,11 +101,108 @@ static uint32_t emit_instruction_string(sno_Tokenizer* ts, const sno_String* str
 
 
 
+static sno_LocalID register_local_variable(sno_Tokenizer* ts, const sno_String* name) {
+	sno_LocalVar local;
+	local.name = name;
+	local.slot = ts->cs->num_active_local_var_slots;
+	local.start_pc = ts->cs->instructions.count;
+	local.end_pc = 0;
+	sno_dynarray_push_back(ts->main_state, &ts->cs->local_vars, sizeof(sno_LocalVar), &local);
+	return ts->cs->local_vars.count - 1;
+}
+
+static sno_LocalSlot try_declare_local_variable(sno_Tokenizer* ts, sno_Token token) {
+	const sno_String* name = token.info.u_string;
+	for (sno_LocalSlot i = 1; i < ts->cs->num_active_local_var_slots; i++) {
+		sno_LocalID local_id = ts->cs->active_local_vars[i];
+		const sno_LocalVar* local = (sno_LocalVar*)sno_dynarray_get(
+			ts->main_state,
+			&ts->cs->local_vars,
+			sizeof(sno_LocalVar),
+			local_id
+		);
+		if (local->name == name) {
+			sno_throw_syntax_error_at_token(
+				ts,
+				&token,
+				"A local variable called '%.*s' already exists",
+				name->length,
+				sno_string_chars(name)
+			);
+		}
+	}
+	if (ts->cs->num_active_local_var_slots > sno_MAX_ACTIVE_LOCAL_VARS) {
+		sno_throw_syntax_error_at_token(
+			ts,
+			&token,
+			"This function has too many local variables."
+		);
+	}
+	sno_LocalID local_id = register_local_variable(ts, name);
+	ts->cs->active_local_vars[ts->cs->num_active_local_var_slots] = local_id;
+	ts->cs->num_active_local_var_slots++;
+	if (ts->cs->num_active_local_var_slots > ts->cs->max_active_local_var_slots) {
+		ts->cs->max_active_local_var_slots = ts->cs->num_active_local_var_slots;
+	}
+	return ts->cs->num_active_local_var_slots - 1;
+}
+
+static void deactivate_local_variables(sno_Compiler* cs, sno_LocalSlot to_id) {
+	sno_assert(to_id >= 1 && to_id <= sno_MAX_ACTIVE_LOCAL_VARS);
+	for (int i = cs->num_active_local_var_slots - 1; i >= (int)to_id; i--) {
+		sno_LocalVar* a = sno_dynarray_get(cs->ts->main_state, &cs->local_vars, sizeof(sno_LocalVar), cs->active_local_vars[i]);
+		a->end_pc = cs->instructions.count;
+	}
+	cs->num_active_local_var_slots = to_id;
+}
+
+int search_local_variable_in_function(sno_Compiler* cs, const sno_String* name) {
+	sno_assert(cs->num_active_local_var_slots < sno_MAX_ACTIVE_LOCAL_VARS);
+	for (int i = cs->num_active_local_var_slots - 1; i >= 1; i--) {
+		sno_LocalVar* local = sno_dynarray_get(cs->ts->main_state, &cs->local_vars, sizeof(sno_LocalVar), cs->active_local_vars[i]);
+		if (local->name == name) {
+			return i;
+		}
+	}
+	return -1;
+}
+
+static sno_Bool recursive_search_local_variable(sno_Compiler* cs, const sno_String* name) {
+	if (cs->current_block->is_global) {
+		// If you've reached the global scope then stop searching
+		return sno_FALSE;
+	}
+	int id = search_local_variable_in_function(cs, name);
+	if (id >= 0) {
+		// Id 0 should always be the 'self' argument
+		sno_assert(id >= 1 && id < sno_MAX_ACTIVE_LOCAL_VARS);
+		emit_instruction_1(cs->ts, sno_I_GET_LOCAL, id);
+		return sno_TRUE;
+	} else {
+		if (!cs->parent || !recursive_search_local_variable(cs->parent, name)) {
+			return sno_FALSE;
+		} else {
+			// Upval found
+			sno_not_implemented;
+		}
+	}
+	sno_unreachable;
+}
+
+static void identifier(sno_Tokenizer* ts, const sno_String* name) {
+	if (!recursive_search_local_variable(ts->cs, name)) {
+		// Nothing found so treat it like a global
+		emit_instruction_1(ts, sno_I_GET_GLOBAL, add_string_constant(ts->cs, name));
+	}
+}
+
+
+
 static void enter_block(sno_Compiler* cs, sno_Block* block, sno_Bool is_loop, sno_Bool is_global) {
 	sno_assert(!(is_loop && is_global));
 	block->is_loop = is_loop;
 	block->is_global = is_global;
-	block->num_active_local_vars = cs->num_active_local_vars;
+	block->num_active_local_vars = cs->num_active_local_var_slots;
 	block->prev = cs->current_block;
 	cs->current_block = block;
 	cs->current_block_depth++;
@@ -106,7 +222,7 @@ static void exit_block(sno_Compiler* cs) {
 	sno_Block* block = cs->current_block; // The block to exit out of
 	cs->current_block = block->prev;
 	cs->current_block_depth--;
-	//deactivate_local_variables(cs, block->num_active_local_vars);
+	deactivate_local_variables(cs, block->num_active_local_vars);
 }
 
 
@@ -122,8 +238,8 @@ static void init_function_compiler(sno_Tokenizer* ts, sno_Compiler* cs) {
 	sno_State* state = ts->main_state;
 	cs->ts = ts;
 	init_bytecode(state, cs);
-	cs->num_active_local_vars = 0;
-	cs->max_active_local_vars = 0;
+	cs->num_active_local_var_slots = 1;
+	cs->max_active_local_var_slots = 1;
 	cs->current_stack_idx = 0;
 	cs->max_stack_used = 0;
 
@@ -165,7 +281,7 @@ static void free_function_compiler(sno_Tokenizer* ts, sno_Compiler* cs) {
 	bc->instruction_source_code_offsets = sno_malloc(state, sizeof(bc->instruction_source_code_offsets[0]) * cs->instructions.count);
 	memcpy(bc->instruction_source_code_offsets, cs->instruction_source_code_offsets.buffer, sizeof(bc->instruction_source_code_offsets[0]) * cs->instructions.count);
 
-	bc->local_var_slots_needed = cs->max_active_local_vars;
+	bc->local_var_slots_needed = cs->max_active_local_var_slots;
 	bc->local_vars = sno_malloc(state, sizeof(bc->local_vars[0]) * cs->local_vars.count);
 	bc->num_local_vars = cs->local_vars.count;
 	memcpy(bc->local_vars, cs->local_vars.buffer, sizeof(bc->local_vars[0]) * cs->local_vars.count);
@@ -180,6 +296,37 @@ static void free_function_compiler(sno_Tokenizer* ts, sno_Compiler* cs) {
 }
 
 
+
+
+
+static void expect_token(sno_Tokenizer* ts, sno_TokenType token) {
+	if (ts->cur_token.type != token) {
+		sno_throw_syntax_error_at_token(ts, &ts->cur_token, "Expected a '%s' here", sno_token_strings[token]);
+	}
+}
+
+static void expect_token_and_skip(sno_Tokenizer* ts, sno_TokenType token) {
+	expect_token(ts, token);
+	sno_read_next_token(ts);
+}
+
+static void check_closing_token(sno_Tokenizer* ts, sno_TokenType type) {
+
+}
+
+static sno_inline void skip_token(sno_Tokenizer* ts, sno_TokenType type) {
+	sno_assert_msg(ts->cur_token.type == type, "Skipped token was different from what was expected");
+	sno_read_next_token(ts);
+}
+
+
+
+
+
+static void parse_expression(sno_Tokenizer* ts);
+static uint32_t parse_closed_expression_list(sno_Tokenizer* ts, sno_TokenType end_token);
+static void parse_block(sno_Tokenizer* ts, sno_Bool is_loop, sno_Bool is_global_scope);
+static void parse_brace_block(sno_Tokenizer* ts, sno_Bool is_loop);
 
 
 
@@ -202,14 +349,24 @@ static void parse_operand_primary(sno_Tokenizer* ts) {
 		break;
 	}
 	case sno_TK_STRING: {
-		//code_instruction_1(ts, sno_I_LOAD_STRING, add_string_constant(ts->cs, ts->cur_token.info.u_string));
+		emit_instruction_string(ts, ts->cur_token.info.u_string);
 		break;
 	}
 	case sno_TK_LPAREN: {
-		//sno_ReadNextToken(ts); // Skip '('
-		//parse_expression(ts);
-		//expect_token_and_skip(ts, sno_TK_RPAREN);
-		return; // Skip reading the ')'
+		const char* open_paren = ts->cur_token.source_code;
+		skip_token(ts, sno_TK_LPAREN);
+		parse_expression(ts);
+		if (ts->cur_token.type != sno_TK_RPAREN) {
+			sno_throw_syntax_error_open_close(
+				ts,
+				open_paren,
+				ts->cur_token.line,
+				ts->cur_token.source_code,
+				"This parenthesis doesn't close"
+			);
+		}
+		skip_token(ts, sno_TK_RPAREN);
+		return;
 	}
 	case sno_TK_LBRACKET: {
 		//parse_array_constructor(ts);
@@ -225,17 +382,21 @@ static void parse_operand_primary(sno_Tokenizer* ts) {
 		return; // Skip reading the '}'
 	}
 	case sno_TK_IDENTIFIER: {
-		//identifier(ts, ts->cur_token.info.u_string);
+		identifier(ts, ts->cur_token.info.u_string);
 		break;
 	}
 	case sno_TK_SELF: {
-		if (!ts->cs->has_self_parameter) {
-			//sno_ThrowSyntaxError(ts->main_state, ts->cur_token_linenum, "Function doesn't have the 'self' parameter");
+		if (ts->cs->is_global_scope) {
+			sno_throw_syntax_error_at_cur_token(ts, "Global scope doesn't have the 'self' parameter");
 		}
-		//code_instruction_1(ts, sno_OP_GET_LOCAL, 0);
+		if (!ts->cs->has_self_parameter) {
+			sno_throw_syntax_error_at_cur_token(ts, "This function doesn't have the 'self' parameter");
+		}
+		emit_instruction_1(ts, sno_I_GET_LOCAL, 0);
 		break;
 	}
 	default: {
+		sno_throw_syntax_error_at_cur_token(ts, "This is an invalid operand"); // TODO: Improve this message
 		//sno_ThrowSyntaxError(ts->main_state, ts->cur_token_linenum, "Invalid expression token '%s'", sno_token_strings[ts->cur_token.type]);
 	}
 	}
@@ -244,7 +405,33 @@ static void parse_operand_primary(sno_Tokenizer* ts) {
 
 static void parse_operand(sno_Tokenizer* ts) {
 	parse_operand_primary(ts);
-	
+	while (1) { // For repeated application such as list[1][2].field[3]
+		switch (ts->cur_token.type) {
+		case sno_TK_LBRACKET: { // Index
+			const char* lbracket_at = ts->cur_token.source_code;
+			skip_token(ts, sno_TK_LBRACKET);
+			parse_expression(ts);
+			expect_token_and_skip(ts, sno_TK_RBRACKET);
+			emit_instruction_at(ts, sno_I_GET_INDEX, lbracket_at);
+			break;
+		}
+		case sno_TK_DOT: { // Field or method call
+			
+			break;
+		}
+		case sno_TK_LPAREN: { // Function call
+			const char* lparen_at = ts->cur_token.source_code;
+			skip_token(ts, sno_TK_LPAREN);
+			emit_instruction(ts, sno_I_LOAD_NONE); // Self parameter = null
+			int num_args = parse_closed_expression_list(ts, sno_TK_RPAREN);
+			emit_instruction_1_at(ts, sno_I_CALL, num_args, lparen_at);
+			break;
+		}
+		default: {
+			return;
+		}
+		}
+	}
 }
 
 
@@ -324,7 +511,86 @@ static void parse_expression(sno_Tokenizer* ts) {
 
 }
 
+static uint32_t parse_closed_expression_list(sno_Tokenizer* ts, sno_TokenType end_token) {
+	if (ts->cur_token.type == end_token) {
+		skip_token(ts, end_token);
+		return 0;
+	}
+	uint32_t len = 1;
+	parse_expression(ts);
+	while (1) {
+		if (ts->cur_token.type == sno_TK_COMMA) {
+			skip_token(ts, sno_TK_COMMA);
+			if (ts->cur_token.type == end_token) {
+				break;
+			}
+		} else if (ts->cur_token.type == end_token) {
+			break;
+		}
+		parse_expression(ts);
+		len++;
+	}
+	skip_token(ts, end_token);
+	return len;
+}
 
+
+
+static void parse_if_statement(sno_Tokenizer* ts) {
+	skip_token(ts, sno_TK_IF);
+	parse_expression(ts);
+	uint32_t jump_from = emit_instruction(ts, sno_I_JUMP_IF_FALSE);
+	parse_brace_block(ts, sno_FALSE);
+	if (ts->cur_token.type == sno_TK_ELSE) {
+		skip_token(ts, sno_TK_ELSE);
+		uint32_t else_jump_from = emit_instruction(ts, sno_I_JUMP_IF_FALSE);
+		if (ts->cur_token.type == sno_TK_IF) {
+			parse_if_statement(ts);
+		} else {
+			// Parse else block
+			parse_brace_block(ts, sno_FALSE);
+		}
+		uint32_t else_jump_to = ts->cs->instructions.count;
+	}
+}
+
+static void parse_return_statement(sno_Tokenizer* ts) {
+	if (ts->cs->is_global_scope) {
+		sno_throw_syntax_error_at_cur_token(ts, "Only functions can have return statements");
+	}
+	sno_Bool no_expr = ts->cur_token.stmt_end;
+	skip_token(ts, sno_TK_RETURN);
+	if (no_expr) {
+		emit_instruction(ts, sno_I_LOAD_NONE);
+	} else {
+		parse_expression(ts);
+	}
+	emit_instruction(ts, sno_I_RETURN);
+}
+
+static void parse_declaration_statement(sno_Tokenizer* ts) {
+	sno_Bool is_const = ts->cur_token.type == sno_TK_CONST;
+	sno_read_next_token(ts);
+	if (ts->cur_token.type != sno_TK_IDENTIFIER) {
+		sno_throw_syntax_error_at_cur_token(ts, "Expected the name for a local variable here");
+	}
+	const char* name_at = ts->cur_token.source_code;
+	sno_Token name_token = ts->cur_token;
+	sno_Bool name_is_stmt_end = ts->cur_token.stmt_end;
+	sno_read_next_token(ts);
+	if (name_is_stmt_end) {
+		emit_instruction(ts, sno_I_LOAD_NONE);
+	} else {
+		expect_token_and_skip(ts, sno_TK_ASSIGN);
+		parse_expression(ts);
+	}
+	if (ts->cs->current_block->is_global) {
+		emit_instruction_1_at(ts, sno_I_NEW_GLOBAL, add_string_constant(ts->cs, name_token.info.u_string), name_at);
+	} else {
+		sno_LocalSlot local_slot = try_declare_local_variable(ts, name_token);
+		emit_instruction_1(ts, sno_I_SET_LOCAL, local_slot);
+	}
+}
 
 static void parse_expression_statement(sno_Tokenizer* ts) {
 	parse_expression(ts);
@@ -341,7 +607,7 @@ static sno_Bool parse_statement(sno_Tokenizer* ts) {
 
 	switch (ts->cur_token.type) {
 	case sno_TK_IF: {
-		//parse_if_statement(ts);
+		parse_if_statement(ts);
 		return sno_FALSE;
 	}
 	case sno_TK_FOR: {
@@ -361,11 +627,11 @@ static sno_Bool parse_statement(sno_Tokenizer* ts) {
 		return sno_TRUE;
 	}
 	case sno_TK_RETURN: {
-		//parse_return_statement(ts);
+		parse_return_statement(ts);
 		return sno_TRUE;
 	}
 	case sno_TK_VAR: case sno_TK_CONST: {
-		//parse_declaration_statement(ts);
+		parse_declaration_statement(ts);
 		return sno_FALSE;
 	}
 	case sno_TK_FUNCTION: {
@@ -400,6 +666,12 @@ static void parse_block(sno_Tokenizer* ts, sno_Bool is_loop, sno_Bool is_global_
 	exit_block(ts->cs);
 }
 
+static void parse_brace_block(sno_Tokenizer* ts, sno_Bool is_loop) {
+	expect_token_and_skip(ts, sno_TK_LBRACE);
+	parse_block(ts, is_loop, sno_FALSE);
+	expect_token_and_skip(ts, sno_TK_RBRACE);
+}
+
 
 
 static sno_Bytecode* parse_source_code(sno_Tokenizer* ts) {
@@ -407,14 +679,12 @@ static sno_Bytecode* parse_source_code(sno_Tokenizer* ts) {
 
 	sno_Compiler cs = { 0 };
 	init_function_compiler(ts, &cs);
+	cs.is_global_scope = sno_TRUE;
 
 	parse_block(ts, sno_FALSE, sno_TRUE);
 	if (ts->cur_token.type != sno_TK_EOF) {
-		sno_throw_syntax_error_at_token(
-			ts,
-			&ts->cur_token,
-			"Global scope ended early here"
-		);
+		sno_unreachable;
+		//sno_throw_syntax_error_at_cur_token(ts, "Global scope ended early here");
 	}
 	emit_instruction(ts, sno_I_LOAD_NONE);
 	emit_instruction(ts, sno_I_RETURN);
@@ -463,7 +733,7 @@ struct sno_Bytecode* sno_parse_source_code(
 			(unsigned int)state->exception_msg->length,
 			sno_string_chars(state->exception_msg)
 		);
-		success = sno_FALSE;
+		success = NULL;
 	}
 
 	//fputs(sno_ANSI_GREEN "Parsing success!" sno_ANSI_NORMAL "\n", stdout);
@@ -472,5 +742,5 @@ struct sno_Bytecode* sno_parse_source_code(
 	//sno_PushFunction(state, function);
 
 	state->exception_jump = state->exception_jump->prev;
-	return sno_TRUE;
+	return bytecode;
 }

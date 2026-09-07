@@ -6,7 +6,7 @@
 
 
 
-typedef enum sno_TokenType {
+enum {
 	sno_TK_IF,
 	sno_TK_ELSE,
 	sno_TK_FOR,
@@ -82,8 +82,8 @@ typedef enum sno_TokenType {
 	sno_NUM_TOKENS,
 	sno_TK_EOF = -1,
 	sno_TK_ERROR = -2,
-} sno_TokenType;
-//typedef int8_t sno_TokenType;
+};
+typedef int8_t sno_TokenType;
 
 extern const char* const sno_token_strings[sno_NUM_TOKENS];
 
@@ -125,12 +125,7 @@ typedef struct sno_Tokenizer {
 } sno_Tokenizer;
 
 #define sno_MAX_LOCAL_VARS_PER_FUNCTION 50000
-typedef uint16_t sno_LocalID;
-
 #define sno_MAX_ACTIVE_LOCAL_VARS 200
-typedef uint8_t sno_LocalSlot;
-
-typedef uint16_t sno_ConstID;
 #define sno_MAX_NUMBER_CONSTANTS 50000
 #define sno_MAX_STRING_CONSTANTS 50000
 #define sno_MAX_SUB_FUNCTIONS 50000
@@ -155,9 +150,9 @@ typedef struct sno_Compiler {
 	struct sno_Compiler* parent;
 	sno_Block* current_block;
 	uint8_t current_block_depth;
-	sno_LocalSlot num_active_local_vars;
-	sno_LocalSlot max_active_local_vars; // Number of stack slots needed for local vars
-	sno_LocalID active_local_vars_stack[sno_MAX_ACTIVE_LOCAL_VARS]; // Indexes into the local_vars dynarray
+	sno_LocalSlot num_active_local_var_slots;
+	sno_LocalSlot max_active_local_var_slots; // Number of stack slots needed for local vars
+	sno_LocalID active_local_vars[sno_MAX_ACTIVE_LOCAL_VARS]; // Indexes into the local_vars dynarray
 	uint32_t max_stack_used;
 	uint32_t current_stack_idx;
 	sno_Bool is_global_scope;
@@ -182,6 +177,18 @@ void sno_no_return sno_throw_syntax_error(
 void sno_no_return sno_throw_syntax_error_at_token(
 	sno_Tokenizer* ts,
 	const sno_Token* token,
+	const char* format,
+	...
+);
+
+#define sno_throw_syntax_error_at_cur_token(ts, format) \
+	sno_throw_syntax_error_at_token(ts, &ts->cur_token, format)
+
+void sno_no_return sno_throw_syntax_error_open_close(
+	sno_Tokenizer* ts,
+	const char* source_view_open,
+	sno_LineNumber line,
+	const char* source_view_close,
 	const char* format,
 	...
 );
