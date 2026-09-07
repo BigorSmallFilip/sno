@@ -12,8 +12,12 @@ typedef struct sno_ExceptionJump {
 } sno_ExceptionJump;
 
 typedef struct sno_State {
+	sno_Value* stack;
+	uint32_t stack_base;
+	uint32_t stack_top;
+	uint32_t stack_capacity;
 	sno_StringInterningTable string_table;
-	sno_String* exception_msg;
+	const sno_String* exception_msg;
 	sno_ExceptionJump* exception_jump;
 } sno_State;
 

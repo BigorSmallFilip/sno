@@ -67,15 +67,15 @@ static sno_inline sno_Instruction get_last_instruction(const sno_Compiler* cs) {
 	return last_instruction;
 }
 
-static sno_inline sno_Instruction* get_ptr_to_last_instruction(const sno_Compiler* cs) {
+static sno_inline sno_Instruction* get_ptr_to_last_instruction(sno_Compiler* cs) {
 	sno_assert_ptr(cs);
 	sno_assert(cs->instructions.count > 0);
-	const sno_Instruction* instructions = get_instruction_buffer(cs);
+	sno_Instruction* instructions = get_instruction_buffer(cs);
 	return &instructions[cs->instructions.count - 1];
 }
 
 static sno_inline void check_last_expression_is_valid_lhs(
-	const sno_Tokenizer* ts,
+	sno_Tokenizer* ts,
 	const sno_Token* first_token
 ) {
 	sno_Instruction op = get_opcode(get_last_instruction(ts->cs));
@@ -228,6 +228,7 @@ static sno_Bool recursive_search_local_variable(sno_Compiler* cs, const sno_Stri
 		}
 	}
 	sno_unreachable;
+	return sno_FALSE;
 }
 
 static void identifier(sno_Tokenizer* ts, const sno_String* name) {
@@ -665,8 +666,7 @@ static void parse_declaration_statement(sno_Tokenizer* ts) {
 		if (num_declarations > sno_MAX_ASSIGNMENTS_PER_STATEMENT) {
 			sno_throw_syntax_error_at_cur_token(
 				ts,
-				"Too many declarations in one statement. The max is "
-				sno_stringify(sno_MAX_ASSIGNMENTS_PER_STATEMENT)
+				"Too many declarations in one statement. The max is 16"
 			);
 		}
 		sno_Bool name_is_stmt_end = ts->cur_token.stmt_end;
@@ -792,8 +792,7 @@ static void parse_expression_statement(sno_Tokenizer* ts) {
 			if (num_lhs > sno_MAX_ASSIGNMENTS_PER_STATEMENT) {
 				sno_throw_syntax_error_at_cur_token(
 					ts,
-					"Too many assignments in one statement. The max is "
-					sno_stringify(sno_MAX_ASSIGNMENTS_PER_STATEMENT)
+					"Too many assignments in one statement. The max is 16"
 				);
 			}
 			skip_token(ts, sno_TK_COMMA);
@@ -847,8 +846,7 @@ static void parse_expression_statement(sno_Tokenizer* ts) {
 			if (num_rhs > sno_MAX_ASSIGNMENTS_PER_STATEMENT) {
 				sno_throw_syntax_error_at_cur_token(
 					ts,
-					"Too many expressions in one statement. The max is "
-					sno_stringify(sno_MAX_ASSIGNMENTS_PER_STATEMENT)
+					"Too many expressions in one statement. The max is 16"
 				);
 			}
 			if (num_rhs > num_lhs) {

@@ -79,7 +79,7 @@ enum {
 typedef uint16_t sno_Instruction;
 
 typedef struct sno_LocalVar {
-	struct sno_String* name;
+	const struct sno_String* name;
 	uint32_t start_pc;
 	uint32_t end_pc;
 	uint8_t slot;

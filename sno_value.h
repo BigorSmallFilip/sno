@@ -3,6 +3,7 @@
 
 #include "sno_utility.h"
 #include "sno_string.h"
+#include "sno_mem.h"
 
 enum {
 	sno_VT_NONE,
@@ -36,5 +37,62 @@ typedef struct sno_Value {
 	sno_ValueType type;
 	sno_ValueUnion v;
 } sno_Value;
+
+typedef struct sno_GCValue {
+	struct sno_GCValue* gc_next;
+	uint8_t gc_mark;
+	// Since this will have padding bytes, this may cause undefined behaviour in the future
+	// Some padding to fix this?
+	uint8_t _padding[7];
+} sno_GCValue;
+#define sno_gc_header struct sno_GCValue* gc_next; uint8_t gc_mark
+
+
+
+typedef struct sno_Array {
+	sno_gc_header;
+	sno_DynArray items;
+} sno_Array;
+
+
+
+typedef struct sno_Table_Node {
+	sno_Bool exists;
+	sno_ValueType key_type;
+	sno_ValueType value_type;
+	sno_ValueUnion key_union;
+	sno_ValueUnion value_union;
+	struct sno_Table_Node* next;
+} sno_TableNode;
+
+typedef struct sno_Table {
+	sno_gc_header;
+	uint32_t num_nodes;
+	uint32_t capacity_mask; // Capcity - 1 since it is most often used as a bitmask
+	sno_TableNode* nodes;
+	struct sno_Table* prototype;
+} sno_Table;
+
+
+
+typedef void(sno_CFunction)(struct sno_State*, int);
+
+typedef struct sno_Function {
+	sno_gc_header;
+	sno_Bool is_c_function;
+	//uint8_t numupvalues;
+	union {
+		const struct sno_Bytecode* bytecode;
+		sno_CFunction* c_function;
+	} u;
+	//sno_Value upvalues[];
+} sno_Function;
+
+
+
+void sno_print_value(const sno_Value* v);
+sno_Bool sno_value_equals(sno_Value a, sno_Value b);
+sno_Bool sno_value_to_bool(const sno_Value* v);
+sno_Hash sno_hash_value(sno_Value value);
 
 #endif

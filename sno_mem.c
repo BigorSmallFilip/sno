@@ -118,7 +118,7 @@ void sno_dynarray_push_back_ptr(
 	if (dynarray->count == dynarray->capacity) {
 		sno_dynarray_resize(state, dynarray, sizeof(void*), dynarray->capacity << 1);
 	}
-	((void**)dynarray->buffer)[dynarray->count] = ptr;
+	((const void**)dynarray->buffer)[dynarray->count] = ptr;
 	dynarray->count++;
 }
 
@@ -132,7 +132,7 @@ void sno_dynarray_push_back_ptr_no_resize(
 	sno_assert_ptr(dynarray->buffer);
 	sno_assert(dynarray->capacity >= sno_MIN_DYNARRAY_CAPACITY);
 	sno_assert(dynarray->count + 1 <= dynarray->capacity);
-	((void**)dynarray->buffer)[dynarray->count] = ptr;
+	((const void**)dynarray->buffer)[dynarray->count] = ptr;
 	dynarray->count++;
 }
 

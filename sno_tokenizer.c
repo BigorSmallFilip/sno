@@ -961,7 +961,7 @@ static int sprint_line(
 	int length = 0;
 	size_t spaces_before_token = 0;
 	length += snprintf(buffer + length, buffer_size - length, sno_ANSI_CYAN "        |  \n");
-	length += snprintf(buffer + length, buffer_size - length, " % 5u  |  " sno_ANSI_NORMAL, (unsigned int)line);
+	length += snprintf(buffer + length, buffer_size - length, " %5u  |  " sno_ANSI_NORMAL, (unsigned int)line);
 	while (p < view) {
 		if (*p == '\t') {
 			spaces_before_token &= ~(7);
