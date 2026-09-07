@@ -37,6 +37,17 @@ typedef struct sno_Value {
 	sno_ValueUnion v;
 } sno_Value;
 
+#define sno_set_none(value)               (value).type = sno_VT_NONE;     (value).v.u_data     = 0
+#define sno_set_false(value)              (value).type = sno_VT_BOOL;     (value).v.u_number   = sno_NUMBER_FALSE
+#define sno_set_true(value)               (value).type = sno_VT_BOOL;     (value).v.u_number   = sno_NUMBER_TRUE
+#define sno_set_number(value, number)     (value).type = sno_VT_NUMBER;   (value).v.u_number   = ((sno_Number)(number))
+#define sno_set_string(value, string)     (value).type = sno_VT_STRING;   (value).v.u_string   = (string)
+#define sno_set_array(value, arr)         (value).type = sno_VT_ARRAY;    (value).v.u_array    = (arr)
+#define sno_set_table(value, table)       (value).type = sno_VT_TABLE;    (value).v.u_table    = (table)
+#define sno_set_function(value, function) (value).type = sno_VT_FUNCTION; (value).v.u_function = (function)
+
+
+
 typedef struct sno_GCValue {
 	struct sno_GCValue* gc_next;
 	uint8_t gc_mark;
@@ -66,11 +77,18 @@ typedef struct sno_Table_Node {
 
 typedef struct sno_Table {
 	sno_gc_header;
-	uint32_t num_nodes;
-	uint32_t capacity_mask; // Capcity - 1 since it is most often used as a bitmask
+	size_t count;
+	size_t capacity_mask; // Capcity - 1 since it is most often used as a bitmask
 	sno_TableNode* nodes;
 	struct sno_Table* prototype;
 } sno_Table;
+
+sno_Table* sno_create_table(struct sno_State* state, size_t capacity);
+sno_Bool sno_table_set_or_add_key(struct sno_State* state, sno_Table* table, const sno_Value* key, const sno_Value* value);
+sno_Bool sno_table_set(sno_Table* table, const sno_Value* key, const sno_Value* value);
+sno_Bool sno_table_get(sno_Table* table, const sno_Value* key, sno_Value* out_value);
+sno_Bool sno_table_has(sno_Table* table, const sno_Value* key);
+sno_Bool sno_table_remove(struct sno_State* state, sno_Table* table, const sno_Value* key);
 
 
 
@@ -90,9 +108,9 @@ typedef struct sno_Function {
 
 
 void sno_print_value(const sno_Value* v);
-sno_Bool sno_value_equals(sno_Value a, sno_Value b);
+sno_Bool sno_value_equals(const sno_Value* a, const sno_Value* b);
 sno_Bool sno_value_to_bool(const sno_Value* v);
-sno_Hash sno_hash_value(sno_Value value);
+sno_Hash sno_hash_value(const sno_Value* value);
 
 sno_Function* sno_create_function(struct sno_State* state, const struct sno_Bytecode* bytecode);
 

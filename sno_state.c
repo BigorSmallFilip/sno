@@ -2,11 +2,13 @@
 
 #include "sno_mem.h"
 #include "sno_parser.h"
+#include "sno_vm.h"
+#include <stdarg.h>
 
 static void init_stack(sno_State* state, uint32_t capacity);
 
 sno_API sno_State* sno_create_state() {
-	sno_State* state = sno_malloc(NULL, sizeof(sno_State));
+	sno_State* state = sno_alloc_type(NULL, sno_State);
 	sno_init_string_interning_table(state, 64);
 	init_stack(state, 128);
 	return state;
@@ -23,6 +25,8 @@ static void init_stack(sno_State* state, uint32_t capacity) {
 	state->stack_capacity = capacity;
 	state->stack_base = 0;
 	state->stack_top = 0;
+
+	state->globals = sno_create_table(state, 64);
 }
 
 static void resize_stack(sno_State* state, uint32_t new_capacity) {
@@ -51,7 +55,15 @@ sno_API void sno_free_state(sno_State* state) {
 	}
 }
 
+
+
+sno_API void sno_print_globals(const sno_State* state) {
+	sno_assert_ptr(state);
+
+}
+
 sno_API void sno_print_exception_msg(const sno_State* state) {
+	sno_assert_ptr(state);
 	fprintf(
 		stderr,
 		"%.*s\n",
@@ -69,7 +81,7 @@ sno_API sno_Bool sno_try_compile_source_code(
 	sno_assert_ptr(name);
 	sno_assert_ptr(source_code);
 
-	struct sno_Bytecode* bytecode = sno_parse_source_code(state, name, source_code);
+	sno_Bytecode* bytecode = sno_parse_source_code(state, name, source_code);
 	if (!bytecode) {
 		return sno_FALSE;
 	}
@@ -80,14 +92,30 @@ sno_API sno_Bool sno_try_compile_source_code(
 	return sno_TRUE;
 }
 
+sno_API sno_Bool sno_run_file(
+	sno_State* state,
+	const char* const path,
+	size_t path_length
+) {
+	const sno_String* name = sno_create_string(state, path, path_length);
+	const sno_String* file = sno_load_string_from_file(state, path, path_length);
+	sno_Value* base = sno_stack_base(state);
+	if (!sno_try_compile_source_code(state, name, file)) {
+		return sno_FALSE;
+	}
+	sno_set_none(base[1]);
+	sno_execute(state, 0);
+}
+
 sno_API sno_no_return void sno_throw(sno_State* state, const sno_String* exception_msg) {
 	sno_assert_ptr(state);
 	sno_assert_ptr(exception_msg);
+	state->exception_msg = exception_msg;
 	if (state->exception_jump) {
-		state->exception_msg = exception_msg;
 		longjmp(state->exception_jump->buf, 1);
 	} else {
-		fputs(sno_ANSI_RED "Uncaught exception thrown!\n" sno_ANSI_NORMAL, stderr);
+		sno_print_exception_msg(state);
+		fputs(sno_ANSI_RED "FATAL ERROR! Uncaught Sno exception thrown! Exiting application...\n" sno_ANSI_NORMAL, stderr);
 		exit(EXIT_FAILURE);
 	}
 }

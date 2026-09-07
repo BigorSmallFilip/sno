@@ -1,5 +1,8 @@
 #include "sno_vm.h"
 
+#include "sno_parser.h"
+#include <math.h>
+
 
 
 const char* const sno_binop_names[] = {
@@ -15,12 +18,33 @@ const char* const sno_binop_names[] = {
 	"BXOR",
 	"SHL",
 	"SHR",
-	"EQ",
-	"NEQ",
 	"LT",
 	"GT",
 	"LE",
 	"GE",
+	"EQ",
+	"NEQ",
+};
+
+const char* const sno_binop_fancy_names[] = {
+	"add",
+	"subtract",
+	"multiply",
+	"divide",
+	"integer divide",
+	"mod",
+	"pow",
+	"bitwise and",
+	"bitwise or",
+	"bitwise xor",
+	"bitwise shift left",
+	"bitwise shift right",
+	"less than",
+	"greater than",
+	"less than or equal",
+	"greater than or equal",
+	"equal",
+	"not equal",
 };
 
 const char* const sno_unop_names[] = {
@@ -74,7 +98,7 @@ static void print_instruction(const sno_Bytecode* bytecode, const sno_Instructio
 	sno_Instruction instruction = *i;
 	uint8_t op = instruction & 0xFF;
 	uint8_t arg = instruction >> 8;
-	printf("%i > %s ", i - bytecode->instructions, sno_instruction_names[op]);
+	printf("%u > %s ", (unsigned int)(i - bytecode->instructions), sno_instruction_names[op]);
 	switch (op) {
 	case sno_I_LOAD_NUMBER: {
 		printf("%g", bytecode->number_constants[arg]);
@@ -82,7 +106,7 @@ static void print_instruction(const sno_Bytecode* bytecode, const sno_Instructio
 	}
 	case sno_I_LOAD_STRING: {
 		const sno_String* s = bytecode->string_constants[arg];
-		printf("\"%.*s\"", s->length, sno_string_chars(s));
+		printf("\"%.*s\"", (unsigned int)s->length, sno_string_chars(s));
 		break;
 	}
 	case sno_I_LOAD_FUNCTION: {
@@ -102,7 +126,7 @@ static void print_instruction(const sno_Bytecode* bytecode, const sno_Instructio
 	case sno_I_NEW_GLOBAL:
 	case sno_I_GET_METHOD: {
 		const sno_String* s = bytecode->string_constants[arg];
-		printf("%.*s", s->length, sno_string_chars(s));
+		printf("%.*s", (unsigned int)s->length, sno_string_chars(s));
 		break;
 	}
 	case sno_I_GET_INDEX:
@@ -131,7 +155,7 @@ static void print_instruction(const sno_Bytecode* bytecode, const sno_Instructio
 	case sno_I_JUMP:
 	case sno_I_JUMP_IF_TRUE:
 	case sno_I_JUMP_IF_FALSE: {
-		printf("to %i", i - bytecode->instructions + (int8_t)arg + 1);
+		printf("to %u", (unsigned int)(i - bytecode->instructions) + (int8_t)arg + 1);
 		break;
 	}
 	case sno_I_NEW_ARRAY:
@@ -168,5 +192,129 @@ void sno_print_bytecode(const sno_Bytecode* bytecode) {
 
 void sno_execute(sno_State* state, uint8_t num_args) {
 	sno_Value* base = state->stack + state->stack_base;
-	
+	if (base->type != sno_VT_FUNCTION) {
+		sno_throw_runtime_error(state, "Called sno_execute on something which wasn't a function");
+	}
+	sno_Function* function = base->v.u_function;
+	const sno_Bytecode* bytecode = function->u.bytecode;
+	sno_Instruction* pc = bytecode->instructions;
+	sno_Value* locals = base + 1;
+	sno_reserve_stack(state, bytecode->max_stack_needed);
+	// This stack pointer is bababa
+	sno_Value* stack_ptr = locals + num_args;
+
+	while (1) {
+		sno_Instruction i = *pc;
+		uint8_t opcode = i & 0xFF;
+		uint8_t arg = i >> 8;
+		
+		printf("stack %02u   | ", (unsigned int)(stack_ptr - state->stack)); print_instruction(bytecode, pc);
+		pc++;
+
+		switch (opcode) {
+		case sno_I_LOAD_NONE: {
+			stack_ptr++;
+			sno_set_none(*stack_ptr);
+			break;
+		}
+		case sno_I_LOAD_FALSE: {
+			stack_ptr++;
+			sno_set_false(*stack_ptr);
+			break;
+		}
+		case sno_I_LOAD_TRUE: {
+			stack_ptr++;
+			sno_set_true(*stack_ptr);
+			break;
+		}
+		case sno_I_LOAD_NUMBER: {
+			sno_assert(arg < bytecode->num_number_constants);
+			stack_ptr++;
+			sno_Number number = bytecode->number_constants[arg];
+			sno_set_number(*stack_ptr, number);
+			break;
+		}
+		case sno_I_LOAD_STRING: {
+			sno_assert(arg < bytecode->num_string_constants);
+			stack_ptr++;
+			const sno_String* string = bytecode->string_constants[arg];
+			sno_set_string(*stack_ptr, string);
+			break;
+		}
+		case sno_I_LOAD_FUNCTION: {
+			sno_assert(arg < bytecode->num_sub_functions);
+			stack_ptr++;
+			sno_Function* function = sno_create_function(state, bytecode->sub_functions[arg]);
+			sno_set_function(*stack_ptr, function);
+			break;
+		}
+
+		case sno_I_NEW_GLOBAL: {
+			sno_assert(arg < bytecode->num_string_constants);
+			const sno_String* name = bytecode->string_constants[arg];
+			sno_Value key;
+			key.type = sno_VT_STRING;
+			key.v.u_string = name;
+			if (sno_table_set_or_add_key(state, state->globals, &key, stack_ptr)) {
+				sno_throw_runtime_error_at(
+					state,
+					bytecode->source_code,
+					bytecode->instruction_source_code_offsets[pc - bytecode->instructions],
+					"A global variable with this name already exists"
+				);
+			}
+			stack_ptr--;
+			break;
+		}
+
+		case sno_I_BINOP: {
+			stack_ptr--;
+			if (arg >= sno_BINOP_ADD && arg <= sno_BINOP_GE) {
+				sno_ValueType type_l = stack_ptr[0].type;
+				sno_ValueType type_r = stack_ptr[1].type;
+				if (!(type_l == sno_VT_BOOL || type_l == sno_VT_NUMBER) ||
+					!(type_r == sno_VT_BOOL || type_r == sno_VT_NUMBER)) {
+					sno_throw_runtime_error_at(
+						state,
+						bytecode->source_code,
+						bytecode->instruction_source_code_offsets[pc - bytecode->instructions],
+						"Attempted to %s %s and %s",
+						sno_binop_fancy_names[arg],
+						sno_type_strings_noun[type_l],
+						sno_type_strings_noun[type_r]
+					);
+				}
+				sno_ValueType* result_type = &stack_ptr[0].type;
+				*result_type = sno_VT_NUMBER;
+				sno_Number rhs = stack_ptr[1].v.u_number;
+				sno_Number* result = &stack_ptr[0].v.u_number;
+				switch (arg) {
+				case sno_BINOP_ADD: *result += rhs; break;
+				case sno_BINOP_SUB: *result -= rhs; break;
+				case sno_BINOP_MUL: *result *= rhs; break;
+				case sno_BINOP_DIV: *result /= rhs; break;
+				case sno_BINOP_IDIV: *result = sno_idiv(*result, rhs); break;
+				case sno_BINOP_MOD: *result = sno_mod(*result, rhs); break;
+				case sno_BINOP_POW: *result = sno_pow(*result, rhs); break;
+				case sno_BINOP_BAND: *result = (sno_Number)(((sno_Int)*result) & ((sno_Int)rhs)); break;
+				case sno_BINOP_BOR: *result = (sno_Number)(((sno_Int)*result) | ((sno_Int)rhs)); break;
+				case sno_BINOP_BXOR: *result = (sno_Number)(((sno_Int)*result) ^ ((sno_Int)rhs)); break;
+				case sno_BINOP_SHL: *result = (sno_Number)(((sno_Int)*result) << ((sno_Int)rhs)); break;
+				case sno_BINOP_SHR: *result = (sno_Number)(((sno_Int)*result) >> ((sno_Int)rhs)); break;
+				case sno_BINOP_LT: *result = (sno_Number)(*result < rhs); *result_type = sno_VT_BOOL; break;
+				case sno_BINOP_GT: *result = (sno_Number)(*result > rhs); *result_type = sno_VT_BOOL; break;
+				case sno_BINOP_LE: *result = (sno_Number)(*result <= rhs); *result_type = sno_VT_BOOL; break;
+				case sno_BINOP_GE: *result = (sno_Number)(*result >= rhs); *result_type = sno_VT_BOOL; break;
+				}
+			}
+			break;
+		}
+		case sno_I_RETURN: {
+			return;
+		}
+		default: {
+			sno_throw_runtime_error(state, "Invalid instruction executed");
+		}
+		}
+	}
 }

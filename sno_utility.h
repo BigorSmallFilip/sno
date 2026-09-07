@@ -223,9 +223,9 @@ typedef int64_t sno_Int;
 #define sno_floor floor
 #define sno_ceil ceil
 #define sno_round round
-#define sno_i_div(l, r) ((sno_Number)(((sno_Int)(l)) / ((sno_Int)(r))))
-#define sno_mod(l, r) fmod
-#define sno_pow(l, r) pow
+#define sno_idiv(l, r) ((sno_Number)(((sno_Int)(l)) / ((sno_Int)(r))))
+#define sno_mod fmod
+#define sno_pow pow
 #endif
 
 #define sno_number_is_valid_u8(num) (sno_floor(num) == num && num >= 0 && num <= UINT8_MAX)

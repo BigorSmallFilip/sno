@@ -1208,6 +1208,59 @@ void sno_no_return sno_throw_syntax_error_open_close(
 
 
 
+void sno_no_return sno_throw_runtime_error(
+	sno_State* state,
+	const char* format,
+	...
+) {
+	sno_assert_ptr(state);
+	sno_assert_ptr(format);
+	va_list args;
+	char msg[sno_STACK_BUFFER_LENGTH];
+	va_start(args, format);
+	int msg_len = 0;
+	msg_len += vsnprintf(msg + msg_len, sno_STACK_BUFFER_LENGTH - msg_len - 1, format, args);
+	va_end(args);
+	sno_throw(state, sno_create_string(state, msg, msg_len));
+}
+
+static uint32_t find_line_number(const char* string, const char* at) {
+	sno_assert_ptr(string);
+	sno_assert_ptr(at);
+
+}
+
+void sno_no_return sno_throw_runtime_error_at(
+	sno_State* state,
+	const sno_String* source_code,
+	const uint32_t offset,
+	const char* format,
+	...
+) {
+	sno_assert_ptr(state);
+	sno_assert_ptr(source_code);
+	sno_assert_ptr(format);
+	va_list args;
+	char msg[sno_STACK_BUFFER_LENGTH];
+	va_start(args, format);
+	int msg_len = 0;
+	msg_len += sprint_and_underline_view_on_line(
+		msg + msg_len,
+		sno_STACK_BUFFER_LENGTH - 1 - msg_len,
+		sno_string_chars(source_code),
+		source_code->length,
+		0,
+		0,
+		sno_string_chars(source_code) + offset,
+		1
+	);
+	msg_len += vsnprintf(msg + msg_len, sno_STACK_BUFFER_LENGTH - 1 - msg_len, format, args);
+	va_end(args);
+	sno_throw(state, sno_create_string(state, msg, msg_len));
+}
+
+
+
 
 
 static void print_source_code_throws(

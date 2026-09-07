@@ -195,6 +195,22 @@ void sno_no_return sno_throw_syntax_error_open_close(
 	...
 );
 
+void sno_no_return sno_throw_runtime_error(
+	struct sno_State* state,
+	const char* format,
+	...
+);
+
+void sno_no_return sno_throw_runtime_error_at(
+	struct sno_State* state,
+	const struct sno_String* source_code,
+	const uint32_t offset,
+	const char* format,
+	...
+);
+
+
+
 struct sno_Bytecode* sno_parse_source_code(
 	struct sno_State* state,
 	const struct sno_String* name,

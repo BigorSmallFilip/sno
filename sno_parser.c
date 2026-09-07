@@ -269,17 +269,19 @@ static void exit_block(sno_Compiler* cs) {
 
 
 
-static void init_bytecode(sno_State* state, sno_Compiler* cs) {
+static void init_bytecode(sno_State* state, sno_Tokenizer* ts, sno_Compiler* cs) {
 	sno_Bytecode* bytecode = sno_alloc_type(state, sno_Bytecode);
 	bytecode->max_stack_needed = 64;
 	bytecode->local_var_slots_needed = 0;
+	bytecode->source_code = ts->source_code;
+	bytecode->name = ts->source_code_name;
 	cs->bytecode = bytecode;
 }
 
 static void init_function_compiler(sno_Tokenizer* ts, sno_Compiler* cs) {
 	sno_State* state = ts->main_state;
 	cs->ts = ts;
-	init_bytecode(state, cs);
+	init_bytecode(state, ts, cs);
 	cs->num_active_local_var_slots = 1;
 	cs->max_active_local_var_slots = 1;
 	cs->current_stack_idx = 0;
@@ -541,9 +543,10 @@ static sno_BinOp parse_subexpression(sno_Tokenizer* ts, unsigned int precedence)
 	sno_BinOp binary_op = get_binop(ts->cur_token.type);
 	while (binary_op != sno_NOT_BINOP && operator_precedence[binary_op].left > precedence) {
 		sno_BinOp next_op;
+		const char* binary_op_at = ts->cur_token.source_code;
 		sno_read_next_token(ts);
 		next_op = parse_subexpression(ts, operator_precedence[binary_op].right);
-		emit_instruction_1(ts, sno_I_BINOP, binary_op);
+		emit_instruction_1_at(ts, sno_I_BINOP, binary_op, binary_op_at);
 		binary_op = next_op;
 	}
 	return binary_op;
@@ -1012,7 +1015,6 @@ struct sno_Bytecode* sno_parse_source_code(
 
 		bytecode = parse_source_code(&ts);
 	} else {
-		sno_print_exception_msg(state);
 		success = sno_FALSE;
 	}
 

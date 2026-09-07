@@ -26,4 +26,10 @@ void sno_print_string_interning_table(const struct sno_State* state);
 const sno_String* sno_create_string(struct sno_State* state, const char* string, size_t length);
 #define sno_create_string_from_literal(state, string) (sno_create_string(state, sno_str_comma_len(string)))
 
+const sno_String* sno_load_string_from_file(
+	struct sno_State* state,
+	const char* const path,
+	size_t path_length
+);
+
 #endif

@@ -5,3 +5,4 @@
 #include "sno_parser.c"
 #include "sno_tokenizer.c"
 #include "sno_value.c"
+#include "sno_vm.c"

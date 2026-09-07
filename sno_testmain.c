@@ -76,28 +76,15 @@ EMSCRIPTEN_EXPORT int main(int argc, char** argv) {
 
 	sno_State* state = sno_create_state();
 
-	size_t source_code_length = 0;
-	const char* const source_code_string = load_string_from_file(
-		state,
-		"test.sno",
-		&source_code_length
-	);
-
-	const sno_String* name = sno_create_string_from_literal(state, "test.sno");
-	const sno_String* source_code = sno_create_string(state, source_code_string, source_code_length);
+	if (!sno_run_file(state, sno_str_comma_len("test.sno"))) {
+		sno_print_exception_msg(state);
+		return -1;
+	}
 
 	//printf("%.*s\n", (unsigned int)source_code->length, sno_string_chars(source_code));
 	
 	//sno_print_source_code(state, name, source_code);
 	
-	if (!sno_try_compile_source_code(state, name, source_code)) {
-		sno_print_exception_msg(state);
-		return -1;
-	} else {
-
-	}
-	
-
 	sno_free_state(state);
 
 	return 0;

@@ -186,3 +186,38 @@ const sno_String* sno_create_string(sno_State* state, const char* string, size_t
 	}
 	return create_new_interned_string(state, string, length, hash, iter);
 }
+
+const sno_String* sno_load_string_from_file(
+	sno_State* state,
+	const char* const path,
+	size_t path_length
+) {
+	sno_assert_ptr(state);
+	sno_assert_ptr(path);
+	char path_zero[sno_STACK_BUFFER_LENGTH];
+	memcpy(path_zero, path, path_length);
+	path_zero[path_length] = '\0';
+	FILE* file = fopen(path_zero, "r");
+	if (!file) {
+		return NULL;
+	}
+	fseek(file, 0L, SEEK_END);
+	long size = ftell(file);
+	sno_assert(size >= 0);
+	rewind(file);
+	sno_assert(size >= 0);
+	char* filebuffer = (char*)sno_malloc(state, (size_t)size);
+	if (!filebuffer) {
+		fclose(file);
+		return NULL;
+	}
+	size_t readsize = fread(filebuffer, sizeof(char), (size_t)size, file);
+	sno_assert(readsize <= ULONG_MAX);
+	if (ferror(file) != 0) {
+		sno_free(state, filebuffer);
+		fclose(file);
+		return NULL;
+	}
+	fclose(file);
+	return sno_create_string(state, filebuffer, readsize);
+}
