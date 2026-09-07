@@ -1018,7 +1018,7 @@ static int sprint_and_underline_view_on_line(
 		buffer_size,
 		source_code,
 		source_code_length,
-		line,
+		source_view - source_code,
 		source_view,
 		NULL,
 		&spaces_before_token,

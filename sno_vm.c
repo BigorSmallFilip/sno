@@ -98,7 +98,11 @@ static void print_instruction(const sno_Bytecode* bytecode, const sno_Instructio
 	sno_Instruction instruction = *i;
 	uint8_t op = instruction & 0xFF;
 	uint8_t arg = instruction >> 8;
-	printf("%u > %s ", (unsigned int)(i - bytecode->instructions), sno_instruction_names[op]);
+	printf("%4u %4u > %s ",
+		(unsigned int)(i - bytecode->instructions),
+		(unsigned int)bytecode->instruction_source_code_offsets[i - bytecode->instructions],
+		sno_instruction_names[op]
+	);
 	switch (op) {
 	case sno_I_LOAD_NUMBER: {
 		printf("%g", bytecode->number_constants[arg]);
@@ -259,7 +263,7 @@ void sno_execute(sno_State* state, uint8_t num_args) {
 				sno_throw_runtime_error_at(
 					state,
 					bytecode->source_code,
-					bytecode->instruction_source_code_offsets[pc - bytecode->instructions],
+					bytecode->instruction_source_code_offsets[pc - 1 - bytecode->instructions],
 					"A global variable with this name already exists"
 				);
 			}
@@ -277,7 +281,7 @@ void sno_execute(sno_State* state, uint8_t num_args) {
 					sno_throw_runtime_error_at(
 						state,
 						bytecode->source_code,
-						bytecode->instruction_source_code_offsets[pc - bytecode->instructions],
+						bytecode->instruction_source_code_offsets[pc - 1 - bytecode->instructions],
 						"Attempted to %s %s and %s",
 						sno_binop_fancy_names[arg],
 						sno_type_strings_noun[type_l],

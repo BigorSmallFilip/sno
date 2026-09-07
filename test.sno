@@ -1,2 +1,7 @@
 
-var a = 20 + 305
+var b = 34 + 35
+
+var condition = true
+if condition {
+	print("what")
+}
