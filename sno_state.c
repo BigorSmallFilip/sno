@@ -3,14 +3,20 @@
 #include "sno_mem.h"
 #include "sno_parser.h"
 #include "sno_vm.h"
+#include "sno_lib.h"
 #include <stdarg.h>
 
 static void init_stack(sno_State* state, uint32_t capacity);
+
+static void sno_load_core_libs(sno_State* state) {
+	sno_load_lib_into_global_scope(state, &sno_lib_core);
+}
 
 sno_API sno_State* sno_create_state() {
 	sno_State* state = sno_alloc_type(NULL, sno_State);
 	sno_init_string_interning_table(state, 64);
 	init_stack(state, 128);
+	sno_load_core_libs(state);
 	return state;
 }
 
@@ -57,6 +63,50 @@ sno_API void sno_free_state(sno_State* state) {
 
 
 
+sno_API void sno_create_new_global(sno_State* state, const sno_String* name, const sno_Value* value) {
+	sno_Value key;
+	key.type = sno_VT_STRING;
+	key.v.u_string = name;
+	if (sno_table_set_or_add_key(state, state->globals, &key, value)) {
+		sno_throw_runtime_error(
+			state,
+			"A global variable named '%.*s' already exists",
+			name->length,
+			sno_string_chars(name)
+		);
+	}
+}
+
+sno_API void sno_set_global(sno_State* state, const sno_String* name, const sno_Value* value) {
+	sno_Value key;
+	key.type = sno_VT_STRING;
+	key.v.u_string = name;
+	if (!sno_table_set(state->globals, &key, value)) {
+		sno_throw_runtime_error(
+			state,
+			"Couldn't find global variable '%.*s'",
+			name->length,
+			sno_string_chars(name)
+		);
+	}
+}
+
+sno_API void sno_get_global(sno_State* state, const sno_String* name, const sno_Value* out_value) {
+	sno_Value key;
+	key.type = sno_VT_STRING;
+	key.v.u_string = name;
+	if (!sno_table_set(state->globals, &key, out_value)) {
+		sno_throw_runtime_error(
+			state,
+			"Couldn't find global variable '%.*s'",
+			name->length,
+			sno_string_chars(name)
+		);
+	}
+}
+
+
+
 sno_API void sno_print_globals(const sno_State* state) {
 	sno_assert_ptr(state);
 
@@ -92,6 +142,31 @@ sno_API sno_Bool sno_try_compile_source_code(
 	return sno_TRUE;
 }
 
+sno_API void sno_call(sno_State* state, uint8_t num_args, uint8_t num_returns) {
+	sno_assert_ptr(state);
+	sno_assert(num_args < sno_MAX_STACK_ARGS);
+	sno_assert(num_returns < sno_MAX_STACK_ARGS);
+
+	sno_Value* base = sno_stack_base(state);
+	if (base->type != sno_VT_FUNCTION) {
+		sno_throw_runtime_error(
+			state,
+			"Tried to call something which wasn't a function"
+		);
+	}
+	sno_Function* function = base->v.u_function;
+	uint8_t num_real_returns = 0;
+	if (function->is_c_function) {
+		sno_CFunction* c_function = function->u.c_function;
+		num_real_returns = c_function(state, num_args);
+	} else {
+		num_real_returns = sno_execute(state, num_args);
+	}
+	for (uint8_t i = num_real_returns; i < num_returns; i++) {
+		sno_set_none(base[i]);
+	}
+}
+
 sno_API sno_Bool sno_run_file(
 	sno_State* state,
 	const char* const path,
@@ -105,6 +180,7 @@ sno_API sno_Bool sno_run_file(
 	}
 	sno_set_none(base[1]);
 	sno_execute(state, 0);
+	return sno_TRUE;
 }
 
 sno_API sno_no_return void sno_throw(sno_State* state, const sno_String* exception_msg) {

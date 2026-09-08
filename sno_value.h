@@ -92,7 +92,7 @@ sno_Bool sno_table_remove(struct sno_State* state, sno_Table* table, const sno_V
 
 
 
-typedef void(sno_CFunction)(struct sno_State*, int);
+typedef uint8_t(sno_CFunction)(struct sno_State*, uint8_t);
 
 typedef struct sno_Function {
 	sno_gc_header;

@@ -1,7 +1,2 @@
 
-var b = 34 + 35
-
-var condition = true
-if condition {
-	print("what")
-}
+print(10, "what", 5 + 5)

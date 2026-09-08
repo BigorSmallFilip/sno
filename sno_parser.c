@@ -231,10 +231,15 @@ static sno_Bool recursive_search_local_variable(sno_Compiler* cs, const sno_Stri
 	return sno_FALSE;
 }
 
-static void identifier(sno_Tokenizer* ts, const sno_String* name) {
-	if (!recursive_search_local_variable(ts->cs, name)) {
+static void identifier(sno_Tokenizer* ts, const sno_Token* name) {
+	if (!recursive_search_local_variable(ts->cs, name->info.u_string)) {
 		// Nothing found so treat it like a global
-		emit_instruction_1(ts, sno_I_GET_GLOBAL, add_string_constant(ts->cs, name));
+		emit_instruction_1_at(
+			ts,
+			sno_I_GET_GLOBAL,
+			add_string_constant(ts->cs, name->info.u_string),
+			name->source_code
+		);
 	}
 }
 
@@ -272,7 +277,7 @@ static void exit_block(sno_Compiler* cs) {
 static void init_bytecode(sno_State* state, sno_Tokenizer* ts, sno_Compiler* cs) {
 	sno_Bytecode* bytecode = sno_alloc_type(state, sno_Bytecode);
 	bytecode->max_stack_needed = 64;
-	bytecode->local_var_slots_needed = 0;
+	bytecode->local_var_slots = 0;
 	bytecode->source_code = ts->source_code;
 	bytecode->name = ts->source_code_name;
 	cs->bytecode = bytecode;
@@ -325,7 +330,7 @@ static void free_function_compiler(sno_Tokenizer* ts, sno_Compiler* cs) {
 	bc->instruction_source_code_offsets = sno_malloc(state, sizeof(bc->instruction_source_code_offsets[0]) * cs->instructions.count);
 	memcpy(bc->instruction_source_code_offsets, cs->instruction_source_code_offsets.buffer, sizeof(bc->instruction_source_code_offsets[0]) * cs->instructions.count);
 
-	bc->local_var_slots_needed = cs->max_active_local_var_slots;
+	bc->local_var_slots = cs->max_active_local_var_slots;
 	bc->local_vars = sno_malloc(state, sizeof(bc->local_vars[0]) * cs->local_vars.count);
 	bc->num_local_vars = cs->local_vars.count;
 	memcpy(bc->local_vars, cs->local_vars.buffer, sizeof(bc->local_vars[0]) * cs->local_vars.count);
@@ -426,7 +431,7 @@ static void parse_operand_primary(sno_Tokenizer* ts) {
 		return; // Skip reading the '}'
 	}
 	case sno_TK_IDENTIFIER: {
-		identifier(ts, ts->cur_token.info.u_string);
+		identifier(ts, &ts->cur_token);
 		break;
 	}
 	case sno_TK_SELF: {
@@ -622,12 +627,10 @@ static void parse_while_statement(sno_Tokenizer* ts) {
 	parse_expression(ts);
 	uint32_t condition_jump_from = emit_instruction(ts, sno_I_JUMP_IF_FALSE);
 	parse_brace_block(ts, sno_TRUE);
-	uint32_t back_from = ts->cs->instructions.count;
-	int8_t back_offset = back_to - back_from;
-	uint32_t jump_back = emit_instruction_1(ts, sno_I_JUMP, (uint8_t)back_offset);
-	sno_Instruction* instruction = ts->cs->instructions.buffer;
-	uint32_t condition_jump_to = ts->cs->instructions.count;
-	instruction[condition_jump_from] |= ((int8_t)(condition_jump_to - condition_jump_from)) << 8;
+	uint32_t back_from = emit_instruction(ts, sno_I_JUMP);
+	uint32_t condition_jump_to = back_from + 1;
+	set_jump_dst(ts, back_from, back_to);
+	set_jump_dst(ts, condition_jump_from, condition_jump_to);
 }
 
 static void parse_break_statement(sno_Tokenizer* ts) {
@@ -666,7 +669,7 @@ static void parse_declaration_statement(sno_Tokenizer* ts) {
 		}
 		name_tokens[num_declarations] = ts->cur_token;
 		num_declarations++;
-		if (num_declarations > sno_MAX_ASSIGNMENTS_PER_STATEMENT) {
+		if (num_declarations > sno_MAX_STACK_ARGS) {
 			sno_throw_syntax_error_at_cur_token(
 				ts,
 				"Too many declarations in one statement. The max is 16"
@@ -724,7 +727,7 @@ static void parse_declaration_statement(sno_Tokenizer* ts) {
 		}
 		sno_Instruction* instructions = get_instruction_buffer(ts->cs);
 	}
-	sno_assert(num_declarations >= 1 && num_declarations <= sno_MAX_ASSIGNMENTS_PER_STATEMENT);
+	sno_assert(num_declarations >= 1 && num_declarations <= sno_MAX_STACK_ARGS);
 	for (int8_t i = (int8_t)num_declarations - 1; i >= 0; i--) {
 		sno_Token name_token = name_tokens[i];
 		if (ts->cs->current_block->is_global) {
@@ -783,7 +786,7 @@ static void parse_expression_statement(sno_Tokenizer* ts) {
 		sno_not_implemented;
 	}
 
-	sno_Instruction deferred_instructions[sno_MAX_ASSIGNMENTS_PER_STATEMENT];
+	sno_Instruction deferred_instructions[sno_MAX_STACK_ARGS];
 	// Defer the last instruction
 	deferred_instructions[0] = last_instruction;
 	ts->cs->instructions.count--;
@@ -792,7 +795,7 @@ static void parse_expression_statement(sno_Tokenizer* ts) {
 	while (1) {
 		if (ts->cur_token.type == sno_TK_COMMA) {
 			num_lhs++;
-			if (num_lhs > sno_MAX_ASSIGNMENTS_PER_STATEMENT) {
+			if (num_lhs > sno_MAX_STACK_ARGS) {
 				sno_throw_syntax_error_at_cur_token(
 					ts,
 					"Too many assignments in one statement. The max is 16"
@@ -810,7 +813,7 @@ static void parse_expression_statement(sno_Tokenizer* ts) {
 			break;
 		}
 	}
-	sno_assert(num_lhs < sno_MAX_ASSIGNMENTS_PER_STATEMENT);
+	sno_assert(num_lhs < sno_MAX_STACK_ARGS);
 	sno_assert(num_lhs > 1);
 	if (ts->cur_token.type != sno_TK_ASSIGN) {
 		if (sno_token_is_assignment(ts->cur_token.type)) {
@@ -846,7 +849,7 @@ static void parse_expression_statement(sno_Tokenizer* ts) {
 		if (ts->cur_token.type == sno_TK_COMMA) {
 			skip_token(ts, sno_TK_COMMA);
 			num_rhs++;
-			if (num_rhs > sno_MAX_ASSIGNMENTS_PER_STATEMENT) {
+			if (num_rhs > sno_MAX_STACK_ARGS) {
 				sno_throw_syntax_error_at_cur_token(
 					ts,
 					"Too many expressions in one statement. The max is 16"

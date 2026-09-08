@@ -6,3 +6,4 @@
 #include "sno_tokenizer.c"
 #include "sno_value.c"
 #include "sno_vm.c"
+#include "sno_lib.c"

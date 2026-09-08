@@ -171,6 +171,8 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="sno_lib.c" />
+    <ClCompile Include="sno_lib_core.c" />
     <ClCompile Include="sno_mem.c" />
     <ClCompile Include="sno_parser.c" />
     <ClCompile Include="sno_state.c" />
@@ -181,6 +183,7 @@
     <ClCompile Include="sno_vm.c" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="sno_lib.h" />
     <ClInclude Include="sno_mem.h" />
     <ClInclude Include="sno_parser.h" />
     <ClInclude Include="sno_state.h" />

@@ -187,7 +187,6 @@ void sno_print_value(const sno_Value* v) {
 	//case sno_VT_TABLE: sno_PrintTable(v->v.u_table); break;
 	default: printf("0x%p", v->v.u_ptr); break;
 	}
-	sno_unreachable;
 }
 
 sno_Bool sno_value_equals(const sno_Value* a, const sno_Value* b) {

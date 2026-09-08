@@ -194,7 +194,7 @@ void sno_print_bytecode(const sno_Bytecode* bytecode) {
 	printf("  ]\n");
 }
 
-void sno_execute(sno_State* state, uint8_t num_args) {
+uint8_t sno_execute(sno_State* state, uint8_t num_args) {
 	sno_Value* base = state->stack + state->stack_base;
 	if (base->type != sno_VT_FUNCTION) {
 		sno_throw_runtime_error(state, "Called sno_execute on something which wasn't a function");
@@ -252,6 +252,67 @@ void sno_execute(sno_State* state, uint8_t num_args) {
 			sno_set_function(*stack_ptr, function);
 			break;
 		}
+		case sno_I_NEW_ARRAY: {
+			break;
+		}
+		case sno_I_NEW_TABLE: {
+			break;
+		}
+		case sno_I_POP: {
+			stack_ptr--;
+			break;
+		}
+
+		case sno_I_GET_LOCAL: {
+			sno_assert(arg < bytecode->local_var_slots);
+			stack_ptr++;
+			*stack_ptr = locals[arg];
+			break;
+		}
+		case sno_I_SET_LOCAL: {
+			sno_assert(arg < bytecode->local_var_slots);
+			locals[arg] = *stack_ptr;
+			stack_ptr--;
+			break;
+		}
+		case sno_I_GET_GLOBAL: {
+			sno_assert(arg < bytecode->num_string_constants);
+			const sno_String* name = bytecode->string_constants[arg];
+			sno_Value key;
+			key.type = sno_VT_STRING;
+			key.v.u_string = name;
+			stack_ptr++;
+			if (!sno_table_get(state->globals, &key, stack_ptr)) {
+				sno_throw_runtime_error_at(
+					state,
+					bytecode->source_code,
+					bytecode->instruction_source_code_offsets[pc - 1 - bytecode->instructions],
+					"Couldn't find any variable named '%.*s'",
+					name->length,
+					sno_string_chars(name)
+				);
+			}
+			break;
+		}
+		case sno_I_SET_GLOBAL: {
+			sno_assert(arg < bytecode->num_string_constants);
+			const sno_String* name = bytecode->string_constants[arg];
+			sno_Value key;
+			key.type = sno_VT_STRING;
+			key.v.u_string = name;
+			if (!sno_table_set(state->globals, &key, stack_ptr)) {
+				sno_throw_runtime_error_at(
+					state,
+					bytecode->source_code,
+					bytecode->instruction_source_code_offsets[pc - 1 - bytecode->instructions],
+					"Couldn't find any variable named '%.*s'",
+					name->length,
+					sno_string_chars(name)
+				);
+			}
+			stack_ptr--;
+			break;
+		}
 
 		case sno_I_NEW_GLOBAL: {
 			sno_assert(arg < bytecode->num_string_constants);
@@ -264,7 +325,9 @@ void sno_execute(sno_State* state, uint8_t num_args) {
 					state,
 					bytecode->source_code,
 					bytecode->instruction_source_code_offsets[pc - 1 - bytecode->instructions],
-					"A global variable with this name already exists"
+					"A global variable named '%.*s' already exists",
+					name->length,
+					sno_string_chars(name)
 				);
 			}
 			stack_ptr--;
@@ -313,8 +376,33 @@ void sno_execute(sno_State* state, uint8_t num_args) {
 			}
 			break;
 		}
+
+		case sno_I_JUMP: {
+			pc += (int8_t)arg;
+			break;
+		}
+		case sno_I_JUMP_IF_FALSE: {
+			if (!sno_value_to_bool(stack_ptr)) {
+				pc += (int8_t)arg;
+			}
+			stack_ptr--;
+			break;
+		}
+
+		case sno_I_CALL: {
+			uint8_t num_args = arg & 0x0F;
+			uint8_t num_returns = arg >> 4;
+			uint32_t saved_base = state->stack_base;
+			uint32_t stack_idx = stack_ptr - state->stack;
+			state->stack_base = stack_idx - (num_args + 1);
+			sno_call(state, num_args, num_returns);
+			state->stack_base = saved_base;
+			stack_ptr = state->stack + saved_base;
+			break;
+		}
 		case sno_I_RETURN: {
-			return;
+			sno_assert(arg < sno_MAX_STACK_ARGS);
+			return arg;
 		}
 		default: {
 			sno_throw_runtime_error(state, "Invalid instruction executed");
