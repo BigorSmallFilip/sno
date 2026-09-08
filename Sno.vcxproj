@@ -172,7 +172,11 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="sno_lib.c" />
+    <ClCompile Include="sno_lib_array.c" />
     <ClCompile Include="sno_lib_core.c" />
+    <ClCompile Include="sno_lib_math.c" />
+    <ClCompile Include="sno_lib_string.c" />
+    <ClCompile Include="sno_lib_table.c" />
     <ClCompile Include="sno_mem.c" />
     <ClCompile Include="sno_parser.c" />
     <ClCompile Include="sno_state.c" />

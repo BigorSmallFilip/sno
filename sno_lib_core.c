@@ -1,5 +1,4 @@
 #include "sno_lib.h"
-
 #include "sno_state.h"
 
 uint8_t snol_core_print(sno_State* state, uint8_t num_args) {

@@ -494,7 +494,13 @@ uint8_t sno_execute(sno_State* state, uint8_t num_args) {
 				break;
 			}
 			default:
-				sno_not_implemented;
+				sno_throw_runtime_error_at(
+					state,
+					bytecode->source_code,
+					bytecode->instruction_source_code_offsets[pc - bytecode->instructions],
+					"Cannot get fields on %s",
+					sno_type_strings_noun[stack_ptr->type]
+				);
 				break;
 			}
 			break;
@@ -523,7 +529,13 @@ uint8_t sno_execute(sno_State* state, uint8_t num_args) {
 				break;
 			}
 			default:
-				sno_not_implemented;
+				sno_throw_runtime_error_at(
+					state,
+					bytecode->source_code,
+					bytecode->instruction_source_code_offsets[pc - bytecode->instructions],
+					"Cannot set fields on %s",
+					sno_type_strings_noun[stack_ptr->type]
+				);
 				break;
 			}
 			break;

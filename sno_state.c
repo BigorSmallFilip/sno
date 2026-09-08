@@ -10,6 +10,10 @@ static void init_stack(sno_State* state, uint32_t capacity);
 
 static void sno_load_core_libs(sno_State* state) {
 	sno_load_lib_into_global_scope(state, &sno_lib_core);
+	sno_load_lib_into_global_scope(state, &sno_lib_math);
+	state->string_prototype = sno_load_lib_into_table(state, &sno_lib_string);
+	state->array_prototype = sno_load_lib_into_table(state, &sno_lib_array);
+	state->table_prototype = sno_load_lib_into_table(state, &sno_lib_table);
 }
 
 sno_API sno_State* sno_create_state() {

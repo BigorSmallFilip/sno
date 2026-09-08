@@ -27,6 +27,9 @@ typedef struct sno_State {
 	const sno_String* exception_msg;
 	sno_ExceptionJump* exception_jump;
 	sno_Table* globals;
+	sno_Table* string_prototype;
+	sno_Table* array_prototype;
+	sno_Table* table_prototype;
 } sno_State;
 
 sno_API sno_State* sno_create_state();

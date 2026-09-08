@@ -16,6 +16,9 @@ typedef struct sno_Library {
 #define sno_LibEnd { 0 }
 
 extern const sno_Library sno_lib_core[];
+extern const sno_Library sno_lib_string[];
+extern const sno_Library sno_lib_array[];
+extern const sno_Library sno_lib_table[];
 extern const sno_Library sno_lib_math[];
 
 void sno_load_lib_into_global_scope(struct sno_State* state, const sno_Library* lib);
