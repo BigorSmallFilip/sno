@@ -1,11 +1,38 @@
 
-var a = { a = 1 }
-var b = { b = 2 }
-var c = { c = 3 }
-var d = { d = 4 }
+function many() {
+	return 1, 2, 3, 4, 5, 6, 7, 8, 9, 10
+}
 
-a, b = b, a
 
-a.a, b.b = c.c, d.d
+var a = { a = 0 }
+var	b = { b = 0 }
+var	c = { c = 0 }
+var	d = { d = 0 }
+var	e = { e = 0 }
+var	f = { f = 0 }
+var	g = { g = 0 }
+var	h = { h = 0 }
+var	i = { i = 0 }
+var	j = { j = 0 }
 
-print(a)
+a.a,
+b.b,
+c.c,
+d.d,
+e.e,
+f.f,
+g.g,
+h.h,
+i.i,
+j.j = many()
+
+print("a = ", a)
+print("b = ", b)
+print("c = ", c)
+print("d = ", d)
+print("e = ", e)
+print("f = ", f)
+print("g = ", g)
+print("h = ", h)
+print("i = ", i)
+print("j = ", j)

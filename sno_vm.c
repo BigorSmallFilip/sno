@@ -271,7 +271,7 @@ uint8_t sno_execute(sno_State* state, uint8_t num_args) {
 		uint8_t opcode = i & 0xFF;
 		uint8_t arg = i >> 8;
 		
-		printf("stack %02u   | ", (unsigned int)(stack_ptr - state->stack)); print_instruction(bytecode, pc);
+		//printf("stack %02u   | ", (unsigned int)(stack_ptr - state->stack)); print_instruction(bytecode, pc);
 		pc++;
 
 		switch (opcode) {
@@ -396,21 +396,30 @@ uint8_t sno_execute(sno_State* state, uint8_t num_args) {
 			sno_Value* caks = stack_ptr - arg;
 
 			uint8_t num = 0;
-			sno_Value shuffled[sno_MAX_STACK_ARGS];
-			memcpy(values, stack_ptr - arg + 1, sizeof(sno_Value) * 2);
-			
-			// Containers and keys
-			sno_Value caks[sno_MAX_STACK_ARGS * 2];
+			sno_Value shuffled[sno_MAX_STACK_ARGS * 3];
 			for (uint8_t i = 0; i < arg; i++) {
-				switch ((*(pc + i)) >> 8) {
+				shuffled[sno_MAX_STACK_ARGS * 3 - ++num] = *values;
+				values--;
+				//printf("GAGAGA %i\n", *(pc + i) >> 8);
+				switch ((*(pc + i)) & 0xFF) {
 				case sno_I_SET_LOCAL:
 				case sno_I_SET_GLOBAL:
-					ordered[num_ordered++] = 
+					break;
+				case sno_I_SET_FIELD:
+					shuffled[sno_MAX_STACK_ARGS * 3 - ++num] = *caks; caks--;
+					break;
+				case sno_I_SET_INDEX:
+					shuffled[sno_MAX_STACK_ARGS * 3 - ++num] = *caks; caks--;
+					shuffled[sno_MAX_STACK_ARGS * 3 - ++num] = *caks; caks--;
+					break;
 				default:
+					sno_unreachable;
 					break;
 				}
 			}
-			
+			sno_Value* bottom = stack_ptr + 1 - num;
+			sno_Value* bottom_2 = caks + 1;
+			memcpy(bottom, shuffled + sno_MAX_STACK_ARGS * 3 - num, sizeof(sno_Value) * num);
 			break;
 		}
 
@@ -493,14 +502,15 @@ uint8_t sno_execute(sno_State* state, uint8_t num_args) {
 		case sno_I_SET_FIELD: {
 			sno_assert(arg < bytecode->num_string_constants);
 			sno_Value* value = stack_ptr;
-			stack_ptr--;
+			sno_Value* container = stack_ptr - 1;
+			stack_ptr -= 2;
 			const sno_String* key_name = bytecode->string_constants[arg];
 			sno_Value key;
 			key.type = sno_VT_STRING;
 			key.v.u_string = key_name;
-			switch (stack_ptr->type) {
+			switch (container->type) {
 			case sno_VT_TABLE: {
-				if (!sno_table_set(stack_ptr->v.u_table, &key, value)) {
+				if (!sno_table_set(container->v.u_table, &key, value)) {
 					sno_throw_runtime_error_at(
 						state,
 						bytecode->source_code,
@@ -530,6 +540,11 @@ uint8_t sno_execute(sno_State* state, uint8_t num_args) {
 				*result = ((sno_Value*)arr->items.buffer)[index];
 				break;
 			}
+			case sno_VT_TABLE: {
+				sno_Table* table = container->v.u_table;
+				sno_table_get(table, key, stack_ptr);
+				break;
+			}
 			default:
 				sno_throw_runtime_error_at(
 					state,
@@ -545,12 +560,17 @@ uint8_t sno_execute(sno_State* state, uint8_t num_args) {
 			sno_Value* value = stack_ptr;
 			sno_Value* key = stack_ptr - 1;
 			sno_Value* container = stack_ptr - 2;
-			stack_ptr -= 2;
+			stack_ptr -= 3;
 			switch (container->type) {
 			case sno_VT_ARRAY: {
 				sno_Array* arr = container->v.u_array;
 				size_t index = check_array_index(state, bytecode, pc, arr, key);
 				((sno_Value*)arr->items.buffer)[index] = *value;
+				break;
+			}
+			case sno_VT_TABLE: {
+				sno_Table* table = container->v.u_table;
+				sno_table_set_or_add_key(state, table, key, value);
 				break;
 			}
 			default:
@@ -639,6 +659,42 @@ uint8_t sno_execute(sno_State* state, uint8_t num_args) {
 			stack_ptr--;
 			break;
 		}
+		case sno_I_START_NUMERIC_FORLOOP: {
+			sno_Value* start = stack_ptr - 2;
+			sno_Value* stop = stack_ptr - 1;
+			sno_Value* step = stack_ptr - 0;
+			if (start->type != sno_VT_NUMBER ||
+				stop->type != sno_VT_NUMBER ||
+				step->type != sno_VT_NUMBER
+			) {
+				sno_throw_runtime_error_at(
+					state,
+					bytecode->source_code,
+					bytecode->instruction_source_code_offsets[pc - 1 - bytecode->instructions],
+					"For loop was given non number arguments"
+				);
+			}
+			if (start->v.u_number < stop->v.u_number) {
+				// Push the iter number for the STORE_LOCAL instruction after this
+				stack_ptr++;
+				sno_set_number(*stack_ptr, start->v.u_number);
+			} else {
+				stack_ptr -= 3; // Discard the loop variables
+				pc += (int8_t)arg; // Jump out
+			}
+			break;
+		}
+		case sno_I_END_NUMERIC_FORLOOP: {
+			sno_Value* start = stack_ptr - 2;
+			sno_Value* stop = stack_ptr - 1;
+			sno_Value* step = stack_ptr - 0;
+			sno_assert(start->type == sno_VT_NUMBER);
+			sno_assert(stop->type == sno_VT_NUMBER);
+			sno_assert(step->type == sno_VT_NUMBER);
+			start->v.u_number += step->v.u_number;
+			pc += (int8_t)arg;
+			break;
+		}
 
 		case sno_I_CALL: {
 			uint8_t num_args = arg & 0x0F;
@@ -648,11 +704,14 @@ uint8_t sno_execute(sno_State* state, uint8_t num_args) {
 			state->stack_base = stack_idx - (num_args + 1);
 			sno_call(state, num_args, num_returns);
 			state->stack_base = saved_base;
-			stack_ptr = state->stack + saved_base;
+			stack_ptr = state->stack + stack_idx - 2 - num_args + num_returns;
 			break;
 		}
 		case sno_I_RETURN: {
 			sno_assert(arg < sno_MAX_STACK_ARGS);
+			for (uint8_t i = 0; i < arg; i++) {
+				base[i] = stack_ptr[-arg + 1 + i];
+			}
 			return arg;
 		}
 		default: {
