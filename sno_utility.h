@@ -234,6 +234,8 @@ typedef int64_t sno_Int;
 #define sno_number_is_valid_i16(num) (sno_floor(num) == num && num >= INT16_MIN && num <= INT16_MAX)
 #define sno_number_is_valid_u32(num) (sno_floor(num) == num && num >= 0 && num <= UINT32_MAX)
 #define sno_number_is_valid_i32(num) (sno_floor(num) == num && num >= INT32_MIN && num <= INT32_MAX)
+#define sno_number_is_valid_u64(num) (sno_floor(num) == num && num >= 0 && num <= UINT64_MAX)
+#define sno_number_is_valid_i64(num) (sno_floor(num) == num && num >= INT64_MIN && num <= INT64_MAX)
 
 #define sno_is_power_of_2(num) (((num) & ((num) - 1)) == 0)
 

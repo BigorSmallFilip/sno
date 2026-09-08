@@ -313,6 +313,59 @@ uint8_t sno_execute(sno_State* state, uint8_t num_args) {
 			stack_ptr--;
 			break;
 		}
+		case sno_I_GET_INDEX: {
+			sno_Value* container = stack_ptr - 1;
+			sno_Value* key = stack_ptr;
+			stack_ptr--;
+			sno_Value* result = stack_ptr;
+			switch (container->type) {
+			case sno_VT_ARRAY: {
+				sno_Array* arr = container->v.u_array;
+				if (key->type != sno_VT_BOOL && key->type != sno_VT_NUMBER) {
+					sno_throw_runtime_error_at(
+						state,
+						bytecode->source_code,
+						bytecode->instruction_source_code_offsets[pc - bytecode->instructions],
+						"Cannot index into array with %s",
+						sno_type_strings_noun[container->type]
+					);
+				}
+				sno_Number index = key->v.u_number;
+				if (!sno_number_is_valid_u64(index)) {
+					sno_throw_runtime_error_at(
+						state,
+						bytecode->source_code,
+						bytecode->instruction_source_code_offsets[pc - bytecode->instructions],
+						"Array index must be an integer. Here it was %g",
+						index
+					);
+				}
+				uint64_t i_index = index;
+				sno_assert((sno_Number)i_index == index);
+				if (i_index >= arr->items.count) {
+					sno_throw_runtime_error_at(
+						state,
+						bytecode->source_code,
+						bytecode->instruction_source_code_offsets[pc - bytecode->instructions],
+						"Array index was out of bounds. Tried to index item %u but the array only has %i item(s)",
+						i_index,
+						arr->items.count
+					);
+				}
+				*result = ((sno_Value*)arr->items.buffer)[i_index];
+				break;
+			}
+			default:
+				sno_throw_runtime_error_at(
+					state,
+					bytecode->source_code,
+					bytecode->instruction_source_code_offsets[pc - bytecode->instructions],
+					"Cannot index into %s",
+					sno_type_strings_noun[container->type]
+				);
+			}
+			break;
+		}
 
 		case sno_I_NEW_GLOBAL: {
 			sno_assert(arg < bytecode->num_string_constants);

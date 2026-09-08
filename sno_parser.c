@@ -814,7 +814,7 @@ static void parse_expression_statement(sno_Tokenizer* ts) {
 		}
 	}
 	sno_assert(num_lhs < sno_MAX_STACK_ARGS);
-	sno_assert(num_lhs > 1);
+	sno_assert(num_lhs >= 1);
 	if (ts->cur_token.type != sno_TK_ASSIGN) {
 		if (sno_token_is_assignment(ts->cur_token.type)) {
 			// TODO: Better error message
