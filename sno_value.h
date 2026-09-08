@@ -64,6 +64,9 @@ typedef struct sno_Array {
 	sno_DynArray items;
 } sno_Array;
 
+sno_Array* sno_create_array(struct sno_State* state, size_t capacity);
+void sno_concat_array(struct sno_State* state, sno_Array* arr, sno_Value* items, size_t count);
+
 
 
 typedef struct sno_Table_Node {
@@ -90,6 +93,9 @@ sno_Bool sno_table_get(sno_Table* table, const sno_Value* key, sno_Value* out_va
 sno_Bool sno_table_has(sno_Table* table, const sno_Value* key);
 sno_Bool sno_table_remove(struct sno_State* state, sno_Table* table, const sno_Value* key);
 
+void sno_table_iter(sno_Table* table, size_t* bucket, sno_TableNode** node);
+void sno_table_next(sno_Table* table, size_t* bucket, sno_TableNode** node);
+
 
 
 typedef uint8_t(sno_CFunction)(struct sno_State*, uint8_t);
@@ -107,7 +113,7 @@ typedef struct sno_Function {
 
 
 
-void sno_print_value(const sno_Value* v);
+void sno_print_value(struct sno_State* state, const sno_Value* v);
 sno_Bool sno_value_equals(const sno_Value* a, const sno_Value* b);
 sno_Bool sno_value_to_bool(const sno_Value* v);
 sno_Hash sno_hash_value(const sno_Value* value);

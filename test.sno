@@ -1,2 +1,11 @@
 
-print(a[1])
+var a = { a = 1 }
+var b = { b = 2 }
+var c = { c = 3 }
+var d = { d = 4 }
+
+a, b = b, a
+
+a.a, b.b = c.c, d.d
+
+print(a)

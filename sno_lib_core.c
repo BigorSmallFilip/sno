@@ -4,7 +4,7 @@
 
 uint8_t snol_core_print(sno_State* state, uint8_t num_args) {
 	for (uint8_t i = 0; i < num_args; i++) {
-		sno_print_value(&sno_arg(i));
+		sno_print_value(state, &sno_arg(i));
 	}
 	putchar('\n');
 	return 0;

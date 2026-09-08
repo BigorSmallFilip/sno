@@ -1,6 +1,7 @@
 #include "sno_vm.h"
 
 #include "sno_parser.h"
+#include <string.h>
 #include <math.h>
 
 
@@ -63,10 +64,13 @@ const char* const sno_instruction_names[] = {
 	"LOAD_STRING",
 	"LOAD_FUNCTION",
 	"NEW_ARRAY",
+	"CONCAT_ARRAY",
 	"NEW_TABLE",
+	"CONCAT_TABLE",
 	"COPY",
 	"REV",
 	"POP",
+	"MULTI_ASSIGN_SHUFFLE",
 	"GET_LOCAL",
 	"SET_LOCAL",
 	"GET_GLOBAL",
@@ -142,6 +146,13 @@ static void print_instruction(const sno_Bytecode* bytecode, const sno_Instructio
 		printf("%ix", arg);
 		break;
 	}
+	case sno_I_POP: {
+		break;
+	}
+	case sno_I_MULTI_ASSIGN_SHUFFLE: {
+		printf("stack for %i assignment(s)", arg);
+		break;
+	}
 	case sno_I_BINOP: {
 		printf("%s", sno_binop_names[arg]);
 		break;
@@ -163,7 +174,9 @@ static void print_instruction(const sno_Bytecode* bytecode, const sno_Instructio
 		break;
 	}
 	case sno_I_NEW_ARRAY:
-	case sno_I_NEW_TABLE: {
+	case sno_I_CONCAT_ARRAY:
+	case sno_I_NEW_TABLE:
+	case sno_I_CONCAT_TABLE: {
 		printf("size %i", arg);
 		break;
 	}
@@ -194,6 +207,51 @@ void sno_print_bytecode(const sno_Bytecode* bytecode) {
 	printf("  ]\n");
 }
 
+
+
+size_t check_array_index(
+	sno_State* state,
+	sno_Bytecode* bytecode,
+	sno_Instruction* pc,
+	sno_Array* arr,
+	sno_Value* key
+) {
+	if (key->type != sno_VT_BOOL && key->type != sno_VT_NUMBER) {
+		sno_throw_runtime_error_at(
+			state,
+			bytecode->source_code,
+			bytecode->instruction_source_code_offsets[pc - bytecode->instructions],
+			"Cannot index into array with %s",
+			sno_type_strings_noun[key->type]
+		);
+	}
+	sno_Number index = key->v.u_number;
+	if (!sno_number_is_valid_u64(index)) {
+		sno_throw_runtime_error_at(
+			state,
+			bytecode->source_code,
+			bytecode->instruction_source_code_offsets[pc - bytecode->instructions],
+			"Array index must be an integer. Here it was %g",
+			index
+		);
+	}
+	uint64_t i_index = index;
+	sno_assert((sno_Number)i_index == index);
+	if (i_index >= arr->items.count) {
+		sno_throw_runtime_error_at(
+			state,
+			bytecode->source_code,
+			bytecode->instruction_source_code_offsets[pc - bytecode->instructions],
+			"Array index was out of bounds. Tried to index item %u but the array only has %i item(s)",
+			i_index,
+			arr->items.count
+		);
+	}
+	return i_index;
+}
+
+
+
 uint8_t sno_execute(sno_State* state, uint8_t num_args) {
 	sno_Value* base = state->stack + state->stack_base;
 	if (base->type != sno_VT_FUNCTION) {
@@ -203,6 +261,7 @@ uint8_t sno_execute(sno_State* state, uint8_t num_args) {
 	const sno_Bytecode* bytecode = function->u.bytecode;
 	sno_Instruction* pc = bytecode->instructions;
 	sno_Value* locals = base + 1;
+	uint8_t multi_assign_offset = 0;
 	sno_reserve_stack(state, bytecode->max_stack_needed);
 	// This stack pointer is bababa
 	sno_Value* stack_ptr = locals + num_args;
@@ -253,13 +312,105 @@ uint8_t sno_execute(sno_State* state, uint8_t num_args) {
 			break;
 		}
 		case sno_I_NEW_ARRAY: {
+			sno_assert(arg <= sno_MAX_STACK_CONSTRUCTOR_ARGS);
+			sno_Value* items_start = stack_ptr - arg;
+			stack_ptr -= (int)arg - 1;
+			sno_Array* arr = sno_create_array(state, 8);
+			if (arg > 0) {
+				sno_concat_array(state, arr, stack_ptr, arg);
+			}
+			sno_set_array(*stack_ptr, arr);
+			break;
+		}
+		case sno_I_CONCAT_ARRAY: {
+			sno_assert(arg <= sno_MAX_STACK_CONSTRUCTOR_ARGS);
+			sno_Value* items_start = stack_ptr - arg;
+			stack_ptr -= arg;
+			sno_assert(stack_ptr->type == sno_VT_ARRAY);
+			sno_Array* arr = stack_ptr->v.u_array;
+			if (arg > 0) {
+				sno_concat_array(state, arr, stack_ptr + 1, arg);
+			}
 			break;
 		}
 		case sno_I_NEW_TABLE: {
+			sno_assert(arg <= sno_MAX_STACK_CONSTRUCTOR_ARGS / 2);
+			sno_Value* items_start = stack_ptr - arg * 2;
+			stack_ptr -= (int)(arg * 2) - 1;
+			sno_Table* table = sno_create_table(state, 8);
+			for (uint8_t i = 0; i < arg; i++) {
+				if (sno_table_set_or_add_key(state, table, &stack_ptr[i * 2], &stack_ptr[i * 2 + 1])) {
+					sno_throw_runtime_error_at(
+						state,
+						bytecode->source_code,
+						bytecode->instruction_source_code_offsets[pc - 1 - bytecode->instructions],
+						"Repetead key"
+					);
+				}
+			}
+			sno_set_table(*stack_ptr, table);
+			break;
+		}
+		case sno_I_CONCAT_TABLE: {
+			sno_assert(arg <= sno_MAX_STACK_CONSTRUCTOR_ARGS / 2);
+			sno_Value* items_start = stack_ptr - arg * 2;
+			stack_ptr -= (int)(arg * 2) - 1;
+			sno_assert(stack_ptr->type == sno_VT_TABLE);
+			sno_Table* table = stack_ptr->v.u_table;
+			for (uint8_t i = 0; i < arg; i++) {
+				if (sno_table_set_or_add_key(state, table, &stack_ptr[i * 2], &stack_ptr[i * 2 + 1])) {
+					sno_throw_runtime_error_at(
+						state,
+						bytecode->source_code,
+						bytecode->instruction_source_code_offsets[pc - 1 - bytecode->instructions],
+						"Repetead key"
+					);
+				}
+			}
+			break;
+		}
+
+		case sno_I_COPY: {
+			for (uint8_t i = 0; i < arg; i++) {
+				stack_ptr++;
+				*stack_ptr = stack_ptr[-arg];
+			}
+			break;
+		}
+		case sno_I_REV: {
+			sno_Value* rev = stack_ptr - arg + 1;
+			for (uint8_t i = 0; i < arg >> 1; i++) {
+				sno_Value temp = stack_ptr[-i];
+				stack_ptr[-i] = rev[i];
+				rev[i] = temp;
+			}
 			break;
 		}
 		case sno_I_POP: {
 			stack_ptr--;
+			break;
+		}
+		case sno_I_MULTI_ASSIGN_SHUFFLE: {
+			sno_assert(arg >= 2 && arg <= sno_MAX_STACK_ARGS);
+			sno_Value* values = stack_ptr;
+			sno_Value* caks = stack_ptr - arg;
+
+			uint8_t num = 0;
+			sno_Value shuffled[sno_MAX_STACK_ARGS];
+			memcpy(values, stack_ptr - arg + 1, sizeof(sno_Value) * 2);
+			
+			// Containers and keys
+			sno_Value caks[sno_MAX_STACK_ARGS * 2];
+			for (uint8_t i = 0; i < arg; i++) {
+				switch ((*(pc + i)) >> 8) {
+				case sno_I_SET_LOCAL:
+				case sno_I_SET_GLOBAL:
+					ordered[num_ordered++] = 
+				default:
+					break;
+				}
+			}
+			
 			break;
 		}
 
@@ -313,6 +464,60 @@ uint8_t sno_execute(sno_State* state, uint8_t num_args) {
 			stack_ptr--;
 			break;
 		}
+		case sno_I_GET_FIELD: {
+			sno_assert(arg < bytecode->num_string_constants);
+			const sno_String* key_name = bytecode->string_constants[arg];
+			sno_Value key;
+			key.type = sno_VT_STRING;
+			key.v.u_string = key_name;
+			switch (stack_ptr->type) {
+			case sno_VT_TABLE: {
+				if (!sno_table_get(stack_ptr->v.u_table, &key, stack_ptr)) {
+					sno_throw_runtime_error_at(
+						state,
+						bytecode->source_code,
+						bytecode->instruction_source_code_offsets[pc - bytecode->instructions],
+						"Table has no field named %.*s",
+						key_name->length,
+						sno_string_chars(key_name)
+					);
+				}
+				break;
+			}
+			default:
+				sno_not_implemented;
+				break;
+			}
+			break;
+		}
+		case sno_I_SET_FIELD: {
+			sno_assert(arg < bytecode->num_string_constants);
+			sno_Value* value = stack_ptr;
+			stack_ptr--;
+			const sno_String* key_name = bytecode->string_constants[arg];
+			sno_Value key;
+			key.type = sno_VT_STRING;
+			key.v.u_string = key_name;
+			switch (stack_ptr->type) {
+			case sno_VT_TABLE: {
+				if (!sno_table_set(stack_ptr->v.u_table, &key, value)) {
+					sno_throw_runtime_error_at(
+						state,
+						bytecode->source_code,
+						bytecode->instruction_source_code_offsets[pc - bytecode->instructions],
+						"Table has no field named %.*s",
+						key_name->length,
+						sno_string_chars(key_name)
+					);
+				}
+				break;
+			}
+			default:
+				sno_not_implemented;
+				break;
+			}
+			break;
+		}
 		case sno_I_GET_INDEX: {
 			sno_Value* container = stack_ptr - 1;
 			sno_Value* key = stack_ptr;
@@ -321,38 +526,31 @@ uint8_t sno_execute(sno_State* state, uint8_t num_args) {
 			switch (container->type) {
 			case sno_VT_ARRAY: {
 				sno_Array* arr = container->v.u_array;
-				if (key->type != sno_VT_BOOL && key->type != sno_VT_NUMBER) {
-					sno_throw_runtime_error_at(
-						state,
-						bytecode->source_code,
-						bytecode->instruction_source_code_offsets[pc - bytecode->instructions],
-						"Cannot index into array with %s",
-						sno_type_strings_noun[container->type]
-					);
-				}
-				sno_Number index = key->v.u_number;
-				if (!sno_number_is_valid_u64(index)) {
-					sno_throw_runtime_error_at(
-						state,
-						bytecode->source_code,
-						bytecode->instruction_source_code_offsets[pc - bytecode->instructions],
-						"Array index must be an integer. Here it was %g",
-						index
-					);
-				}
-				uint64_t i_index = index;
-				sno_assert((sno_Number)i_index == index);
-				if (i_index >= arr->items.count) {
-					sno_throw_runtime_error_at(
-						state,
-						bytecode->source_code,
-						bytecode->instruction_source_code_offsets[pc - bytecode->instructions],
-						"Array index was out of bounds. Tried to index item %u but the array only has %i item(s)",
-						i_index,
-						arr->items.count
-					);
-				}
-				*result = ((sno_Value*)arr->items.buffer)[i_index];
+				size_t index = check_array_index(state, bytecode, pc, arr, key);
+				*result = ((sno_Value*)arr->items.buffer)[index];
+				break;
+			}
+			default:
+				sno_throw_runtime_error_at(
+					state,
+					bytecode->source_code,
+					bytecode->instruction_source_code_offsets[pc - bytecode->instructions],
+					"Cannot index into %s",
+					sno_type_strings_noun[container->type]
+				);
+			}
+			break;
+		}
+		case sno_I_SET_INDEX: {
+			sno_Value* value = stack_ptr;
+			sno_Value* key = stack_ptr - 1;
+			sno_Value* container = stack_ptr - 2;
+			stack_ptr -= 2;
+			switch (container->type) {
+			case sno_VT_ARRAY: {
+				sno_Array* arr = container->v.u_array;
+				size_t index = check_array_index(state, bytecode, pc, arr, key);
+				((sno_Value*)arr->items.buffer)[index] = *value;
 				break;
 			}
 			default:

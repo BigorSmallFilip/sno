@@ -379,6 +379,134 @@ static void parse_brace_block(sno_Tokenizer* ts, sno_Bool is_loop);
 
 
 
+static void parse_array_constructor(sno_Tokenizer* ts) {
+	skip_token(ts, sno_TK_LBRACKET);
+	const char* open = ts->prev_token.source_code;
+	sno_LineNumber line = ts->prev_token.line;
+	if (ts->cur_token.type == sno_TK_RBRACKET) {
+		skip_token(ts, sno_TK_RBRACKET);
+		emit_instruction_1_at(ts, sno_I_NEW_ARRAY, 0, ts->prev_token.source_code);
+		return;
+	}
+	uint32_t len = 1;
+	sno_Bool concat = sno_FALSE;
+	parse_expression(ts);
+	while (1) {
+		if (ts->cur_token.type == sno_TK_COMMA) {
+			skip_token(ts, sno_TK_COMMA);
+			if (ts->cur_token.type == sno_TK_RBRACKET) {
+				break;
+			}
+			parse_expression(ts);
+			len++;
+			if (len >= sno_MAX_STACK_CONSTRUCTOR_ARGS) {
+				emit_instruction_1_at(ts, sno_I_NEW_ARRAY + concat, len, ts->cur_token.source_code);
+				len = 0;
+				concat = sno_TRUE;
+			}
+		} else if (ts->cur_token.type == sno_TK_RBRACKET) {
+			break;
+		} else {
+			sno_throw_syntax_error_open_close(
+				ts,
+				open,
+				line,
+				ts->prev_token.source_code + sno_get_token_length(&ts->prev_token),
+				"Array is missing a closing ']'"
+			);
+		}
+
+	}
+	skip_token(ts, sno_TK_RBRACKET);
+	if (len > 0) {
+		emit_instruction_1_at(ts, sno_I_NEW_ARRAY + concat, len, ts->prev_token.source_code);
+	}
+	return len;
+}
+
+static void parse_key_value_pair(sno_Tokenizer* ts) {
+	if (ts->cur_token.type == sno_TK_IDENTIFIER) {
+		// String key
+		emit_instruction_string(ts, ts->cur_token.info.u_string);
+		skip_token(ts, sno_TK_IDENTIFIER);
+		/*if (ts->cur_token.stmt_end) {
+			identifier(ts, &ts->cur_token);
+		} else if (ts->next_token.type == sno_TK_COMMA) {
+			if (!ts->next_token.stmt_end) {
+				sno_throw_syntax_error_at_token(
+					ts,
+					&ts->next_token,
+					"This comma should be at the end of the previous line"
+				);
+			}
+			identifier(ts, &ts->cur_token);
+		}*/
+	} else if (ts->cur_token.type == sno_TK_LBRACKET) {
+		// Expression key
+		const char* open = ts->cur_token.source_code;
+		sno_LineNumber line = ts->cur_token.line;
+		parse_expression(ts);
+		const char* close = ts->cur_token.source_code;
+		sno_throw_syntax_error_open_close(
+			ts,
+			open,
+			line,
+			close,
+			"This key is missing its closing ']'"
+		);
+	}
+	if (ts->cur_token.type != sno_TK_ASSIGN) {
+		sno_throw_syntax_error_at_cur_token(ts, "Expected an assignment for this key");
+	}
+	skip_token(ts, sno_TK_ASSIGN);
+	parse_expression(ts);
+}
+
+static void parse_table_constructor(sno_Tokenizer* ts) {
+	skip_token(ts, sno_TK_LBRACE);
+	const char* open = ts->prev_token.source_code;
+	sno_LineNumber line = ts->prev_token.line;
+	if (ts->cur_token.type == sno_TK_RBRACE) {
+		skip_token(ts, sno_TK_RBRACE);
+		emit_instruction_1_at(ts, sno_I_NEW_TABLE, 0, ts->prev_token.source_code);
+		return;
+	}
+	uint32_t len = 1;
+	sno_Bool concat = sno_FALSE;
+	parse_key_value_pair(ts);
+	while (1) {
+		if (ts->cur_token.type == sno_TK_COMMA) {
+			skip_token(ts, sno_TK_COMMA);
+			if (ts->cur_token.type == sno_TK_RBRACE) {
+				break;
+			}
+			parse_key_value_pair(ts);
+			len++;
+			if (len >= sno_MAX_STACK_CONSTRUCTOR_ARGS / 2) {
+				emit_instruction_1_at(ts, sno_I_NEW_TABLE + concat, len, ts->cur_token.source_code);
+				len = 0;
+				concat = sno_TRUE;
+			}
+		} else if (ts->cur_token.type == sno_TK_RBRACE) {
+			break;
+		} else {
+			sno_throw_syntax_error_open_close(
+				ts,
+				open,
+				line,
+				ts->prev_token.source_code + sno_get_token_length(&ts->prev_token),
+				"Table is missing a closing '}'"
+			);
+		}
+
+	}
+	skip_token(ts, sno_TK_RBRACE);
+	if (len > 0) {
+		emit_instruction_1_at(ts, sno_I_NEW_TABLE + concat, len, ts->prev_token.source_code);
+	}
+	return len;
+}
+
 static void parse_operand_primary(sno_Tokenizer* ts) {
 	switch (ts->cur_token.type) {
 	case sno_TK_NONE: {
@@ -418,11 +546,11 @@ static void parse_operand_primary(sno_Tokenizer* ts) {
 		return;
 	}
 	case sno_TK_LBRACKET: {
-		//parse_array_constructor(ts);
+		parse_array_constructor(ts);
 		return; // Skip reading the ']'
 	}
 	case sno_TK_LBRACE: {
-		//parse_table_constructor(ts);
+		parse_table_constructor(ts);
 		return; // Skip reading the '}'
 	}
 	case sno_TK_FUNCTION: {
@@ -465,7 +593,16 @@ static void parse_operand(sno_Tokenizer* ts) {
 			break;
 		}
 		case sno_TK_DOT: { // Field or method call
-			
+			const char* dot_at = ts->cur_token.source_code;
+			skip_token(ts, sno_TK_DOT);
+			expect_token(ts, sno_TK_IDENTIFIER);
+			emit_instruction_1_at(
+				ts,
+				sno_I_GET_FIELD,
+				add_string_constant(ts->cs, ts->cur_token.info.u_string),
+				dot_at
+			);
+			skip_token(ts, sno_TK_IDENTIFIER);
 			break;
 		}
 		case sno_TK_LPAREN: { // Function call
@@ -877,7 +1014,8 @@ static void parse_expression_statement(sno_Tokenizer* ts) {
 			);
 		}
 	}
-	emit_instruction_1(ts, sno_I_REV, num_lhs);
+	//emit_instruction_1(ts, sno_I_REV, num_lhs);
+	emit_instruction_1(ts, sno_I_MULTI_ASSIGN_SHUFFLE, num_lhs);
 	for (int8_t i = num_lhs - 1; i >= 0; i--) {
 		sno_Instruction deferred_instruction = deferred_instructions[i];
 		emit_instruction(ts, deferred_instruction + 1);

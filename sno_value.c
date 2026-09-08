@@ -28,6 +28,26 @@ const char* const sno_type_strings_noun[7] = {
 
 
 
+sno_Array* sno_create_array(sno_State* state, size_t capacity) {
+	sno_assert_ptr(state);
+	sno_assert(sno_is_power_of_2(capacity));
+	sno_assert(capacity < sno_SIZE_T_LIMIT);
+	sno_assert(capacity >= 4);
+	sno_Array* arr = sno_alloc_type(state, sno_Array);
+	sno_assert_ptr(arr);
+	sno_dynarray_init(state, &arr->items, sizeof(sno_Value), capacity);
+	return arr;
+}
+
+void sno_concat_array(sno_State* state, sno_Array* arr, sno_Value* items, size_t count) {
+	sno_assert(count != 0);
+	sno_dynarray_reserve(state, &arr->items, sizeof(sno_Value), count);
+	memcpy(((sno_Value*)arr->items.buffer) + arr->items.count, items, sizeof(sno_Value) * count);
+	arr->items.count += count;
+}
+
+
+
 sno_Table* sno_create_table(sno_State* state, size_t capacity) {
 	sno_assert_ptr(state);
 	sno_assert(sno_is_power_of_2(capacity));
@@ -177,14 +197,98 @@ sno_Bool sno_table_remove(sno_State* state, sno_Table* table, const sno_Value* k
 
 
 
-void sno_print_value(const sno_Value* v) {
+void sno_table_iter(sno_Table* table, size_t* bucket, sno_TableNode** node) {
+	sno_assert_ptr(table);
+	sno_assert_ptr(bucket);
+	sno_assert_ptr(node);
+	for (*bucket = 0; *bucket < table->capacity_mask + 1; (*bucket)++) {
+		*node = &table->nodes[*bucket];
+		if ((*node)->exists) {
+			return;
+		}
+	}
+	*node = NULL;
+}
+
+void sno_table_next(sno_Table* table, size_t* bucket, sno_TableNode** node) {
+	sno_assert_ptr(table);
+	sno_assert_ptr(bucket);
+	sno_assert_ptr(node);
+	sno_assert_ptr(*node);
+	*node = (*node)->next;
+	if (!(*node)) {
+		// No node left in the linked list
+		// Search in the next buckets
+		(*bucket)++;
+		for (; *bucket < table->capacity_mask + 1; (*bucket)++) {
+			*node = &table->nodes[*bucket];
+			if ((*node)->exists) {
+				return;
+			}
+		}
+		*node = NULL;
+	}
+}
+
+
+
+static void print_array(sno_State* state, const sno_Array* arr) {
+	sno_assert_ptr(state);
+	sno_assert_ptr(arr);
+	if (arr->items.count == 0) {
+		printf("[]");
+		return;
+	}
+	printf("[");
+	for (size_t i = 0; i < arr->items.count; i++) {
+		if (i != 0) {
+			printf(", ");
+		}
+		const sno_Value* v = sno_dynarray_get(state, &arr->items, sizeof(sno_Value), i);
+		sno_print_value(state, v);
+	}
+	printf("]");
+}
+
+static void print_table(sno_State* state, const sno_Table* table) {
+	sno_assert_ptr(state);
+	sno_assert_ptr(table);
+	if (table->count == 0) {
+		printf("{}");
+		return;
+	}
+	printf("{");
+	size_t bucket = 0;
+	sno_TableNode* node = NULL;
+	sno_Bool first = sno_TRUE;
+	sno_table_iter(table, &bucket, &node);
+	while (node) {
+		sno_Value key;
+		key.type = node->key_type;
+		key.v.u_data = node->key_union.u_data;
+		sno_Value value;
+		value.type = node->value_type;
+		value.v.u_data = node->value_union.u_data;
+		if (!first) {
+			printf(", ");
+		}
+		sno_print_value(state, &key);
+		printf(" = ");
+		sno_print_value(state, &value);
+		sno_table_next(table, &bucket, &node);
+		first = sno_FALSE;
+	}
+	printf("}");
+}
+
+void sno_print_value(sno_State* state, const sno_Value* v) {
 	switch (v->type) {
 	case sno_VT_NONE: printf("none"); break;
 	case sno_VT_BOOL: printf(v->v.u_number != 0 ? "true" : "false"); break;
 	case sno_VT_NUMBER: printf("%g", v->v.u_number); break;
 	case sno_VT_STRING: printf("%.*s", (unsigned int)v->v.u_string->length, sno_string_chars(v->v.u_string)); break;
-	//case sno_VT_ARRAY: sno_PrintArray(v->v.u_array); break;
-	//case sno_VT_TABLE: sno_PrintTable(v->v.u_table); break;
+	case sno_VT_ARRAY: print_array(state, v->v.u_array); break;
+	case sno_VT_TABLE: print_table(state, v->v.u_table); break;
 	default: printf("0x%p", v->v.u_ptr); break;
 	}
 }

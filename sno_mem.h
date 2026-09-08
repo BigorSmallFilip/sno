@@ -21,6 +21,7 @@ typedef struct {
 
 void sno_dynarray_init(struct sno_State* state, sno_DynArray* dynarray, size_t element_size, size_t capacity);
 void sno_dynarray_resize(struct sno_State* state, sno_DynArray* dynarray, size_t element_size, size_t new_capacity);
+void sno_dynarray_reserve(struct sno_State* state, sno_DynArray* dynarray, size_t element_size, size_t free_space);
 void sno_dynarray_push_back(struct sno_State* state, sno_DynArray* dynarray, size_t element_size, const void* sno_restrict data);
 void sno_dynarray_push_back_no_resize(struct sno_State* state, sno_DynArray* dynarray, size_t element_size, const void* sno_restrict data);
 void sno_dynarray_push_back_ptr(struct sno_State* state, sno_DynArray* dynarray, const void* sno_restrict ptr);

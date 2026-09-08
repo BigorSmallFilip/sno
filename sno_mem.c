@@ -70,6 +70,21 @@ void sno_dynarray_resize(
 	dynarray->capacity = new_capacity;
 }
 
+void sno_dynarray_reserve(sno_State* state, sno_DynArray* dynarray, size_t element_size, size_t free_space) {
+	sno_assert_ptr(state);
+	sno_assert_ptr(dynarray);
+	sno_assert_ptr(dynarray->buffer);
+	sno_assert(dynarray->capacity >= sno_MIN_DYNARRAY_CAPACITY);
+	// TODO: Implement this better
+	size_t new_capacity = dynarray->capacity;
+try_again:
+	if (dynarray->count + free_space > new_capacity) {
+		new_capacity <<= 1;
+		goto try_again;
+	}
+	sno_dynarray_resize(state, dynarray, element_size, new_capacity);
+}
+
 void sno_dynarray_push_back(
 	sno_State* state,
 	sno_DynArray* dynarray,
