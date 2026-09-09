@@ -57,6 +57,9 @@
     <ClCompile Include="sno_lib_table.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="sno_gc.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="sno_mem.h">
@@ -81,6 +84,9 @@
       <Filter>Source Files</Filter>
     </ClInclude>
     <ClInclude Include="sno_lib.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="sno_gc.h">
       <Filter>Source Files</Filter>
     </ClInclude>
   </ItemGroup>
