@@ -425,7 +425,7 @@ static void parse_array_constructor(sno_Tokenizer* ts) {
 	if (len > 0) {
 		emit_instruction_1_at(ts, sno_I_NEW_ARRAY + concat, len, ts->prev_token.source_code);
 	}
-	return len;
+	return;
 }
 
 static void parse_key_value_pair(sno_Tokenizer* ts) {
@@ -508,7 +508,7 @@ static void parse_table_constructor(sno_Tokenizer* ts) {
 	if (len > 0) {
 		emit_instruction_1_at(ts, sno_I_NEW_TABLE + concat, len, ts->prev_token.source_code);
 	}
-	return len;
+	return;
 }
 
 static void parse_function_parameters(sno_Tokenizer* ts) {
@@ -516,7 +516,7 @@ static void parse_function_parameters(sno_Tokenizer* ts) {
 	int num_parameters = 1;
 	if (ts->cur_token.type == sno_TK_RPAREN) {
 		skip_token(ts, sno_TK_RPAREN);
-		return 0;
+		return;
 	}
 	if (ts->cur_token.type == sno_TK_COMMA) {
 		sno_throw_syntax_error_at_cur_token(ts, "Expected a parameter");
@@ -660,13 +660,13 @@ static void parse_operand(sno_Tokenizer* ts) {
 			const char* dot_at = ts->cur_token.source_code;
 			skip_token(ts, sno_TK_DOT);
 			expect_token(ts, sno_TK_IDENTIFIER);
-			emit_instruction_1_at(
-				ts,
-				sno_I_GET_FIELD,
-				add_string_constant(ts->cs, ts->cur_token.info.u_string),
-				dot_at
-			);
-			skip_token(ts, sno_TK_IDENTIFIER);
+			const sno_String* name = add_string_constant(ts->cs, ts->cur_token.info.u_string);
+			sno_read_next_token(ts);
+			if (ts->cur_token.type == sno_TK_LPAREN) {
+				emit_instruction_1_at(ts, sno_I_GET_METHOD , name, dot_at);
+			} else {
+				emit_instruction_1_at(ts, sno_I_GET_FIELD, name, dot_at);
+			}
 			break;
 		}
 		case sno_TK_LPAREN: { // Function call
@@ -946,6 +946,13 @@ static void parse_return_statement(sno_Tokenizer* ts) {
 	} else {
 		while (1) {
 			num_returns++;
+			if (num_returns > sno_MAX_STACK_ARGS) {
+				sno_throw_syntax_error_at_token(
+					ts,
+					&ts->cur_token,
+					"Too many return values. The max is 15"
+				);
+			}
 			parse_expression(ts);
 			if (ts->prev_token.stmt_end) {
 				break;

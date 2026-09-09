@@ -3,12 +3,19 @@
 
 #include "sno_utility.h"
 
+enum {
+	sno_STR_LENGTH,
+	sno_STR_COUNT,
+	sno_NUM_BUILTIN_STRINGS,
+};
+extern const char* sno_builtin_strings[];
+
 typedef struct sno_String {
 	struct sno_String* next;
 	uint8_t gc_mark;
 	uint8_t swizzle_len;
 	uint8_t swizzles;
-	uint8_t built_in_id;
+	uint8_t builtin_id;
 	sno_Hash hash;
 	size_t length;
 } sno_String;

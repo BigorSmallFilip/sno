@@ -7,3 +7,8 @@
 #include "sno_value.c"
 #include "sno_vm.c"
 #include "sno_lib.c"
+#include "sno_lib_core.c"
+#include "sno_lib_string.c"
+#include "sno_lib_array.c"
+#include "sno_lib_table.c"
+#include "sno_lib_math.c"

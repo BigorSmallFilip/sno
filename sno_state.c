@@ -9,11 +9,11 @@
 static void init_stack(sno_State* state, uint32_t capacity);
 
 static void sno_load_core_libs(sno_State* state) {
-	sno_load_lib_into_global_scope(state, &sno_lib_core);
-	sno_load_lib_into_global_scope(state, &sno_lib_math);
-	state->string_prototype = sno_load_lib_into_table(state, &sno_lib_string);
-	state->array_prototype = sno_load_lib_into_table(state, &sno_lib_array);
-	state->table_prototype = sno_load_lib_into_table(state, &sno_lib_table);
+	sno_load_lib_into_global_scope(state, sno_lib_core);
+	sno_load_lib_into_global_scope(state, sno_lib_math);
+	state->string_prototype = sno_load_lib_into_table(state, sno_lib_string);
+	state->array_prototype = sno_load_lib_into_table(state, sno_lib_array);
+	state->table_prototype = sno_load_lib_into_table(state, sno_lib_table);
 }
 
 sno_API sno_State* sno_create_state() {
@@ -63,6 +63,67 @@ sno_API void sno_free_state(sno_State* state) {
 	if (!state) {
 		return;
 	}
+}
+
+
+
+sno_API const sno_Value* sno_get_arg(sno_State* state, int arg) {
+	sno_assert(arg >= -1 && arg < sno_MAX_STACK_ARGS);
+	return &sno_arg(arg);
+}
+
+sno_API sno_Bool sno_get_bool_arg(sno_State* state, int arg) {
+	sno_assert(arg >= -1 && arg < sno_MAX_STACK_ARGS);
+	sno_Value value = sno_arg(arg);
+	if (value.type != sno_VT_BOOL) {
+		sno_throw_runtime_error(state, "BAD ARGUMENT AAAAAAAAA");
+	}
+	return value.v.u_number != sno_NUMBER_FALSE;
+}
+
+sno_API sno_Number sno_get_number_arg(sno_State* state, int arg) {
+	sno_assert(arg >= -1 && arg < sno_MAX_STACK_ARGS);
+	sno_Value value = sno_arg(arg);
+	if (value.type != sno_VT_NUMBER) {
+		sno_throw_runtime_error(state, "BAD ARGUMENT AAAAAAAAA");
+	}
+	return value.v.u_number;
+}
+
+sno_API const sno_String* sno_get_string_arg(sno_State* state, int arg) {
+	sno_assert(arg >= -1 && arg < sno_MAX_STACK_ARGS);
+	sno_Value value = sno_arg(arg);
+	if (value.type != sno_VT_STRING) {
+		sno_throw_runtime_error(state, "BAD ARGUMENT AAAAAAAAA");
+	}
+	return value.v.u_string;
+}
+
+sno_API sno_Array* sno_get_array_arg(sno_State* state, int arg) {
+	sno_assert(arg >= -1 && arg < sno_MAX_STACK_ARGS);
+	sno_Value value = sno_arg(arg);
+	if (value.type != sno_VT_ARRAY) {
+		sno_throw_runtime_error(state, "BAD ARGUMENT AAAAAAAAA");
+	}
+	return value.v.u_array;
+}
+
+sno_API sno_Table* sno_get_table_arg(sno_State* state, int arg) {
+	sno_assert(arg >= -1 && arg < sno_MAX_STACK_ARGS);
+	sno_Value value = sno_arg(arg);
+	if (value.type != sno_VT_TABLE) {
+		sno_throw_runtime_error(state, "BAD ARGUMENT AAAAAAAAA");
+	}
+	return value.v.u_table;
+}
+
+sno_API sno_Function* sno_get_function_arg(sno_State* state, int arg) {
+	sno_assert(arg >= -1 && arg < sno_MAX_STACK_ARGS);
+	sno_Value value = sno_arg(arg);
+	if (value.type != sno_VT_FUNCTION) {
+		sno_throw_runtime_error(state, "BAD ARGUMENT AAAAAAAAA");
+	}
+	return value.v.u_function;
 }
 
 

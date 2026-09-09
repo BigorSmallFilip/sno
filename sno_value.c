@@ -2,6 +2,7 @@
 
 #include "sno_state.h"
 #include "sno_vm.h"
+#include "sno_parser.h"
 #include <string.h>
 
 

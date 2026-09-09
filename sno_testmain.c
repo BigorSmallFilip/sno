@@ -79,6 +79,8 @@ EMSCRIPTEN_EXPORT int main(int argc, char** argv) {
 	if (!sno_run_file(state, sno_str_comma_len("test.sno"))) {
 		sno_print_exception_msg(state);
 		return -1;
+	} else {
+
 	}
 
 	//printf("%.*s\n", (unsigned int)source_code->length, sno_string_chars(source_code));

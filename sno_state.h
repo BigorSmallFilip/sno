@@ -14,10 +14,6 @@ typedef struct sno_ExceptionJump {
 #define sno_MAX_STACK 256
 #define sno_stack_base(state) ((state)->stack + (state)->stack_base)
 
-#define sno_self (state->stack[state->stack_base + 1])
-#define sno_arg(i) (state->stack[state->stack_base + 2 + (i)])
-#define sno_ret(i) (state->stack[state->stack_base + (i)])
-
 typedef struct sno_State {
 	sno_Value* stack;
 	uint32_t stack_base;
@@ -35,6 +31,18 @@ typedef struct sno_State {
 sno_API sno_State* sno_create_state();
 sno_API void sno_reserve_stack(sno_State* state, uint32_t slots);
 sno_API void sno_free_state(sno_State* state);
+
+#define sno_self -1
+sno_API const sno_Value* sno_get_arg(sno_State* state, int arg);
+sno_API sno_Bool sno_get_bool_arg(sno_State* state, int arg);
+sno_API sno_Number sno_get_number_arg(sno_State* state, int arg);
+sno_API const sno_String* sno_get_string_arg(sno_State* state, int arg);
+sno_API sno_Array* sno_get_array_arg(sno_State* state, int arg);
+sno_API sno_Table* sno_get_table_arg(sno_State* state, int arg);
+sno_API sno_Function* sno_get_function_arg(sno_State* state, int arg);
+
+#define sno_arg(i) (state->stack[state->stack_base + 2 + (i)])
+#define sno_ret(i) (state->stack[state->stack_base + (i)])
 
 sno_API void sno_create_new_global(sno_State* state, const sno_String* name, const sno_Value* value);
 sno_API void sno_set_global(sno_State* state, const sno_String* name, const sno_Value* value);

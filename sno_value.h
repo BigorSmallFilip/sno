@@ -105,7 +105,7 @@ typedef struct sno_Function {
 	sno_Bool is_c_function;
 	//uint8_t numupvalues;
 	union {
-		const struct sno_Bytecode* bytecode;
+		struct sno_Bytecode* bytecode;
 		sno_CFunction* c_function;
 	} u;
 	//sno_Value upvalues[];

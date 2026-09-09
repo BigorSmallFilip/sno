@@ -4,6 +4,55 @@
 #include "sno_mem.h"
 #include <string.h>
 
+
+
+static sno_String* create_new_interned_string(
+	sno_State* state,
+	const char* string,
+	size_t length,
+	sno_Hash hash,
+	sno_String* iter
+);
+
+static sno_Hash hash_string(const char* string, size_t length) {
+	sno_assert_ptr(string);
+	// I stole Lua's string hashing algorithm
+	sno_Hash hash = (uint32_t)length;
+	uint32_t step = ((uint32_t)length >> 5) + 1;  // If string is too long, don't hash all its chars
+	for (uint32_t l1 = (uint32_t)length; l1 >= step; l1 -= step)
+		hash = hash ^ ((hash << 5) + (hash >> 2) + (char)string[l1 - 1]);
+	return hash;
+}
+
+
+
+const char* sno_builtin_strings[] = {
+	"length",
+	"count",
+};
+
+static void init_builtin_strings(sno_State* state) {
+	sno_StringInterningTable* string_table = &state->string_table;
+	for (int i = 0; i < sno_NUM_BUILTIN_STRINGS; i++) {
+		const char* string = sno_builtin_strings[i];
+		size_t length = strlen(string);
+		sno_Hash hash = hash_string(string, length);
+		sno_String* iter = string_table->strings[hash & string_table->capacity_mask];
+		while (iter != NULL) {
+			if (iter->next) {
+				iter = iter->next;
+			} else {
+				break;
+			}
+		}
+		sno_String* string_obj = create_new_interned_string(state, string, length, hash, iter);
+		string_obj->builtin_id = i;
+	}
+	
+}
+
+
+
 void sno_init_string_interning_table(sno_State* state, size_t capacity) {
 	sno_assert_ptr(state);
 	sno_assert(capacity >= 16 && capacity <= sno_SIZE_T_LIMIT);
@@ -13,6 +62,7 @@ void sno_init_string_interning_table(sno_State* state, size_t capacity) {
 	string_table->capacity_mask = capacity - 1;
 	string_table->num_strings = 0;
 	string_table->strings = sno_calloc(state, capacity, sizeof(sno_String*));
+	init_builtin_strings(state);
 }
 
 void sno_resize_string_interning_table(sno_State* state, size_t new_capacity) {
@@ -111,7 +161,7 @@ void sno_print_string_interning_table(const sno_State* state) {
 
 
 
-static const sno_String* create_new_interned_string(
+static sno_String* create_new_interned_string(
 	sno_State* state,
 	const char* string,
 	size_t length,
@@ -151,16 +201,6 @@ static const sno_String* create_new_interned_string(
 	return string_obj;
 }
 
-static sno_Hash sno_hash_string(const char* string, size_t length) {
-	sno_assert_ptr(string);
-	// I stole Lua's string hashing algorithm
-	sno_Hash hash = (uint32_t)length;
-	uint32_t step = ((uint32_t)length >> 5) + 1;  // If string is too long, don't hash all its chars
-	for (uint32_t l1 = (uint32_t)length; l1 >= step; l1 -= step)
-		hash = hash ^ ((hash << 5) + (hash >> 2) + (char)string[l1 - 1]);
-	return hash;
-}
-
 const sno_String* sno_create_string(sno_State* state, const char* string, size_t length) {
 	sno_assert_ptr(state);
 	sno_assert_ptr(state->string_table.strings);
@@ -168,7 +208,7 @@ const sno_String* sno_create_string(sno_State* state, const char* string, size_t
 	sno_assert(length <= sno_SIZE_T_LIMIT);
 	
 	sno_StringInterningTable* string_table = &state->string_table;
-	sno_Hash hash = sno_hash_string(string, length);
+	sno_Hash hash = hash_string(string, length);
 	sno_String* iter = string_table->strings[hash & string_table->capacity_mask];
 	while (iter != NULL) {
 		if (

@@ -250,6 +250,15 @@ size_t check_array_index(
 	return i_index;
 }
 
+void get_field(
+	sno_State* state,
+	sno_Bytecode* bytecode,
+	sno_Value* container,
+	sno_ConstID name
+) {
+
+}
+
 
 
 uint8_t sno_execute(sno_State* state, uint8_t num_args) {
@@ -258,7 +267,7 @@ uint8_t sno_execute(sno_State* state, uint8_t num_args) {
 		sno_throw_runtime_error(state, "Called sno_execute on something which wasn't a function");
 	}
 	sno_Function* function = base->v.u_function;
-	const sno_Bytecode* bytecode = function->u.bytecode;
+	sno_Bytecode* bytecode = function->u.bytecode;
 	sno_Instruction* pc = bytecode->instructions;
 	sno_Value* locals = base + 1;
 	uint8_t multi_assign_offset = 0;
@@ -271,7 +280,7 @@ uint8_t sno_execute(sno_State* state, uint8_t num_args) {
 		uint8_t opcode = i & 0xFF;
 		uint8_t arg = i >> 8;
 		
-		//printf("stack %02u   | ", (unsigned int)(stack_ptr - state->stack)); print_instruction(bytecode, pc);
+		printf("stack %02u   | ", (unsigned int)(stack_ptr - state->stack)); print_instruction(bytecode, pc);
 		pc++;
 
 		switch (opcode) {
@@ -474,6 +483,7 @@ uint8_t sno_execute(sno_State* state, uint8_t num_args) {
 			break;
 		}
 		case sno_I_GET_FIELD: {
+			get_field(state, bytecode, stack_ptr, arg);
 			sno_assert(arg < bytecode->num_string_constants);
 			const sno_String* key_name = bytecode->string_constants[arg];
 			sno_Value key;
@@ -616,6 +626,10 @@ uint8_t sno_execute(sno_State* state, uint8_t num_args) {
 			stack_ptr--;
 			break;
 		}
+		case sno_I_GET_METHOD: {
+
+			break;
+		}
 
 		case sno_I_BINOP: {
 			stack_ptr--;
@@ -720,7 +734,7 @@ uint8_t sno_execute(sno_State* state, uint8_t num_args) {
 			break;
 		}
 		case sno_I_RETURN: {
-			sno_assert(arg < sno_MAX_STACK_ARGS);
+			sno_assert(arg <= sno_MAX_STACK_ARGS);
 			for (uint8_t i = 0; i < arg; i++) {
 				base[i] = stack_ptr[-arg + 1 + i];
 			}
