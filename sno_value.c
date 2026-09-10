@@ -36,6 +36,8 @@ sno_Array* sno_create_array(sno_State* state, size_t capacity) {
 	sno_assert(capacity >= 4);
 	sno_Array* arr = sno_alloc_type(state, sno_Array);
 	sno_assert_ptr(arr);
+	arr->gc_next = state->gc_list_start;
+	state->gc_list_start = (sno_GCValue*)arr;
 	sno_dynarray_init(state, &arr->items, sizeof(sno_Value), capacity);
 	return arr;
 }
@@ -56,6 +58,8 @@ sno_Table* sno_create_table(sno_State* state, size_t capacity) {
 	sno_assert(capacity >= 8);
 	sno_Table* table = sno_alloc_type(state, sno_Table);
 	sno_assert_ptr(table);
+	table->gc_next = state->gc_list_start;
+	state->gc_list_start = (sno_GCValue*)table;
 	table->count = 0;
 	table->capacity_mask = capacity - 1;
 	table->nodes = sno_calloc(state, capacity, sizeof(sno_TableNode));

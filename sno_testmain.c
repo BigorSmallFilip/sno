@@ -4,6 +4,7 @@
 #include "sno_state.h"
 #include "sno_parser.h"
 #include "sno_string.h"
+#include "sno_gc.h"
 
 
 
@@ -82,6 +83,8 @@ EMSCRIPTEN_EXPORT int main(int argc, char** argv) {
 	} else {
 
 	}
+
+	sno_full_gc(state);
 
 	//printf("%.*s\n", (unsigned int)source_code->length, sno_string_chars(source_code));
 	

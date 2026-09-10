@@ -35,7 +35,7 @@ typedef struct sno_State {
 	sno_Table* array_prototype;
 	sno_Table* table_prototype;
 
-	sno_GCValue* gc_start;
+	sno_GCValue* gc_list_start;
 } sno_State;
 
 sno_API sno_State* sno_create_state();
