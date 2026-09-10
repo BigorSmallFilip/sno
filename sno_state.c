@@ -59,6 +59,14 @@ sno_API void sno_reserve_stack(sno_State* state, uint32_t slots) {
 	}
 }
 
+sno_API void sno_check_table(sno_State* state, uint32_t slot) {
+	sno_assert(state);
+	sno_Value* value = &state->stack[state->stack_base + slot];
+	if (value->type != sno_VT_TABLE) {
+		sno_throw_runtime_error(state, "Oh no");
+	}
+}
+
 sno_API void sno_free_state(sno_State* state) {
 	if (!state) {
 		return;

@@ -244,6 +244,8 @@ typedef uint16_t sno_LocalID;
 typedef uint8_t sno_LocalSlot;
 typedef uint16_t sno_ConstID;
 
+typedef uint16_t sno_Instruction;
+
 #define sno_str_comma_len(str) (str), (sizeof(str) - 1)
 
 struct sno_State;

@@ -79,7 +79,6 @@ enum {
 	sno_I_RETURN,
 	sno_I_HALT,
 };
-typedef uint16_t sno_Instruction;
 
 typedef struct sno_LocalVar {
 	const struct sno_String* name;

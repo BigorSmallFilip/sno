@@ -11,6 +11,13 @@ typedef struct sno_ExceptionJump {
 	jmp_buf buf;
 } sno_ExceptionJump;
 
+typedef struct sno_CallInfo {
+	uint32_t base;
+	sno_Instruction* saved_pc;
+	uint8_t num_args;
+	uint8_t num_returns;
+} sno_CallInfo;
+
 #define sno_MAX_STACK 256
 #define sno_stack_base(state) ((state)->stack + (state)->stack_base)
 
@@ -19,6 +26,7 @@ typedef struct sno_State {
 	uint32_t stack_base;
 	uint32_t stack_top;
 	uint32_t stack_capacity;
+	sno_DynArray call_infos;
 	sno_StringInterningTable string_table;
 	const sno_String* exception_msg;
 	sno_ExceptionJump* exception_jump;
@@ -26,11 +34,15 @@ typedef struct sno_State {
 	sno_Table* string_prototype;
 	sno_Table* array_prototype;
 	sno_Table* table_prototype;
+
+	sno_GCValue* gc_start;
 } sno_State;
 
 sno_API sno_State* sno_create_state();
-sno_API void sno_reserve_stack(sno_State* state, uint32_t slots);
 sno_API void sno_free_state(sno_State* state);
+
+sno_API void sno_reserve_stack(sno_State* state, uint32_t slots);
+sno_API void sno_check_table(sno_State* state, uint32_t slot);
 
 #define sno_self -1
 sno_API const sno_Value* sno_get_arg(sno_State* state, int arg);
