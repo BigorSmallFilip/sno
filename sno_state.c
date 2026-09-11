@@ -52,11 +52,12 @@ static void resize_stack(sno_State* state, uint32_t new_capacity) {
 	state->stack_capacity = new_capacity;
 }
 
-sno_API void sno_reserve_stack(sno_State* state, uint32_t slots) {
+sno_API sno_Value* sno_reserve_stack(sno_State* state, uint32_t slots) {
 	state->stack_top += slots;
 	if (state->stack_top > state->stack_capacity) {
 		resize_stack(state, state->stack_capacity << 1);
 	}
+	return sno_stack_base(state);
 }
 
 sno_API void sno_check_table(sno_State* state, uint32_t slot) {

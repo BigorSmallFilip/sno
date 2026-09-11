@@ -37,7 +37,8 @@ sno_Array* sno_create_array(sno_State* state, size_t capacity) {
 	sno_Array* arr = sno_alloc_type(state, sno_Array);
 	sno_assert_ptr(arr);
 	arr->gc_next = state->gc_list_start;
-	state->gc_list_start = (sno_GCValue*)arr;
+	arr->type = sno_VT_ARRAY;
+	state->gc_list_start = (sno_GCObject*)arr;
 	sno_dynarray_init(state, &arr->items, sizeof(sno_Value), capacity);
 	return arr;
 }
@@ -59,7 +60,8 @@ sno_Table* sno_create_table(sno_State* state, size_t capacity) {
 	sno_Table* table = sno_alloc_type(state, sno_Table);
 	sno_assert_ptr(table);
 	table->gc_next = state->gc_list_start;
-	state->gc_list_start = (sno_GCValue*)table;
+	table->type = sno_VT_TABLE;
+	state->gc_list_start = (sno_GCObject*)table;
 	table->count = 0;
 	table->capacity_mask = capacity - 1;
 	table->nodes = sno_calloc(state, capacity, sizeof(sno_TableNode));
@@ -235,6 +237,47 @@ void sno_table_next(sno_Table* table, size_t* bucket, sno_TableNode** node) {
 	}
 }
 
+static void clear_table(sno_State* state, sno_Table* table) {
+	for (size_t i = 0; i < table->capacity_mask + 1; i++) {
+		sno_TableNode* node = &table->nodes[i];
+		if (node->exists) {
+			node = node->next; // Don't free the nodes in the array, only the linked ones after
+			while (node) {
+				sno_TableNode* next = node->next;
+				sno_free(state, node);
+				node = next;
+			}
+		}
+	}
+}
+
+
+
+void sno_free_gc_object(
+	sno_State* state,
+	sno_GCObject* obj,
+	sno_GCObject* prev
+) {
+	if (prev) {
+		prev->gc_next = obj->gc_next;
+	}
+	switch (obj->type) {
+	case sno_VT_ARRAY: {
+		sno_Array* arr = (sno_Array*)obj;
+		sno_dynarray_clear(state, &arr->items);
+		break;
+	}
+	case sno_VT_TABLE: {
+		sno_Table* table = (sno_Table*)obj;
+		clear_table(state, table);
+		break;
+	}
+	default:
+		break;
+	}
+	sno_free(state, obj);
+}
+
 
 
 static void print_array(sno_State* state, const sno_Array* arr) {
@@ -294,6 +337,7 @@ void sno_print_value(sno_State* state, const sno_Value* v) {
 	case sno_VT_STRING: printf("%.*s", (unsigned int)v->v.u_string->length, sno_string_chars(v->v.u_string)); break;
 	case sno_VT_ARRAY: print_array(state, v->v.u_array); break;
 	case sno_VT_TABLE: print_table(state, v->v.u_table); break;
+	case sno_VT_FUNCTION: printf("function 0x%p", v->v.u_function); break;
 	default: printf("0x%p", v->v.u_ptr); break;
 	}
 }

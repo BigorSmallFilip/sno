@@ -239,6 +239,7 @@ typedef int64_t sno_Int;
 
 #define sno_is_power_of_2(num) (((num) & ((num) - 1)) == 0)
 
+typedef uint8_t sno_GCMark;
 typedef uint32_t sno_Hash;
 typedef uint16_t sno_LocalID;
 typedef uint8_t sno_LocalSlot;

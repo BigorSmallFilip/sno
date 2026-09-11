@@ -35,13 +35,14 @@ typedef struct sno_State {
 	sno_Table* array_prototype;
 	sno_Table* table_prototype;
 
-	sno_GCValue* gc_list_start;
+	sno_GCObject* gc_list_start;
 } sno_State;
 
 sno_API sno_State* sno_create_state();
 sno_API void sno_free_state(sno_State* state);
 
-sno_API void sno_reserve_stack(sno_State* state, uint32_t slots);
+sno_API sno_Value* sno_reserve_stack(sno_State* state, uint32_t slots);
+
 sno_API void sno_check_table(sno_State* state, uint32_t slot);
 
 #define sno_self -1

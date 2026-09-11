@@ -2,8 +2,19 @@
 #include "sno_state.h"
 #include "sno_value.h"
 
+
+
+static void print_gc_obj(sno_State* state, sno_GCObject* obj) {
+	sno_Value v;
+	v.type = obj->type;
+	v.v.gc_obj = obj;
+	sno_print_value(state, &v);
+}
+
+
+
 static void mark_all(sno_State* state, uint8_t mark) {
-	sno_GCValue* iter = state->gc_list_start;
+	sno_GCObject* iter = state->gc_list_start;
 	while (iter) {
 		iter->gc_mark = mark;
 		iter = iter->gc_next;
@@ -16,25 +27,15 @@ static void mark_value(sno_State* state, sno_Value* value);
 
 
 
-static void mark_array_items(sno_State* state, sno_Array* arr) {
+static void mark_array_items(sno_State* state, sno_Array* arr, uint8_t mark) {
+	sno_assert(arr->gc_mark == sno_GC_MARK_LIVE);
 	for (size_t i = 0; i < arr->items.count; i++) {
 		sno_Value* item = &((sno_Value*)arr->items.buffer)[i];
 		mark_value(state, item);
 	}
 }
 
-static void mark_value(sno_State* state, sno_Value* value) {
-	if (value->type == sno_VT_ARRAY) {
-		value->v.u_array->gc_mark = sno_GC_MARK_LIVE;
-		mark_array_items(state, value->v.u_array);
-	} else if (value->type == sno_VT_TABLE) {
-
-	} else if (value->type == sno_VT_STRING) {
-
-	}
-}
-
-static void mark_table_items(sno_State* state, sno_Table* table) {
+static void mark_table_items(sno_State* state, sno_Table* table, uint8_t mark) {
 	sno_TableNode* iter;
 	size_t bucket;
 	sno_table_iter(table, &bucket, &iter);
@@ -51,16 +52,64 @@ static void mark_table_items(sno_State* state, sno_Table* table) {
 	}
 }
 
+static void mark_table_and_items(sno_State* state, sno_Table* table, uint8_t mark) {
+	table->gc_mark = mark;
+	mark_table_items(state, table, mark);
+}
+
+static void mark_value(sno_State* state, sno_Value* value) {
+	if (!sno_type_is_gc(value->type)) {
+		return;
+	}
+	if (value->v.gc_obj->gc_mark == sno_GC_MARK_LIVE) {
+		return;
+	}
+	value->v.gc_obj->gc_mark = sno_GC_MARK_LIVE;
+	if (value->type == sno_VT_ARRAY) {
+		mark_array_items(state, value->v.u_array, sno_GC_MARK_LIVE);
+	} else if (value->type == sno_VT_TABLE) {
+		mark_table_items(state, value->v.u_table, sno_GC_MARK_LIVE);
+	} else if (value->type == sno_VT_STRING) {
+
+	} else if (value->type == sno_VT_FUNCTION) {
+
+	}
+}
+
+
+
 static void mark_stack(sno_State* state) {
 	
 }
 
-static void mark_live(sno_State* state) {
-	
-	sno_GCValue* iter;
+static void free_all_objects_marked_grey(sno_State* state, sno_Bool print) {
+	sno_GCObject* iter = state->gc_list_start;
+	sno_GCObject* prev = NULL;
+	while (iter) {
+		sno_GCObject* next = iter->gc_next;
+
+		if (print) {
+			printf(iter->gc_mark == sno_GC_MARK_GREY ? "DEAD " : "LIVE ");
+			print_gc_obj(state, iter);
+			putchar('\n');
+		}
+
+		if (iter->gc_mark == sno_GC_MARK_GREY) {
+			sno_free_gc_object(state, iter, prev);
+		}
+		prev = iter;
+		iter = next;
+	}
 }
 
 void sno_full_gc(sno_State* state) {
+	printf("\nFULL GARBAGE COLLECTION PASS\n\n");
 	mark_all(state, sno_GC_MARK_GREY);
-	mark_table_items(state, state->globals);
+
+	mark_table_and_items(state, state->globals, sno_GC_MARK_LIVE);
+	mark_table_and_items(state, state->string_prototype, sno_GC_MARK_LIVE);
+	mark_table_and_items(state, state->array_prototype, sno_GC_MARK_LIVE);
+	mark_table_and_items(state, state->table_prototype, sno_GC_MARK_LIVE);
+
+	free_all_objects_marked_grey(state, sno_TRUE);
 }

@@ -1,6 +1,7 @@
 #include "sno_vm.h"
 
 #include "sno_parser.h"
+#include "sno_gc.h"
 #include <string.h>
 #include <math.h>
 
@@ -268,18 +269,18 @@ uint8_t sno_execute(sno_State* state, uint8_t num_args) {
 	}
 	sno_Function* function = base->v.u_function;
 	sno_Bytecode* bytecode = function->u.bytecode;
+	base = sno_reserve_stack(state, bytecode->max_stack_needed);
 	sno_Instruction* pc = bytecode->instructions;
-	sno_Value* locals = base + 1;
-	uint8_t multi_assign_offset = 0;
-	sno_reserve_stack(state, bytecode->max_stack_needed);
 	// This stack pointer is bababa
-	sno_Value* stack_ptr = locals + num_args;
+	sno_Value* stack_ptr = base + bytecode->local_var_slots + num_args;
 
 	while (1) {
 		sno_Instruction i = *pc;
 		uint8_t opcode = i & 0xFF;
 		uint8_t arg = i >> 8;
 		
+		sno_full_gc(state);
+
 		printf("stack %02u   | ", (unsigned int)(stack_ptr - state->stack)); print_instruction(bytecode, pc);
 		pc++;
 
