@@ -120,11 +120,12 @@ static void free_all_objects_marked_grey(sno_State* state, sno_Bool print) {
 void sno_full_gc(sno_State* state) {
 #ifdef DEBUG_PRINT_GC
 	printf(
-		"\nFULL GARBAGE COLLECTION PASS\n%ux allocations. %u bytes\n\n",
+		"\nFULL EXHAUSTIVE GARBAGE COLLECTION PASS\n%ux allocations. %u bytes\n\n",
 		(unsigned int)state->num_allocations,
 		(unsigned int)state->memory_allocated
 	);
 #endif
+	double start_time = sno_perftimer();
 
 	mark_all(state, sno_GC_MARK_GREY);
 
@@ -135,4 +136,7 @@ void sno_full_gc(sno_State* state) {
 	mark_stack(state);
 
 	free_all_objects_marked_grey(state, sno_TRUE);
+
+	double duration = sno_perftimer() - start_time;
+	//printf("GARBAGE COLLECTION PASS COMPLETE AFTER %gms\n", duration * 1000.0);
 }

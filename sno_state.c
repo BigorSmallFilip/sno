@@ -269,3 +269,23 @@ sno_API sno_no_return void sno_throw(sno_State* state, const sno_String* excepti
 		exit(EXIT_FAILURE);
 	}
 }
+
+
+
+#ifdef sno_WINDOWS
+
+#define WIN32_LEAN_AND_MEAN
+#include <Windows.h>
+double sno_perftimer() {
+	uint64_t time = 0;
+	QueryPerformanceCounter((LARGE_INTEGER*)&time);
+	return (double)time / 10000000.0;
+}
+
+#else
+
+double sno_perftimer() {
+	return 0.0;
+}
+
+#endif

@@ -78,4 +78,6 @@ sno_API sno_Bool sno_run_file(sno_State* state, const char* const path, size_t p
 
 sno_API sno_no_return void sno_throw(sno_State* state, const sno_String* exception_msg);
 
+double sno_perftimer();
+
 #endif
