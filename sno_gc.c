@@ -2,7 +2,7 @@
 #include "sno_state.h"
 #include "sno_value.h"
 
-
+//#define DEBUG_PRINT_GC
 
 static void print_gc_obj(sno_State* state, sno_GCObject* obj) {
 	sno_Value v;
@@ -17,14 +17,18 @@ static void mark_all(sno_State* state, uint8_t mark) {
 	sno_GCObject* iter = state->gc_list_start;
 	size_t objects_marked = 0;
 	while (iter) {
+#ifdef DEBUG_PRINT_GC
 		printf("MARKING ");
 		print_gc_obj(state, iter);
 		putchar('\n');
+#endif
 		iter->gc_mark = mark;
 		iter = iter->gc_next;
 		objects_marked++;
 	}
+#ifdef DEBUG_PRINT_GC
 	printf("Marked %u objects\nNum GC objects = %u\n", objects_marked, state->num_gc_objects);
+#endif
 }
 
 
@@ -97,9 +101,11 @@ static void free_all_objects_marked_grey(sno_State* state, sno_Bool print) {
 		sno_GCObject* next = iter->gc_next;
 
 		if (print) {
+#ifdef DEBUG_PRINT_GC
 			printf(iter->gc_mark == sno_GC_MARK_GREY ? "DEAD " : "LIVE ");
 			print_gc_obj(state, iter);
 			putchar('\n');
+#endif
 		}
 
 		if (iter->gc_mark == sno_GC_MARK_GREY) {
@@ -112,11 +118,14 @@ static void free_all_objects_marked_grey(sno_State* state, sno_Bool print) {
 }
 
 void sno_full_gc(sno_State* state) {
+#ifdef DEBUG_PRINT_GC
 	printf(
 		"\nFULL GARBAGE COLLECTION PASS\n%ux allocations. %u bytes\n\n",
 		(unsigned int)state->num_allocations,
 		(unsigned int)state->memory_allocated
 	);
+#endif
+
 	mark_all(state, sno_GC_MARK_GREY);
 
 	mark_table_and_items(state, state->globals, sno_GC_MARK_LIVE);

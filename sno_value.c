@@ -268,7 +268,7 @@ void sno_free_gc_object(
 		state->gc_list_start = obj->gc_next;
 	}
 	state->num_gc_objects--;
-	printf("Freeing GC object. Now there are %u\n", state->num_gc_objects);
+	//printf("Freeing GC object. Now there are %u\n", state->num_gc_objects);
 	
 	switch (obj->gc_type) {
 	case sno_OT_ARRAY: {

@@ -5,7 +5,7 @@
 #include <string.h>
 
 void* sno_malloc(sno_State* state, size_t size) {
-	printf("Allocating %u bytes\n", (unsigned int)size);
+	//printf("Allocating %u bytes\n", (unsigned int)size);
 	state->num_allocations++;
 	state->memory_allocated += size;
 	void* block = malloc(size);
@@ -16,7 +16,7 @@ void* sno_malloc(sno_State* state, size_t size) {
 }
 
 void* sno_calloc(sno_State* state, size_t count, size_t size) {
-	printf("Allocating %u bytes\n", (unsigned int)(count * size));
+	//printf("Allocating %u bytes\n", (unsigned int)(count * size));
 	state->num_allocations++;
 	state->memory_allocated += count * size;
 	void* block = calloc(count, size);
@@ -27,7 +27,7 @@ void* sno_calloc(sno_State* state, size_t count, size_t size) {
 }
 
 void* sno_realloc(sno_State* state, void* block, size_t old_size, size_t new_size) {
-	printf("Reallocating %u into %u bytes\n", (unsigned int)(old_size), (unsigned int)(new_size));
+	//printf("Reallocating %u into %u bytes\n", (unsigned int)(old_size), (unsigned int)(new_size));
 	sno_assert_ptr(block);
 	state->memory_allocated -= old_size;
 	state->memory_allocated += new_size;
@@ -40,7 +40,7 @@ void* sno_realloc(sno_State* state, void* block, size_t old_size, size_t new_siz
 
 void sno_free(sno_State* state, void* block, size_t size) {
 	sno_assert_ptr(block);
-	printf("Freeing %u bytes\n", (unsigned int)size);
+	//printf("Freeing %u bytes\n", (unsigned int)size);
 	state->num_allocations--;
 	state->memory_allocated -= size;
 	free(block);

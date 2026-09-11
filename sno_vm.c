@@ -279,9 +279,11 @@ uint8_t sno_execute(sno_State* state, uint8_t num_args) {
 		uint8_t opcode = i & 0xFF;
 		uint8_t arg = i >> 8;
 		
-		sno_full_gc(state);
+		if (state->memory_allocated > 20000000) {
+			sno_full_gc(state);
+		}
 
-		printf("stack %02u   | ", (unsigned int)(stack_ptr - state->stack)); print_instruction(bytecode, pc);
+		//printf("stack %02u   | ", (unsigned int)(stack_ptr - state->stack)); print_instruction(bytecode, pc);
 		pc++;
 
 		switch (opcode) {
