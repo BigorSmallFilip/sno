@@ -2,6 +2,7 @@
 #define sno_STRING_H
 
 #include "sno_utility.h"
+#include "sno_value.h"
 
 enum {
 	sno_STR_LENGTH,
@@ -11,8 +12,7 @@ enum {
 extern const char* sno_builtin_strings[];
 
 typedef struct sno_String {
-	struct sno_String* next;
-	uint8_t gc_mark;
+	sno_gc_string_header;
 	uint8_t swizzle_len;
 	uint8_t swizzles;
 	uint8_t builtin_id;

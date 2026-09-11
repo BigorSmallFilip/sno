@@ -339,11 +339,14 @@ static void free_function_compiler(sno_Tokenizer* ts, sno_Compiler* cs) {
 	bc->num_local_vars = cs->local_vars.count;
 	memcpy(bc->local_vars, cs->local_vars.buffer, sizeof(bc->local_vars[0]) * cs->local_vars.count);
 
-	sno_dynarray_clear(state, &cs->number_constants);
-	sno_dynarray_clear(state, &cs->string_constants);
-	sno_dynarray_clear(state, &cs->sub_functions);
-	sno_dynarray_clear(state, &cs->instructions);
-	sno_dynarray_clear(state, &cs->local_vars);
+	sno_dynarray_clear(state, &cs->number_constants, sizeof(sno_Number));
+	sno_dynarray_clear(state, &cs->string_constants, sizeof(const sno_String*));
+	sno_dynarray_clear(state, &cs->sub_functions, sizeof(sno_Bytecode*));
+	sno_dynarray_clear(state, &cs->instructions, sizeof(sno_Instruction));
+	sno_dynarray_clear(state, &cs->local_vars, sizeof(sno_LocalVar));
+
+	bc->gc_next = state->gc_list_start;
+	bc->gc_type = sno_OT_BYTECODE;
 
 	ts->cs = cs->parent;
 }

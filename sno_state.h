@@ -36,6 +36,9 @@ typedef struct sno_State {
 	sno_Table* table_prototype;
 
 	sno_GCObject* gc_list_start;
+	size_t num_gc_objects;
+	size_t memory_allocated;
+	size_t num_allocations;
 } sno_State;
 
 sno_API sno_State* sno_create_state();

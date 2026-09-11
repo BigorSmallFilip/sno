@@ -400,7 +400,7 @@ endstring:
 		(const char*)formatted_string.buffer,
 		formatted_string.count
 	);
-	sno_dynarray_clear(state, &formatted_string);
+	sno_dynarray_clear(state, &formatted_string, 1);
 	return ts->cur_char - start;
 }
 

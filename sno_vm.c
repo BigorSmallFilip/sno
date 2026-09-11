@@ -436,12 +436,12 @@ uint8_t sno_execute(sno_State* state, uint8_t num_args) {
 		case sno_I_GET_LOCAL: {
 			sno_assert(arg < bytecode->local_var_slots);
 			stack_ptr++;
-			*stack_ptr = locals[arg];
+			*stack_ptr = base[arg + 2];
 			break;
 		}
 		case sno_I_SET_LOCAL: {
 			sno_assert(arg < bytecode->local_var_slots);
-			locals[arg] = *stack_ptr;
+			base[arg + 2] = *stack_ptr;
 			stack_ptr--;
 			break;
 		}

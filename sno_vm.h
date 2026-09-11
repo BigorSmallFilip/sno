@@ -88,7 +88,7 @@ typedef struct sno_LocalVar {
 } sno_LocalVar;
 
 typedef struct sno_Bytecode {
-	// gc
+	sno_gc_header;
 	const struct sno_String* name;
 	const struct sno_String* source_code;
 	uint16_t num_number_constants;

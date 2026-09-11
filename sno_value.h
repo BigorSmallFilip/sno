@@ -28,7 +28,7 @@ typedef union sno_ValueUnion {
 	void* u_ptr;
 	struct sno_Value* u_stack_ptr;
 	sno_Number u_number;
-	struct sno_GCValue* gc_obj;
+	struct sno_GCObject* gc_obj;
 	const struct sno_String* u_string;
 	struct sno_Array* u_array;
 	struct sno_Table* u_table;
@@ -51,15 +51,25 @@ typedef struct sno_Value {
 
 
 
-typedef struct sno_GCValue {
-	struct sno_GCValue* gc_next;
+enum {
+	sno_OT_STRING,
+	sno_OT_ARRAY,
+	sno_OT_TABLE,
+	sno_OT_FUNCTION,
+	sno_OT_BYTECODE,
+};
+typedef uint8_t sno_GCObjectType;
+
+typedef struct sno_GCObject {
+	struct sno_GCObject* gc_next;
 	uint8_t gc_mark;
-	sno_ValueType type;
+	sno_GCObjectType gc_type;
 	// Since this will have padding bytes, this may cause undefined behaviour in the future
 	// Some padding to fix this?
 	uint8_t _padding[6];
 } sno_GCObject;
-#define sno_gc_header struct sno_GCObject* gc_next; uint8_t gc_mark; sno_ValueType type
+#define sno_gc_header struct sno_GCObject* gc_next; uint8_t gc_mark; sno_GCObjectType gc_type
+#define sno_gc_string_header struct sno_GCObject* next; uint8_t gc_mark; sno_GCObjectType gc_type
 
 
 

@@ -31,12 +31,12 @@ static char* load_string_from_file(sno_State* state, const char* filename, size_
 	size_t readsize = fread(filebuffer, sizeof(char), (size_t)size, file);
 	sno_assert(readsize <= ULONG_MAX);
 	if (ferror(file) != 0) {
-		sno_free(state, filebuffer);
+		sno_free(state, filebuffer, (size_t)size);
 		fclose(file);
 		return NULL;
 	}
 	sno_assert(readsize <= (size_t)size);
-	filebuffer = (char*)sno_realloc(state, filebuffer, readsize + 1);
+	filebuffer = (char*)sno_realloc(state, filebuffer, size, readsize + 1);
 	sno_assert_ptr(filebuffer);
 	filebuffer[readsize] = '\0';
 	fclose(file);

@@ -6,7 +6,7 @@
 
 static void print_gc_obj(sno_State* state, sno_GCObject* obj) {
 	sno_Value v;
-	v.type = obj->type;
+	v.type = obj->gc_type + sno_VT_STRING;
 	v.v.gc_obj = obj;
 	sno_print_value(state, &v);
 }
@@ -15,10 +15,16 @@ static void print_gc_obj(sno_State* state, sno_GCObject* obj) {
 
 static void mark_all(sno_State* state, uint8_t mark) {
 	sno_GCObject* iter = state->gc_list_start;
+	size_t objects_marked = 0;
 	while (iter) {
+		printf("MARKING ");
+		print_gc_obj(state, iter);
+		putchar('\n');
 		iter->gc_mark = mark;
 		iter = iter->gc_next;
+		objects_marked++;
 	}
+	printf("Marked %u objects\nNum GC objects = %u\n", objects_marked, state->num_gc_objects);
 }
 
 
@@ -79,7 +85,9 @@ static void mark_value(sno_State* state, sno_Value* value) {
 
 
 static void mark_stack(sno_State* state) {
-	
+	for (size_t i = 0; i < state->stack_top; i++) {
+		mark_value(state, &state->stack[i]);
+	}
 }
 
 static void free_all_objects_marked_grey(sno_State* state, sno_Bool print) {
@@ -96,20 +104,26 @@ static void free_all_objects_marked_grey(sno_State* state, sno_Bool print) {
 
 		if (iter->gc_mark == sno_GC_MARK_GREY) {
 			sno_free_gc_object(state, iter, prev);
+		} else {
+			prev = iter;
 		}
-		prev = iter;
 		iter = next;
 	}
 }
 
 void sno_full_gc(sno_State* state) {
-	printf("\nFULL GARBAGE COLLECTION PASS\n\n");
+	printf(
+		"\nFULL GARBAGE COLLECTION PASS\n%ux allocations. %u bytes\n\n",
+		(unsigned int)state->num_allocations,
+		(unsigned int)state->memory_allocated
+	);
 	mark_all(state, sno_GC_MARK_GREY);
 
 	mark_table_and_items(state, state->globals, sno_GC_MARK_LIVE);
 	mark_table_and_items(state, state->string_prototype, sno_GC_MARK_LIVE);
 	mark_table_and_items(state, state->array_prototype, sno_GC_MARK_LIVE);
 	mark_table_and_items(state, state->table_prototype, sno_GC_MARK_LIVE);
+	mark_stack(state);
 
 	free_all_objects_marked_grey(state, sno_TRUE);
 }

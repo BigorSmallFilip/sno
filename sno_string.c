@@ -89,7 +89,7 @@ void sno_resize_string_interning_table(sno_State* state, size_t new_capacity) {
 			str = str->next;
 		}
 	}
-	sno_free(state, string_table->strings);
+	sno_free(state, string_table->strings, (string_table->capacity_mask + 1) * sizeof(sno_String*));
 	string_table->strings = new_array;
 	string_table->capacity_mask = new_capacity_mask;
 }
@@ -103,11 +103,11 @@ void sno_free_string_interning_table(sno_State* state) {
 		sno_String* iter = string_table->strings[i];
 		while (iter != NULL) {
 			sno_String* next = iter->next;
-			sno_free(state, iter);
+			sno_free(state, iter, iter->length + sizeof(sno_String));
 			iter = next;
 		};
 	}
-	sno_free(state, string_table->strings);
+	sno_free(state, string_table->strings, (string_table->capacity_mask + 1) * sizeof(sno_String*));
 }
 
 void sno_print_string_interning_table(const sno_State* state) {
@@ -198,6 +198,8 @@ static sno_String* create_new_interned_string(
 		}
 		sno_resize_string_interning_table(state, (string_table->capacity_mask + 1) << 1);
 	}
+
+	string_obj->gc_type = sno_OT_STRING;
 	return string_obj;
 }
 
@@ -254,7 +256,7 @@ const sno_String* sno_load_string_from_file(
 	size_t readsize = fread(filebuffer, sizeof(char), (size_t)size, file);
 	sno_assert(readsize <= ULONG_MAX);
 	if (ferror(file) != 0) {
-		sno_free(state, filebuffer);
+		sno_free(state, filebuffer, (size_t)size);
 		fclose(file);
 		return NULL;
 	}

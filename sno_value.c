@@ -37,8 +37,9 @@ sno_Array* sno_create_array(sno_State* state, size_t capacity) {
 	sno_Array* arr = sno_alloc_type(state, sno_Array);
 	sno_assert_ptr(arr);
 	arr->gc_next = state->gc_list_start;
-	arr->type = sno_VT_ARRAY;
+	arr->gc_type = sno_OT_ARRAY;
 	state->gc_list_start = (sno_GCObject*)arr;
+	state->num_gc_objects++;
 	sno_dynarray_init(state, &arr->items, sizeof(sno_Value), capacity);
 	return arr;
 }
@@ -60,8 +61,9 @@ sno_Table* sno_create_table(sno_State* state, size_t capacity) {
 	sno_Table* table = sno_alloc_type(state, sno_Table);
 	sno_assert_ptr(table);
 	table->gc_next = state->gc_list_start;
-	table->type = sno_VT_TABLE;
+	table->gc_type = sno_OT_TABLE;
 	state->gc_list_start = (sno_GCObject*)table;
+	state->num_gc_objects++;
 	table->count = 0;
 	table->capacity_mask = capacity - 1;
 	table->nodes = sno_calloc(state, capacity, sizeof(sno_TableNode));
@@ -134,7 +136,7 @@ static sno_Bool remove_table_node(sno_State* state, sno_Table* table, const sno_
 			node->exists = sno_FALSE;
 			if (prev) {
 				prev->next = node->next;
-				sno_free(state, node);
+				sno_free(state, node, sizeof(sno_TableNode));
 			}
 			table->count--;
 			sno_assert(table->count >= 0);
@@ -244,11 +246,12 @@ static void clear_table(sno_State* state, sno_Table* table) {
 			node = node->next; // Don't free the nodes in the array, only the linked ones after
 			while (node) {
 				sno_TableNode* next = node->next;
-				sno_free(state, node);
+				sno_free(state, node, sizeof(sno_TableNode));
 				node = next;
 			}
 		}
 	}
+	sno_free(state, table->nodes, (table->capacity_mask + 1) * sizeof(sno_TableNode));
 }
 
 
@@ -260,22 +263,29 @@ void sno_free_gc_object(
 ) {
 	if (prev) {
 		prev->gc_next = obj->gc_next;
+	} else {
+		sno_assert(state->gc_list_start == obj);
+		state->gc_list_start = obj->gc_next;
 	}
-	switch (obj->type) {
-	case sno_VT_ARRAY: {
+	state->num_gc_objects--;
+	printf("Freeing GC object. Now there are %u\n", state->num_gc_objects);
+	
+	switch (obj->gc_type) {
+	case sno_OT_ARRAY: {
 		sno_Array* arr = (sno_Array*)obj;
-		sno_dynarray_clear(state, &arr->items);
+		sno_dynarray_clear(state, &arr->items, sizeof(sno_Value));
+		sno_free(state, obj, sizeof(sno_Array));
 		break;
 	}
-	case sno_VT_TABLE: {
+	case sno_OT_TABLE: {
 		sno_Table* table = (sno_Table*)obj;
 		clear_table(state, table);
+		sno_free(state, obj, sizeof(sno_Table));
 		break;
 	}
 	default:
 		break;
 	}
-	sno_free(state, obj);
 }
 
 
@@ -390,6 +400,8 @@ sno_Hash sno_hash_value(const sno_Value* value) {
 
 sno_Function* sno_create_function(sno_State* state, const sno_Bytecode* bytecode) {
 	sno_Function* function = sno_alloc_type(state, sno_Function);
+	function->gc_next = state->gc_list_start;
+	function->gc_type = sno_OT_FUNCTION;
 	function->is_c_function = sno_FALSE;
 	function->u.bytecode = bytecode;
 	return function;

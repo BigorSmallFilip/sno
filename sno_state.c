@@ -17,7 +17,7 @@ static void sno_load_core_libs(sno_State* state) {
 }
 
 sno_API sno_State* sno_create_state() {
-	sno_State* state = sno_alloc_type(NULL, sno_State);
+	sno_State* state = calloc(1, sizeof(sno_State));
 	sno_init_string_interning_table(state, 64);
 	init_stack(state, 128);
 	sno_load_core_libs(state);
@@ -47,7 +47,7 @@ static void resize_stack(sno_State* state, uint32_t new_capacity) {
 	sno_assert_msg(sno_is_power_of_2(new_capacity), "Capcity must be power of 2");
 	sno_assert(new_capacity <= sno_MAX_STACK);
 
-	state->stack = sno_realloc(state, state->stack, new_capacity * sizeof(sno_Value));
+	state->stack = sno_realloc(state, state->stack, state->stack_capacity, new_capacity * sizeof(sno_Value));
 	sno_assert_ptr(state->stack);
 	state->stack_capacity = new_capacity;
 }

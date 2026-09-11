@@ -5,6 +5,9 @@
 #include <string.h>
 
 void* sno_malloc(sno_State* state, size_t size) {
+	printf("Allocating %u bytes\n", (unsigned int)size);
+	state->num_allocations++;
+	state->memory_allocated += size;
 	void* block = malloc(size);
 	if (!block) {
 		sno_panic("Allocation failed");
@@ -13,6 +16,9 @@ void* sno_malloc(sno_State* state, size_t size) {
 }
 
 void* sno_calloc(sno_State* state, size_t count, size_t size) {
+	printf("Allocating %u bytes\n", (unsigned int)(count * size));
+	state->num_allocations++;
+	state->memory_allocated += count * size;
 	void* block = calloc(count, size);
 	if (!block) {
 		sno_panic("Allocation failed");
@@ -20,8 +26,11 @@ void* sno_calloc(sno_State* state, size_t count, size_t size) {
 	return block;
 }
 
-void* sno_realloc(sno_State* state, void* block, size_t new_size) {
+void* sno_realloc(sno_State* state, void* block, size_t old_size, size_t new_size) {
+	printf("Reallocating %u into %u bytes\n", (unsigned int)(old_size), (unsigned int)(new_size));
 	sno_assert_ptr(block);
+	state->memory_allocated -= old_size;
+	state->memory_allocated += new_size;
 	void* new_block = realloc(block, new_size);
 	if (!new_block) {
 		sno_panic("Allocation failed");
@@ -29,8 +38,11 @@ void* sno_realloc(sno_State* state, void* block, size_t new_size) {
 	return new_block;
 }
 
-void sno_free(sno_State* state, void* block) {
+void sno_free(sno_State* state, void* block, size_t size) {
 	sno_assert_ptr(block);
+	printf("Freeing %u bytes\n", (unsigned int)size);
+	state->num_allocations--;
+	state->memory_allocated -= size;
 	free(block);
 }
 
@@ -66,7 +78,11 @@ void sno_dynarray_resize(
 	sno_assert(new_capacity > 1);
 	sno_assert(sno_is_power_of_2(new_capacity));
 	if (dynarray->capacity == new_capacity) return;
-	dynarray->buffer = sno_realloc(state, dynarray->buffer, new_capacity * element_size);
+	dynarray->buffer = sno_realloc(
+		state,
+		dynarray->buffer,
+		dynarray->capacity * element_size,
+		new_capacity * element_size);
 	dynarray->capacity = new_capacity;
 }
 
@@ -199,11 +215,12 @@ void* sno_dynarray_get_ptr(
 
 void sno_dynarray_clear(
 	sno_State* state,
-	sno_DynArray* dynarray
+	sno_DynArray* dynarray,
+	size_t element_size
 ) {
 	sno_assert_ptr(state);
 	sno_assert_ptr(dynarray);
 	sno_assert_ptr(dynarray->buffer);
 	sno_assert(dynarray->capacity >= sno_MIN_DYNARRAY_CAPACITY);
-	sno_free(state, dynarray->buffer);
+	sno_free(state, dynarray->buffer, dynarray->capacity * element_size);
 }

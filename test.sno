@@ -1,8 +1,11 @@
 
-var t = {
-	a = [1, 2, 3],
-	b = [4, 5, 6],
-	c = [7, 8, 9],
+var i = 0
+while true {
+	print("Steps = ", i)
+	var t = {
+		a = [1, 2, 3],
+		b = [4, 5, 6],
+		c = [7, 8, 9],
+	}
+	i += 1
 }
-
-print(t)
