@@ -138,5 +138,5 @@ void sno_full_gc(sno_State* state) {
 	free_all_objects_marked_grey(state, sno_TRUE);
 
 	double duration = sno_perftimer() - start_time;
-	//printf("GARBAGE COLLECTION PASS COMPLETE AFTER %gms\n", duration * 1000.0);
+	printf("GARBAGE COLLECTION PASS COMPLETE AFTER %gms\n", duration * 1000.0);
 }

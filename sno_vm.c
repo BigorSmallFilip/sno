@@ -279,7 +279,7 @@ uint8_t sno_execute(sno_State* state, uint8_t num_args) {
 		uint8_t opcode = i & 0xFF;
 		uint8_t arg = i >> 8;
 		
-		if (state->memory_allocated > 100000) {
+		if (state->memory_allocated > 50000) {
 			sno_full_gc(state);
 		}
 
