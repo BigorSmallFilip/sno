@@ -72,6 +72,7 @@ const char* const sno_token_strings[sno_NUM_TOKENS] = {
 	":",
 	"number",
 	"string",
+	"interpolated string"
 	"identifier",
 };
 
@@ -175,6 +176,11 @@ void sno_print_token(const sno_Token* token, const sno_Token* next_token) {
 		case sno_TK_NUMBER: printf(ANSI_NUMBER "%g", (double)token->info.u_number); break;
 		case sno_TK_STRING: printf(
 			ANSI_STRING "\"%.*s\"",
+			(unsigned int)token->info.u_string->length,
+			sno_string_chars(token->info.u_string)
+		); break;
+		case sno_TK_INTERPOLATED_STRING: printf(
+			ANSI_STRING "\"%.*s\" " ANSI_CONST "\\()",
 			(unsigned int)token->info.u_string->length,
 			sno_string_chars(token->info.u_string)
 		); break;
@@ -465,6 +471,7 @@ static sno_TokenType lex_token(sno_Tokenizer* ts, sno_Token* token, sno_Bool* st
 	sno_assert_ptr(stmt_end);
 
 	// First skip whitespace and comments
+look_again:
 	while (1) {
 		if (ts->cur_char >= ts->source_code_end) {
 			*stmt_end = sno_TRUE;
@@ -541,11 +548,11 @@ not_whitespace:
 		ts->cur_char++;
 		if (check_next(ts, '/')) {
 			read_comment(ts);
-			break;
+			goto look_again;
 		}
 		if (check_next(ts, '*')) {
 			read_multiline_comment(ts);
-			break;
+			goto look_again;
 		}
 		if (check_next(ts, '=')) return sno_TK_ASSIGNDIV;
 		else if (check_next(ts, '-')) {
@@ -853,6 +860,19 @@ void sno_read_next_token(sno_Tokenizer* ts) {
 	}
 	ts->cur_token.stmt_end = sno_FALSE;
 	ts->next_token.type = lex_token(ts, &ts->next_token, &ts->cur_token.stmt_end);
+}
+
+void sno_continue_interpolated_string(sno_Tokenizer* ts) {
+	sno_assert_ptr(ts);
+	ts->prev_token = ts->cur_token;
+
+	sno_Bool interpolated = sno_FALSE;
+	ts->cur_token.length = (uint32_t)read_string_literal(ts, &ts->cur_token, &interpolated);
+	ts->cur_token.stmt_end = sno_FALSE;
+	ts->cur_token.type = sno_TK_STRING + interpolated;
+
+	sno_Bool unused;
+	ts->next_token.type = lex_token(ts, &ts->next_token, &unused);
 }
 
 

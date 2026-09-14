@@ -64,6 +64,7 @@ const char* const sno_instruction_names[] = {
 	"LOAD_NUMBER",
 	"LOAD_STRING",
 	"LOAD_FUNCTION",
+	"INTERPOLATE_STRING",
 	"NEW_ARRAY",
 	"CONCAT_ARRAY",
 	"NEW_TABLE",
@@ -121,6 +122,10 @@ static void print_instruction(const sno_Bytecode* bytecode, const sno_Instructio
 	case sno_I_LOAD_FUNCTION: {
 		const sno_Bytecode* f = bytecode->sub_functions[arg];
 		printf("function: %p", f);
+		break;
+	}
+	case sno_I_INTERPOLATE_STRING: {
+		printf("concat %i", arg);
 		break;
 	}
 	case sno_I_GET_LOCAL:

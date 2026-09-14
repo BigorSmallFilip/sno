@@ -76,6 +76,7 @@ enum {
 
 	sno_TK_NUMBER,
 	sno_TK_STRING,
+	sno_TK_INTERPOLATED_STRING,
 	sno_TK_IDENTIFIER,
 
 	sno_NUM_TOKENS,
@@ -164,6 +165,7 @@ typedef struct sno_Compiler {
 
 void sno_read_initial_tokens(sno_Tokenizer* ts);
 void sno_read_next_token(sno_Tokenizer* ts);
+void sno_continue_interpolated_string(sno_Tokenizer* ts);
 
 
 

@@ -45,6 +45,7 @@ enum {
 	sno_I_LOAD_NUMBER,
 	sno_I_LOAD_STRING,
 	sno_I_LOAD_FUNCTION,
+	sno_I_INTERPOLATE_STRING,
 	sno_I_NEW_ARRAY,
 	sno_I_CONCAT_ARRAY,
 	sno_I_NEW_TABLE,

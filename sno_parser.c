@@ -386,6 +386,30 @@ static void parse_brace_block(sno_Tokenizer* ts, sno_Bool is_loop);
 
 
 
+static void parse_interpolated_string(sno_Tokenizer* ts) {
+	emit_instruction_string(ts, ts->cur_token.info.u_string);
+	skip_token(ts, sno_TK_INTERPOLATED_STRING);
+	uint8_t num_concats = 1;
+	while (1) {
+		num_concats += 2;
+		parse_expression(ts);
+		if (ts->cur_token.type != sno_TK_RPAREN) {
+			sno_throw_syntax_error_at_cur_token(ts, "Invalid string interpolation expression");
+		}
+		sno_continue_interpolated_string(ts);
+		sno_assert(
+			ts->cur_token.type == sno_TK_STRING ||
+			ts->cur_token.type == sno_TK_INTERPOLATED_STRING
+		);
+		emit_instruction_string(ts, ts->cur_token.info.u_string);
+		if (ts->cur_token.type == sno_TK_STRING) {
+			sno_read_next_token(ts);
+			break;
+		}
+	}
+	emit_instruction_1(ts, sno_I_INTERPOLATE_STRING, num_concats);
+}
+
 static void parse_array_constructor(sno_Tokenizer* ts) {
 	skip_token(ts, sno_TK_LBRACKET);
 	const char* open = ts->prev_token.source_code;
@@ -595,6 +619,10 @@ static void parse_operand_primary(sno_Tokenizer* ts) {
 	case sno_TK_STRING: {
 		emit_instruction_string(ts, ts->cur_token.info.u_string);
 		break;
+	}
+	case sno_TK_INTERPOLATED_STRING: {
+		parse_interpolated_string(ts);
+		return;
 	}
 	case sno_TK_LPAREN: {
 		const char* open_paren = ts->cur_token.source_code;
@@ -1336,6 +1364,8 @@ struct sno_Bytecode* sno_parse_source_code(
 	sno_assert_ptr(state);
 	sno_assert_ptr(name);
 	sno_assert_ptr(source_code);
+
+	//sno_print_source_code(state, name, source_code);
 
 	sno_Bool success = sno_TRUE;
 	sno_Bytecode* bytecode = NULL;
