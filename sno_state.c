@@ -52,22 +52,6 @@ static void resize_stack(sno_State* state, uint32_t new_capacity) {
 	state->stack_capacity = new_capacity;
 }
 
-sno_API sno_Value* sno_reserve_stack(sno_State* state, uint32_t slots) {
-	state->stack_top += slots;
-	if (state->stack_top > state->stack_capacity) {
-		resize_stack(state, state->stack_capacity << 1);
-	}
-	return sno_stack_base(state);
-}
-
-sno_API void sno_check_table(sno_State* state, uint32_t slot) {
-	sno_assert(state);
-	sno_Value* value = &state->stack[state->stack_base + slot];
-	if (value->type != sno_VT_TABLE) {
-		sno_throw_runtime_error(state, "Oh no");
-	}
-}
-
 sno_API void sno_free_state(sno_State* state) {
 	if (!state) {
 		return;
@@ -76,64 +60,21 @@ sno_API void sno_free_state(sno_State* state) {
 
 
 
-sno_API const sno_Value* sno_get_arg(sno_State* state, int arg) {
-	sno_assert(arg >= -1 && arg < sno_MAX_STACK_ARGS);
-	return &sno_arg(arg);
+
+
+sno_API sno_Value* sno_reserve_stack(sno_State* state, uint32_t slots) {
+	state->stack_top += slots;
+	if (state->stack_top > state->stack_capacity) {
+		resize_stack(state, state->stack_capacity << 1);
+	}
+	return sno_stack_base(state);
 }
 
-sno_API sno_Bool sno_get_bool_arg(sno_State* state, int arg) {
-	sno_assert(arg >= -1 && arg < sno_MAX_STACK_ARGS);
-	sno_Value value = sno_arg(arg);
-	if (value.type != sno_VT_BOOL) {
-		sno_throw_runtime_error(state, "BAD ARGUMENT AAAAAAAAA");
-	}
-	return value.v.u_number != sno_NUMBER_FALSE;
+sno_API void sno_s_array_push(sno_State* state, uint32_t i) {
+
 }
 
-sno_API sno_Number sno_get_number_arg(sno_State* state, int arg) {
-	sno_assert(arg >= -1 && arg < sno_MAX_STACK_ARGS);
-	sno_Value value = sno_arg(arg);
-	if (value.type != sno_VT_NUMBER) {
-		sno_throw_runtime_error(state, "BAD ARGUMENT AAAAAAAAA");
-	}
-	return value.v.u_number;
-}
 
-sno_API const sno_String* sno_get_string_arg(sno_State* state, int arg) {
-	sno_assert(arg >= -1 && arg < sno_MAX_STACK_ARGS);
-	sno_Value value = sno_arg(arg);
-	if (value.type != sno_VT_STRING) {
-		sno_throw_runtime_error(state, "BAD ARGUMENT AAAAAAAAA");
-	}
-	return value.v.u_string;
-}
-
-sno_API sno_Array* sno_get_array_arg(sno_State* state, int arg) {
-	sno_assert(arg >= -1 && arg < sno_MAX_STACK_ARGS);
-	sno_Value value = sno_arg(arg);
-	if (value.type != sno_VT_ARRAY) {
-		sno_throw_runtime_error(state, "BAD ARGUMENT AAAAAAAAA");
-	}
-	return value.v.u_array;
-}
-
-sno_API sno_Table* sno_get_table_arg(sno_State* state, int arg) {
-	sno_assert(arg >= -1 && arg < sno_MAX_STACK_ARGS);
-	sno_Value value = sno_arg(arg);
-	if (value.type != sno_VT_TABLE) {
-		sno_throw_runtime_error(state, "BAD ARGUMENT AAAAAAAAA");
-	}
-	return value.v.u_table;
-}
-
-sno_API sno_Function* sno_get_function_arg(sno_State* state, int arg) {
-	sno_assert(arg >= -1 && arg < sno_MAX_STACK_ARGS);
-	sno_Value value = sno_arg(arg);
-	if (value.type != sno_VT_FUNCTION) {
-		sno_throw_runtime_error(state, "BAD ARGUMENT AAAAAAAAA");
-	}
-	return value.v.u_function;
-}
 
 
 
@@ -257,10 +198,20 @@ sno_API sno_Bool sno_run_file(
 	return sno_TRUE;
 }
 
-sno_API sno_no_return void sno_throw(sno_State* state, const sno_String* exception_msg) {
+
+
+
+
+sno_API sno_no_return void sno_throw(
+	sno_State* state,
+	sno_ExceptionType exception_type,
+	const char* const exception_msg,
+	size_t exception_msg_len
+) {
 	sno_assert_ptr(state);
 	sno_assert_ptr(exception_msg);
-	state->exception_msg = exception_msg;
+	state->exception_msg = sno_create_string(state, exception_msg, exception_msg_len);
+	state->exception_type = exception_type;
 	if (state->exception_jump) {
 		longjmp(state->exception_jump->buf, 1);
 	} else {
@@ -268,6 +219,99 @@ sno_API sno_no_return void sno_throw(sno_State* state, const sno_String* excepti
 		fputs(sno_ANSI_RED "FATAL ERROR! Uncaught Sno exception thrown! Exiting application...\n" sno_ANSI_NORMAL, stderr);
 		exit(EXIT_FAILURE);
 	}
+}
+
+sno_API sno_no_return void sno_throw_runtime_error(
+	sno_State* state,
+	const char* const format,
+	...
+) {
+	va_list args;
+	va_start(args, format);
+	sno_throw_runtime_error_va(state, format, args);
+}
+
+sno_API sno_no_return void sno_throw_runtime_error_va(
+	sno_State* state,
+	const char* const format,
+	va_list args
+) {
+	char buffer[sno_STACK_BUFFER_LENGTH];
+	int length = vsnprintf(
+		buffer,
+		sno_STACK_BUFFER_LENGTH - 1,
+		format,
+		args
+	);
+	va_end(args);
+	sno_throw(state, sno_EXCEPTION_RUNTIME_ERROR, buffer, length);
+}
+
+sno_API sno_no_return void sno_throw_at_source_code_pos(
+	sno_State* state,
+	sno_ExceptionType exception_type,
+	const sno_String* source_code,
+	const sno_String* source_code_name,
+	uint32_t source_code_pos,
+	const char* const format,
+	va_list args
+) {
+	char buffer[sno_STACK_BUFFER_LENGTH];
+	int length = 0;
+	length += snprintf(
+		buffer,
+		sno_STACK_BUFFER_LENGTH - 1,
+		"Some kind of error!\n"
+	);
+	length += sno_sprintf_source_code_pos(
+		state,
+		buffer + length,
+		sno_STACK_BUFFER_LENGTH - 1 - length,
+		source_code,
+		source_code_pos
+	);
+	length += vsnprintf(
+		buffer + length,
+		sno_STACK_BUFFER_LENGTH - 1 - length,
+		format,
+		args
+	);
+	sno_throw(state, exception_type, buffer, (size_t)length);
+}
+
+sno_API sno_no_return void sno_throw_at_source_code_pos_open_close(
+	sno_State* state,
+	sno_ExceptionType exception_type,
+	const sno_String* source_code,
+	const sno_String* source_code_name,
+	uint32_t source_code_pos_open,
+	uint32_t source_code_pos_close,
+	const char* const format,
+	va_list args
+) {
+	char buffer[sno_STACK_BUFFER_LENGTH];
+	int length = 0;
+	length += snprintf(
+		buffer,
+		sno_STACK_BUFFER_LENGTH - 1,
+		"Some kind of error!\n"
+	);
+	length += sno_sprintf_source_code_pos(
+		state,
+		buffer + length,
+		sno_STACK_BUFFER_LENGTH - 1 - length,
+		source_code,
+		source_code_pos_open
+	);
+	//va_start(args, format);
+	length += vsnprintf(
+		buffer + length,
+		sno_STACK_BUFFER_LENGTH - 1 - length,
+		format,
+		args
+	);
+	//va_end(args);
+	sno_throw(state, exception_type, buffer, length);
 }
 
 

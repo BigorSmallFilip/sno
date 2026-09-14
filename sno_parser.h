@@ -91,37 +91,27 @@ extern const char* const sno_token_strings[sno_NUM_TOKENS];
 
 
 
-typedef uint32_t sno_LineNumber;
-typedef uint32_t sno_ColumnNumber;
-
 typedef struct sno_Token {
 	sno_TokenType type;
 	sno_Bool stmt_end;
-	uint16_t length;
-	sno_LineNumber line;
-	const char* source_code; // Pointer to this token in the source code string
+	uint32_t source_code_pos;
 	union {
 		sno_Number u_number;
 		const struct sno_String* u_string;
 	} info;
 } sno_Token;
 
-void sno_print_token(const sno_Token* token, const sno_Token* next_token);
-uint16_t sno_get_token_length(const sno_Token* token);
+void sno_print_token(const sno_Token* token);
 
 typedef struct sno_Tokenizer {
-	sno_Token cur_token;
-	sno_Token next_token; // Look-ahead
-	sno_Token prev_token; // Look-behind. For error messages
-
+	sno_Token token;
+	sno_Token prev_token;
 	struct sno_State* main_state;
 	const struct sno_String* source_code_name;
 	const struct sno_String* source_code;
 	const char* source_code_end;
 	const char* cur_char;
 	const char* token_start;
-	sno_LineNumber line;
-	sno_ColumnNumber column;
 	uint8_t string_interpolation_depth;
 	struct sno_Compiler* cs;
 } sno_Tokenizer;
@@ -163,51 +153,39 @@ typedef struct sno_Compiler {
 	sno_Bool has_self_parameter;
 } sno_Compiler;
 
-void sno_read_initial_tokens(sno_Tokenizer* ts);
+void sno_read_initial_token(sno_Tokenizer* ts);
 void sno_read_next_token(sno_Tokenizer* ts);
 void sno_continue_interpolated_string(sno_Tokenizer* ts);
 
 
 
-void sno_no_return sno_throw_syntax_error(
-	sno_Tokenizer* ts,
-	const char* source_view,
-	size_t source_view_length,
-	sno_LineNumber line,
-	sno_ColumnNumber column,
-	const char* format,
-	...
-);
-
-void sno_no_return sno_throw_syntax_error_at_token(
-	sno_Tokenizer* ts,
-	const sno_Token* token,
-	const char* format,
-	...
-);
-
-#define sno_throw_syntax_error_at_cur_token(ts, format) \
-	sno_throw_syntax_error_at_token(ts, &ts->cur_token, format)
-
-void sno_no_return sno_throw_syntax_error_open_close(
-	sno_Tokenizer* ts,
-	const char* source_view_open,
-	sno_LineNumber line,
-	const char* source_view_close,
-	const char* format,
-	...
-);
-
-void sno_no_return sno_throw_runtime_error(
+int sno_sprintf_source_code_pos(
 	struct sno_State* state,
-	const char* format,
-	...
-);
-
-void sno_no_return sno_throw_runtime_error_at(
-	struct sno_State* state,
+	char* buffer,
+	int buffer_size,
 	const struct sno_String* source_code,
-	const uint32_t offset,
+	uint32_t source_code_pos
+);
+
+
+
+sno_no_return void sno_throw_syntax_error_at(
+	sno_Tokenizer* ts,
+	uint32_t pos,
+	const char* format,
+	...
+);
+
+sno_no_return void sno_throw_syntax_error_at_cur_token(
+	sno_Tokenizer* ts,
+	const char* format,
+	...
+);
+
+sno_no_return void sno_throw_syntax_error_open_close(
+	sno_Tokenizer* ts,
+	uint32_t pos_open,
+	uint32_t pos_close,
 	const char* format,
 	...
 );

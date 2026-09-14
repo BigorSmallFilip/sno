@@ -76,7 +76,8 @@ static sno_inline sno_Instruction* get_ptr_to_last_instruction(sno_Compiler* cs)
 
 static sno_inline sno_Bool check_last_expression_is_valid_lhs(
 	sno_Tokenizer* ts,
-	const sno_Token* first_token
+	uint32_t pos_start,
+	uint32_t pos_end
 ) {
 	sno_Instruction op = get_opcode(get_last_instruction(ts->cs));
 	if (op == sno_I_GET_LOCAL ||
@@ -91,9 +92,8 @@ static sno_inline sno_Bool check_last_expression_is_valid_lhs(
 	}
 	sno_throw_syntax_error_open_close(
 		ts,
-		first_token->source_code,
-		first_token->line,
-		ts->prev_token.source_code - 1,
+		pos_start,
+		pos_end,
 		"You cannot assign a value to this" // TODO: Work on this error msg
 	);
 }
@@ -107,12 +107,11 @@ static uint32_t emit_instruction(sno_Tokenizer* ts, sno_Instruction i) {
 	return cs->instructions.count - 1;
 }
 
-static uint32_t emit_instruction_at(sno_Tokenizer* ts, sno_Instruction i, const char* at) {
+static uint32_t emit_instruction_at(sno_Tokenizer* ts, sno_Instruction i, uint32_t pos) {
 	sno_State* state = ts->main_state;
 	sno_Compiler* cs = ts->cs;
 	sno_dynarray_push_back(state, &cs->instructions, sizeof(sno_Instruction), &i);
-	uint32_t source_code_offset = (uint32_t)(at - sno_string_chars(ts->source_code));
-	sno_dynarray_push_back(state, &cs->instruction_source_code_offsets, sizeof(uint32_t), &source_code_offset);
+	sno_dynarray_push_back(state, &cs->instruction_source_code_offsets, sizeof(uint32_t), &pos);
 	return cs->instructions.count - 1;
 }
 
@@ -126,13 +125,12 @@ static uint32_t emit_instruction_1(sno_Tokenizer* ts, uint8_t op, uint8_t arg) {
 	return cs->instructions.count - 1;
 }
 
-static uint32_t emit_instruction_1_at(sno_Tokenizer* ts, uint8_t op, uint8_t arg, const char* at) {
+static uint32_t emit_instruction_1_at(sno_Tokenizer* ts, uint8_t op, uint8_t arg, uint32_t pos) {
 	sno_State* state = ts->main_state;
 	sno_Compiler* cs = ts->cs;
 	sno_Instruction i = op | (arg << 8);
 	sno_dynarray_push_back(state, &cs->instructions, sizeof(sno_Instruction), &i);
-	uint32_t source_code_offset = (uint32_t)(at - sno_string_chars(ts->source_code));
-	sno_dynarray_push_back(state, &cs->instruction_source_code_offsets, sizeof(uint32_t), &source_code_offset);
+	sno_dynarray_push_back(state, &cs->instruction_source_code_offsets, sizeof(uint32_t), &pos);
 	return cs->instructions.count - 1;
 }
 
@@ -167,9 +165,9 @@ static sno_LocalSlot try_declare_local_variable(sno_Tokenizer* ts, sno_Token tok
 			local_id
 		);
 		if (local->name == name) {
-			sno_throw_syntax_error_at_token(
+			sno_throw_syntax_error_at(
 				ts,
-				&token,
+				token.source_code_pos,
 				"A local variable called '%.*s' already exists",
 				name->length,
 				sno_string_chars(name)
@@ -177,9 +175,9 @@ static sno_LocalSlot try_declare_local_variable(sno_Tokenizer* ts, sno_Token tok
 		}
 	}
 	if (ts->cs->num_active_local_var_slots > sno_MAX_ACTIVE_LOCAL_VARS) {
-		sno_throw_syntax_error_at_token(
+		sno_throw_syntax_error_at(
 			ts,
-			&token,
+			token.source_code_pos,
 			"This function has too many local variables."
 		);
 	}
@@ -242,7 +240,7 @@ static void identifier(sno_Tokenizer* ts, const sno_Token* name) {
 			ts,
 			sno_I_GET_GLOBAL,
 			add_string_constant(ts->cs, name->info.u_string),
-			name->source_code
+			name->source_code_pos
 		);
 	}
 }
@@ -258,12 +256,8 @@ static void enter_block(sno_Compiler* cs, sno_Block* block, sno_Bool is_loop, sn
 	cs->current_block = block;
 	cs->current_block_depth++;
 	if (cs->current_block_depth > sno_MAX_BLOCK_DEPTH) {
-		sno_throw_syntax_error(
+		sno_throw_syntax_error_at_cur_token(
 			cs->ts,
-			cs->ts->cur_char,
-			1,
-			cs->ts->line,
-			cs->ts->column,
 			"Function compiles too deeply. Consider breaking it up into multiple separate functions"
 		);
 	}
@@ -356,8 +350,9 @@ static void free_function_compiler(sno_Tokenizer* ts, sno_Compiler* cs) {
 
 
 static void expect_token(sno_Tokenizer* ts, sno_TokenType token) {
-	if (ts->cur_token.type != token) {
-		sno_throw_syntax_error_at_token(ts, &ts->cur_token, "Expected a '%s' here", sno_token_strings[token]);
+	if (ts->token.type != token) {
+		const char* const why = sno_token_strings[token];
+		sno_throw_syntax_error_at_cur_token(ts, "Expected a '%s' here", why);
 	}
 }
 
@@ -371,7 +366,7 @@ static void check_closing_token(sno_Tokenizer* ts, sno_TokenType type) {
 }
 
 static sno_inline void skip_token(sno_Tokenizer* ts, sno_TokenType type) {
-	sno_assert_msg(ts->cur_token.type == type, "Skipped token was different from what was expected");
+	sno_assert_msg(ts->token.type == type, "Skipped token was different from what was expected");
 	sno_read_next_token(ts);
 }
 
@@ -379,7 +374,7 @@ static sno_inline void skip_token(sno_Tokenizer* ts, sno_TokenType type) {
 
 
 
-static void parse_expression(sno_Tokenizer* ts);
+static sno_Bool parse_expression(sno_Tokenizer* ts);
 static uint32_t parse_closed_expression_list(sno_Tokenizer* ts, sno_TokenType end_token);
 static void parse_block(sno_Tokenizer* ts, sno_Bool is_loop, sno_Bool is_global_scope);
 static void parse_brace_block(sno_Tokenizer* ts, sno_Bool is_loop);
@@ -387,22 +382,22 @@ static void parse_brace_block(sno_Tokenizer* ts, sno_Bool is_loop);
 
 
 static void parse_interpolated_string(sno_Tokenizer* ts) {
-	emit_instruction_string(ts, ts->cur_token.info.u_string);
+	emit_instruction_string(ts, ts->token.info.u_string);
 	skip_token(ts, sno_TK_INTERPOLATED_STRING);
 	uint8_t num_concats = 1;
 	while (1) {
 		num_concats += 2;
 		parse_expression(ts);
-		if (ts->cur_token.type != sno_TK_RPAREN) {
+		if (ts->token.type != sno_TK_RPAREN) {
 			sno_throw_syntax_error_at_cur_token(ts, "Invalid string interpolation expression");
 		}
 		sno_continue_interpolated_string(ts);
 		sno_assert(
-			ts->cur_token.type == sno_TK_STRING ||
-			ts->cur_token.type == sno_TK_INTERPOLATED_STRING
+			ts->token.type == sno_TK_STRING ||
+			ts->token.type == sno_TK_INTERPOLATED_STRING
 		);
-		emit_instruction_string(ts, ts->cur_token.info.u_string);
-		if (ts->cur_token.type == sno_TK_STRING) {
+		emit_instruction_string(ts, ts->token.info.u_string);
+		if (ts->token.type == sno_TK_STRING) {
 			sno_read_next_token(ts);
 			break;
 		}
@@ -411,54 +406,52 @@ static void parse_interpolated_string(sno_Tokenizer* ts) {
 }
 
 static void parse_array_constructor(sno_Tokenizer* ts) {
+	uint32_t pos_open = ts->token.source_code_pos;
 	skip_token(ts, sno_TK_LBRACKET);
-	const char* open = ts->prev_token.source_code;
-	sno_LineNumber line = ts->prev_token.line;
-	if (ts->cur_token.type == sno_TK_RBRACKET) {
+	if (ts->token.type == sno_TK_RBRACKET) {
 		skip_token(ts, sno_TK_RBRACKET);
-		emit_instruction_1_at(ts, sno_I_NEW_ARRAY, 0, ts->prev_token.source_code);
+		emit_instruction_1_at(ts, sno_I_NEW_ARRAY, 0, pos_open);
 		return;
 	}
 	uint32_t len = 1;
 	sno_Bool concat = sno_FALSE;
 	parse_expression(ts);
 	while (1) {
-		if (ts->cur_token.type == sno_TK_COMMA) {
+		if (ts->token.type == sno_TK_COMMA) {
 			skip_token(ts, sno_TK_COMMA);
-			if (ts->cur_token.type == sno_TK_RBRACKET) {
+			if (ts->token.type == sno_TK_RBRACKET) {
 				break;
 			}
 			parse_expression(ts);
 			len++;
 			if (len >= sno_MAX_STACK_CONSTRUCTOR_ARGS) {
-				emit_instruction_1_at(ts, sno_I_NEW_ARRAY + concat, len, ts->cur_token.source_code);
+				emit_instruction_1_at(ts, sno_I_NEW_ARRAY + concat, len, pos_open);
 				len = 0;
 				concat = sno_TRUE;
 			}
-		} else if (ts->cur_token.type == sno_TK_RBRACKET) {
+		} else if (ts->token.type == sno_TK_RBRACKET) {
 			break;
 		} else {
 			sno_throw_syntax_error_open_close(
 				ts,
-				open,
-				line,
-				ts->prev_token.source_code + sno_get_token_length(&ts->prev_token),
+				pos_open,
+				ts->token.source_code_pos,
 				"Array is missing a closing ']'"
 			);
 		}
 
 	}
-	skip_token(ts, sno_TK_RBRACKET);
 	if (len > 0) {
-		emit_instruction_1_at(ts, sno_I_NEW_ARRAY + concat, len, ts->prev_token.source_code);
+		emit_instruction_1_at(ts, sno_I_NEW_ARRAY + concat, len, ts->token.source_code_pos);
 	}
+	skip_token(ts, sno_TK_RBRACKET);
 	return;
 }
 
 static void parse_key_value_pair(sno_Tokenizer* ts) {
-	if (ts->cur_token.type == sno_TK_IDENTIFIER) {
+	if (ts->token.type == sno_TK_IDENTIFIER) {
 		// String key
-		emit_instruction_string(ts, ts->cur_token.info.u_string);
+		emit_instruction_string(ts, ts->token.info.u_string);
 		skip_token(ts, sno_TK_IDENTIFIER);
 		/*if (ts->cur_token.stmt_end) {
 			identifier(ts, &ts->cur_token);
@@ -472,21 +465,19 @@ static void parse_key_value_pair(sno_Tokenizer* ts) {
 			}
 			identifier(ts, &ts->cur_token);
 		}*/
-	} else if (ts->cur_token.type == sno_TK_LBRACKET) {
+	} else if (ts->token.type == sno_TK_LBRACKET) {
 		// Expression key
-		const char* open = ts->cur_token.source_code;
-		sno_LineNumber line = ts->cur_token.line;
+		uint32_t pos_open = ts->token.source_code_pos;
 		parse_expression(ts);
-		const char* close = ts->cur_token.source_code;
+		uint32_t pos_close = ts->token.source_code_pos;
 		sno_throw_syntax_error_open_close(
 			ts,
-			open,
-			line,
-			close,
+			pos_open,
+			pos_close,
 			"This key is missing its closing ']'"
 		);
 	}
-	if (ts->cur_token.type != sno_TK_ASSIGN) {
+	if (ts->token.type != sno_TK_ASSIGN) {
 		sno_throw_syntax_error_at_cur_token(ts, "Expected an assignment for this key");
 	}
 	skip_token(ts, sno_TK_ASSIGN);
@@ -494,38 +485,36 @@ static void parse_key_value_pair(sno_Tokenizer* ts) {
 }
 
 static void parse_table_constructor(sno_Tokenizer* ts) {
+	uint32_t pos_open = ts->token.source_code_pos;
 	skip_token(ts, sno_TK_LBRACE);
-	const char* open = ts->prev_token.source_code;
-	sno_LineNumber line = ts->prev_token.line;
-	if (ts->cur_token.type == sno_TK_RBRACE) {
+	if (ts->token.type == sno_TK_RBRACE) {
 		skip_token(ts, sno_TK_RBRACE);
-		emit_instruction_1_at(ts, sno_I_NEW_TABLE, 0, ts->prev_token.source_code);
+		emit_instruction_1_at(ts, sno_I_NEW_TABLE, 0, pos_open);
 		return;
 	}
 	uint32_t len = 1;
 	sno_Bool concat = sno_FALSE;
 	parse_key_value_pair(ts);
 	while (1) {
-		if (ts->cur_token.type == sno_TK_COMMA) {
+		if (ts->token.type == sno_TK_COMMA) {
 			skip_token(ts, sno_TK_COMMA);
-			if (ts->cur_token.type == sno_TK_RBRACE) {
+			if (ts->token.type == sno_TK_RBRACE) {
 				break;
 			}
 			parse_key_value_pair(ts);
 			len++;
 			if (len >= sno_MAX_STACK_CONSTRUCTOR_ARGS / 2) {
-				emit_instruction_1_at(ts, sno_I_NEW_TABLE + concat, len, ts->cur_token.source_code);
+				emit_instruction_1_at(ts, sno_I_NEW_TABLE + concat, len, pos_open);
 				len = 0;
 				concat = sno_TRUE;
 			}
-		} else if (ts->cur_token.type == sno_TK_RBRACE) {
+		} else if (ts->token.type == sno_TK_RBRACE) {
 			break;
 		} else {
 			sno_throw_syntax_error_open_close(
 				ts,
-				open,
-				line,
-				ts->prev_token.source_code + sno_get_token_length(&ts->prev_token),
+				pos_open,
+				ts->token.source_code_pos,
 				"Table is missing a closing '}'"
 			);
 		}
@@ -533,7 +522,7 @@ static void parse_table_constructor(sno_Tokenizer* ts) {
 	}
 	skip_token(ts, sno_TK_RBRACE);
 	if (len > 0) {
-		emit_instruction_1_at(ts, sno_I_NEW_TABLE + concat, len, ts->prev_token.source_code);
+		emit_instruction_1_at(ts, sno_I_NEW_TABLE + concat, len, pos_open);
 	}
 	return;
 }
@@ -541,38 +530,38 @@ static void parse_table_constructor(sno_Tokenizer* ts) {
 static void parse_function_parameters(sno_Tokenizer* ts) {
 	expect_token_and_skip(ts, sno_TK_LPAREN);
 	int num_parameters = 1;
-	if (ts->cur_token.type == sno_TK_RPAREN) {
+	if (ts->token.type == sno_TK_RPAREN) {
 		skip_token(ts, sno_TK_RPAREN);
 		return;
 	}
-	if (ts->cur_token.type == sno_TK_COMMA) {
+	if (ts->token.type == sno_TK_COMMA) {
 		sno_throw_syntax_error_at_cur_token(ts, "Expected a parameter");
 	}
-	if (ts->cur_token.type == sno_TK_CONST) {
+	if (ts->token.type == sno_TK_CONST) {
 		skip_token(ts, sno_TK_CONST);
 	}
-	if (ts->cur_token.type == sno_TK_SELF) {
+	if (ts->token.type == sno_TK_SELF) {
 		ts->cs->has_self_parameter = sno_TRUE;
 		skip_token(ts, sno_TK_SELF);
 	}
 	while (1) {
-		if (ts->cur_token.type == sno_TK_COMMA) {
+		if (ts->token.type == sno_TK_COMMA) {
 			skip_token(ts, sno_TK_COMMA);
 		}
-		if (ts->cur_token.type == sno_TK_RPAREN) {
+		if (ts->token.type == sno_TK_RPAREN) {
 			break;
 		}
-		if (ts->cur_token.type == sno_TK_CONST) {
+		if (ts->token.type == sno_TK_CONST) {
 			skip_token(ts, sno_TK_CONST);
 		}
-		if (ts->cur_token.type != sno_TK_IDENTIFIER) {
+		if (ts->token.type != sno_TK_IDENTIFIER) {
 			sno_throw_syntax_error_at_cur_token(ts, "Expected a parameter");
 		}
-		try_declare_local_variable(ts, ts->cur_token);
+		try_declare_local_variable(ts, ts->token);
 		skip_token(ts, sno_TK_IDENTIFIER);
 		num_parameters++;
 	}
-	sno_assert(ts->cur_token.type == sno_TK_RPAREN);
+	sno_assert(ts->token.type == sno_TK_RPAREN);
 	skip_token(ts, sno_TK_RPAREN);
 }
 
@@ -599,7 +588,7 @@ static void parse_function(sno_Tokenizer* ts) {
 }
 
 static void parse_operand_primary(sno_Tokenizer* ts) {
-	switch (ts->cur_token.type) {
+	switch (ts->token.type) {
 	case sno_TK_NONE: {
 		emit_instruction(ts, sno_I_LOAD_NONE);
 		break;
@@ -613,11 +602,11 @@ static void parse_operand_primary(sno_Tokenizer* ts) {
 		break;
 	}
 	case sno_TK_NUMBER: {
-		emit_instruction_number(ts, ts->cur_token.info.u_number);
+		emit_instruction_number(ts, ts->token.info.u_number);
 		break;
 	}
 	case sno_TK_STRING: {
-		emit_instruction_string(ts, ts->cur_token.info.u_string);
+		emit_instruction_string(ts, ts->token.info.u_string);
 		break;
 	}
 	case sno_TK_INTERPOLATED_STRING: {
@@ -625,15 +614,14 @@ static void parse_operand_primary(sno_Tokenizer* ts) {
 		return;
 	}
 	case sno_TK_LPAREN: {
-		const char* open_paren = ts->cur_token.source_code;
+		uint32_t open_paren = ts->token.source_code_pos;
 		skip_token(ts, sno_TK_LPAREN);
 		parse_expression(ts);
-		if (ts->cur_token.type != sno_TK_RPAREN) {
+		if (ts->token.type != sno_TK_RPAREN) {
 			sno_throw_syntax_error_open_close(
 				ts,
 				open_paren,
-				ts->cur_token.line,
-				ts->cur_token.source_code,
+				ts->token.source_code_pos,
 				"This parenthesis doesn't close"
 			);
 		}
@@ -654,7 +642,7 @@ static void parse_operand_primary(sno_Tokenizer* ts) {
 		return; // Skip reading the '}'
 	}
 	case sno_TK_IDENTIFIER: {
-		identifier(ts, &ts->cur_token);
+		identifier(ts, &ts->token);
 		break;
 	}
 	case sno_TK_SELF: {
@@ -678,9 +666,9 @@ static void parse_operand_primary(sno_Tokenizer* ts) {
 static void parse_operand(sno_Tokenizer* ts) {
 	parse_operand_primary(ts);
 	while (1) { // For repeated application such as list[1][2].field[3]
-		switch (ts->cur_token.type) {
+		switch (ts->token.type) {
 		case sno_TK_LBRACKET: { // Index
-			const char* lbracket_at = ts->cur_token.source_code;
+			uint32_t lbracket_at = ts->token.source_code_pos;
 			skip_token(ts, sno_TK_LBRACKET);
 			parse_expression(ts);
 			expect_token_and_skip(ts, sno_TK_RBRACKET);
@@ -688,12 +676,12 @@ static void parse_operand(sno_Tokenizer* ts) {
 			break;
 		}
 		case sno_TK_DOT: { // Field or method call
-			const char* dot_at = ts->cur_token.source_code;
+			uint32_t dot_at = ts->token.source_code_pos;
 			skip_token(ts, sno_TK_DOT);
 			expect_token(ts, sno_TK_IDENTIFIER);
-			const sno_String* name = add_string_constant(ts->cs, ts->cur_token.info.u_string);
+			const sno_String* name = add_string_constant(ts->cs, ts->token.info.u_string);
 			sno_read_next_token(ts);
-			if (ts->cur_token.type == sno_TK_LPAREN) {
+			if (ts->token.type == sno_TK_LPAREN) {
 				emit_instruction_1_at(ts, sno_I_GET_METHOD , name, dot_at);
 			} else {
 				emit_instruction_1_at(ts, sno_I_GET_FIELD, name, dot_at);
@@ -701,7 +689,7 @@ static void parse_operand(sno_Tokenizer* ts) {
 			break;
 		}
 		case sno_TK_LPAREN: { // Function call
-			const char* lparen_at = ts->cur_token.source_code;
+			uint32_t lparen_at = ts->token.source_code_pos;
 			skip_token(ts, sno_TK_LPAREN);
 			emit_instruction(ts, sno_I_LOAD_NONE); // Self parameter = null
 			int num_args = parse_closed_expression_list(ts, sno_TK_RPAREN);
@@ -767,58 +755,78 @@ static const struct {
 };
 #define UNOP_PRECEDENCE 8 // priority for unary operators
 
-static sno_BinOp parse_subexpression(sno_Tokenizer* ts, unsigned int precedence) {
-	sno_UnOp unary_op = get_unop(ts->cur_token.type);
+static sno_BinOp parse_subexpression(
+	sno_Tokenizer* ts,
+	unsigned int precedence
+) {
+	sno_UnOp unary_op = get_unop(ts->token.type);
 	if (unary_op != sno_NOT_UNOP) {
 		// Unary op
 		sno_read_next_token(ts);
 		parse_subexpression(ts, UNOP_PRECEDENCE);
 		emit_instruction_1(ts, sno_I_UNOP, unary_op);
+		if (ts->prev_token.stmt_end) {
+			return sno_NOT_BINOP;
+		}
 	} else {
 		parse_operand(ts);
+		if (ts->prev_token.stmt_end) {
+			return sno_NOT_BINOP;
+		}
 	}
-	sno_BinOp binary_op = get_binop(ts->cur_token.type);
+	sno_BinOp binary_op = get_binop(ts->token.type);
 	while (binary_op != sno_NOT_BINOP && operator_precedence[binary_op].left > precedence) {
 		sno_BinOp next_op;
-		const char* binary_op_at = ts->cur_token.source_code;
+		uint32_t binary_op_at = ts->token.source_code_pos;
 		sno_read_next_token(ts);
-		next_op = parse_subexpression(ts, operator_precedence[binary_op].right);
-		emit_instruction_1_at(ts, sno_I_BINOP, binary_op, binary_op_at);
+		if (binary_op == sno_BINOP_LAND || binary_op == sno_BINOP_LOR) {
+			uint32_t jump_from = emit_instruction(
+				ts,
+				binary_op == sno_BINOP_LAND ? sno_I_LAND : sno_I_LOR
+			);
+			next_op = parse_subexpression(ts, operator_precedence[binary_op].right);
+			uint32_t jump_to = emit_instruction(ts, sno_I_TO_BOOL) + 1;
+			set_jump_dst(ts, jump_from, jump_to);
+		} else {
+			next_op = parse_subexpression(ts, operator_precedence[binary_op].right);
+			emit_instruction_1_at(ts, sno_I_BINOP, binary_op, binary_op_at);
+		}
+		if (ts->prev_token.stmt_end) {
+			return sno_NOT_BINOP;
+		}
 		binary_op = next_op;
 	}
 	return binary_op;
 }
 
-static void parse_expression(sno_Tokenizer* ts) {
+static sno_Bool parse_expression(sno_Tokenizer* ts) {
 	parse_subexpression(ts, 0);
-
+	return ts->prev_token.stmt_end;
 }
 
 static uint32_t parse_closed_expression_list(sno_Tokenizer* ts, sno_TokenType end_token) {
-	const char* open = ts->prev_token.source_code;
-	sno_LineNumber line = ts->prev_token.line;
-	if (ts->cur_token.type == end_token) {
+	uint32_t pos_open = ts->prev_token.source_code_pos;
+	if (ts->token.type == end_token) {
 		skip_token(ts, end_token);
 		return 0;
 	}
 	uint32_t len = 1;
 	parse_expression(ts);
 	while (1) {
-		if (ts->cur_token.type == sno_TK_COMMA) {
+		if (ts->token.type == sno_TK_COMMA) {
 			skip_token(ts, sno_TK_COMMA);
-			if (ts->cur_token.type == end_token) {
+			if (ts->token.type == end_token) {
 				break;
 			}
 			parse_expression(ts);
 			len++;
-		} else if (ts->cur_token.type == end_token) {
+		} else if (ts->token.type == end_token) {
 			break;
 		} else {
 			sno_throw_syntax_error_open_close(
 				ts,
-				open,
-				line,
-				ts->prev_token.source_code + sno_get_token_length(&ts->prev_token),
+				pos_open,
+				ts->token.source_code_pos,
 				"Missing a closing '%s'",
 				sno_token_strings[end_token]
 			);
@@ -837,11 +845,11 @@ static void parse_if_statement(sno_Tokenizer* ts) {
 	uint32_t jump_from = emit_instruction(ts, sno_I_JUMP_IF_FALSE);
 	parse_brace_block(ts, sno_FALSE);
 	uint32_t jump_to = ts->cs->instructions.count;
-	if (ts->cur_token.type == sno_TK_ELSE) {
+	if (ts->token.type == sno_TK_ELSE) {
 		jump_to++;
 		skip_token(ts, sno_TK_ELSE);
 		uint32_t else_jump_from = emit_instruction(ts, sno_I_JUMP);
-		if (ts->cur_token.type == sno_TK_IF) {
+		if (ts->token.type == sno_TK_IF) {
 			parse_if_statement(ts);
 		} else {
 			// Parse else block
@@ -857,24 +865,24 @@ static void parse_for_statement(sno_Tokenizer* ts) {
 	sno_Bool is_numeric_for_loop = sno_TRUE;
 	skip_token(ts, sno_TK_FOR);
 	expect_token(ts, sno_TK_IDENTIFIER);
-	sno_Token iter1 = ts->cur_token;
+	sno_Token iter1 = ts->token;
 	skip_token(ts, sno_TK_IDENTIFIER);
 	sno_Token iter2 = { 0 };
-	if (ts->cur_token.type == sno_TK_COMMA) {
+	if (ts->token.type == sno_TK_COMMA) {
 		skip_token(ts, sno_TK_COMMA);
 		expect_token(ts, sno_TK_IDENTIFIER);
-		iter2 = ts->cur_token;
+		iter2 = ts->token;
 		skip_token(ts, sno_TK_IDENTIFIER);
 		is_numeric_for_loop = sno_FALSE;
 	}
 	// iter variables done
 	sno_Bool inclusive = sno_FALSE;
-	if (ts->cur_token.type == sno_TK_ASSIGN) {
+	if (ts->token.type == sno_TK_ASSIGN) {
 		// Numeric for loop
 		if (iter2.type == sno_TK_IDENTIFIER) {
-			sno_throw_syntax_error_at_token(
+			sno_throw_syntax_error_at(
 				ts,
-				&iter2,
+				iter2.source_code_pos,
 				"Cannot use two iterator variables in a numberic for loop"
 			);
 		}
@@ -882,18 +890,18 @@ static void parse_for_statement(sno_Tokenizer* ts) {
 		skip_token(ts, sno_TK_ASSIGN);
 		parse_expression(ts); // Start
 		expect_token_and_skip(ts, sno_TK_COMMA);
-		if (ts->cur_token.type == sno_TK_ASSIGN) {
+		if (ts->token.type == sno_TK_ASSIGN) {
 			skip_token(ts, sno_TK_ASSIGN);
 			inclusive = sno_TRUE;
 		}
 		parse_expression(ts); // Stop
-		if (ts->cur_token.type == sno_TK_COMMA) {
+		if (ts->token.type == sno_TK_COMMA) {
 			skip_token(ts, sno_TK_COMMA);
 			parse_expression(ts); // Step
 		} else {
 			emit_instruction_number(ts, 1); // Step is 1 by default
 		}
-	} else if (ts->cur_token.type == sno_TK_IN) {
+	} else if (ts->token.type == sno_TK_IN) {
 		// Container for loop
 		if (iter2.type != sno_TK_IDENTIFIER) {
 			
@@ -969,7 +977,7 @@ static void parse_return_statement(sno_Tokenizer* ts) {
 	if (ts->cs->is_global_scope) {
 		sno_throw_syntax_error_at_cur_token(ts, "Only functions can have return statements");
 	}
-	sno_Bool no_expr = ts->cur_token.stmt_end;
+	sno_Bool no_expr = ts->token.stmt_end;
 	skip_token(ts, sno_TK_RETURN);
 	uint8_t num_returns = 0;
 	if (no_expr) {
@@ -978,16 +986,15 @@ static void parse_return_statement(sno_Tokenizer* ts) {
 		while (1) {
 			num_returns++;
 			if (num_returns > sno_MAX_STACK_ARGS) {
-				sno_throw_syntax_error_at_token(
+				sno_throw_syntax_error_at_cur_token(
 					ts,
-					&ts->cur_token,
 					"Too many return values. The max is 15"
 				);
 			}
 			parse_expression(ts);
 			if (ts->prev_token.stmt_end) {
 				break;
-			} else if (ts->cur_token.type == sno_TK_COMMA) {
+			} else if (ts->token.type == sno_TK_COMMA) {
 				skip_token(ts, sno_TK_COMMA);
 			} else {
 				sno_throw_syntax_error_at_cur_token(ts, "Nope. I didn't expect this lol");
@@ -998,16 +1005,16 @@ static void parse_return_statement(sno_Tokenizer* ts) {
 }
 
 static void parse_declaration_statement(sno_Tokenizer* ts) {
-	sno_Bool is_const = ts->cur_token.type == sno_TK_CONST;
+	sno_Bool is_const = ts->token.type == sno_TK_CONST;
 	sno_read_next_token(ts);
 	sno_Token name_tokens[16];
 	uint8_t num_declarations = 0;
 	sno_Bool no_assignment = sno_FALSE;
 	while (1) {
-		if (ts->cur_token.type != sno_TK_IDENTIFIER) {
+		if (ts->token.type != sno_TK_IDENTIFIER) {
 			sno_throw_syntax_error_at_cur_token(ts, "Expected a name for a local variable here");
 		}
-		name_tokens[num_declarations] = ts->cur_token;
+		name_tokens[num_declarations] = ts->token;
 		num_declarations++;
 		if (num_declarations > sno_MAX_STACK_ARGS) {
 			sno_throw_syntax_error_at_cur_token(
@@ -1015,13 +1022,13 @@ static void parse_declaration_statement(sno_Tokenizer* ts) {
 				"Too many declarations in one statement. The max is 16"
 			);
 		}
-		sno_Bool name_is_stmt_end = ts->cur_token.stmt_end;
+		sno_Bool name_is_stmt_end = ts->token.stmt_end;
 		skip_token(ts, sno_TK_IDENTIFIER);
 		if (name_is_stmt_end) {
 			no_assignment = sno_TRUE;
 			break;
 		}
-		if (ts->cur_token.type != sno_TK_COMMA) {
+		if (ts->token.type != sno_TK_COMMA) {
 			break;
 		}
 		skip_token(ts, sno_TK_COMMA);
@@ -1032,29 +1039,29 @@ static void parse_declaration_statement(sno_Tokenizer* ts) {
 		}
 	} else {
 		sno_assert(num_declarations >= 1);
-		sno_Token assignment_token = ts->cur_token;
+		uint32_t assignment_token_pos = ts->token.source_code_pos;
 		expect_token_and_skip(ts, sno_TK_ASSIGN);
 		for (uint8_t i = 0;; i++) {
 			if (i > num_declarations) {
-				sno_throw_syntax_error_at_token(
+				sno_throw_syntax_error_at(
 					ts,
-					&assignment_token,
+					assignment_token_pos,
 					"There are %i item(s) on the left but %i item(s) on the right",
 					num_declarations,
 					i + 1
 				);
 			}
-			parse_expression(ts);
-			if (ts->prev_token.stmt_end) {
+			sno_Bool stmt_end = parse_expression(ts);
+			if (stmt_end) {
 				sno_Instruction* last_instruction = get_ptr_to_last_instruction(ts->cs);
 				if (get_opcode(*last_instruction) == sno_I_CALL) {
 					*last_instruction = set_call_num_returns(*last_instruction, num_declarations - i);
 					break;
 				} else if (i + 1 != num_declarations) {
 					// Wrong number of declarations on either side
-					sno_throw_syntax_error_at_token(
+					sno_throw_syntax_error_at(
 						ts,
-						&assignment_token,
+						assignment_token_pos,
 						"There are %i item(s) on the left but %i item(s) on the right",
 						num_declarations,
 						i + 1
@@ -1071,7 +1078,12 @@ static void parse_declaration_statement(sno_Tokenizer* ts) {
 	for (int8_t i = (int8_t)num_declarations - 1; i >= 0; i--) {
 		sno_Token name_token = name_tokens[i];
 		if (ts->cs->current_block->is_global) {
-			emit_instruction_1_at(ts, sno_I_NEW_GLOBAL, add_string_constant(ts->cs, name_token.info.u_string), name_token.source_code);
+			emit_instruction_1_at(
+				ts,
+				sno_I_NEW_GLOBAL,
+				add_string_constant(ts->cs, name_token.info.u_string),
+				name_token.source_code_pos
+			);
 		} else {
 			sno_LocalSlot local_slot = try_declare_local_variable(ts, name_token);
 			emit_instruction_1(ts, sno_I_SET_LOCAL, local_slot);
@@ -1080,18 +1092,17 @@ static void parse_declaration_statement(sno_Tokenizer* ts) {
 }
 
 static void parse_expression_statement(sno_Tokenizer* ts) {
-	const sno_Token first_stmt_token = ts->cur_token;
-	parse_expression(ts);
+	uint32_t first_stmt_token_pos = ts->token.source_code_pos;
+	sno_Bool first_was_stmt_end = parse_expression(ts);
 	sno_Instruction last_instruction = get_last_instruction(ts->cs);
 	if (get_opcode(last_instruction) == sno_I_CALL) {
 		*get_ptr_to_last_instruction(ts->cs) = set_call_num_returns(last_instruction, 0);
 		// Make sure it was the last thing on the statement
-		if (!ts->prev_token.stmt_end) {
+		if (!first_was_stmt_end) {
 			sno_throw_syntax_error_open_close(
 				ts,
-				first_stmt_token.source_code,
-				first_stmt_token.line,
-				ts->prev_token.source_code + sno_get_token_length(&ts->prev_token) - 2,
+				first_stmt_token_pos,
+				ts->token.source_code_pos,
 				"This function call should be the only thing in this statement" // TODO: work on this
 			);
 		} else {
@@ -1100,9 +1111,13 @@ static void parse_expression_statement(sno_Tokenizer* ts) {
 	}
 	// Assignment statement
 	sno_Bool shuffling_required = sno_FALSE;
-	shuffling_required = check_last_expression_is_valid_lhs(ts, &first_stmt_token);
-	if (sno_token_is_assignment(ts->cur_token.type)) {
-		sno_TokenType assignment_token = ts->cur_token.type;
+	shuffling_required = check_last_expression_is_valid_lhs(
+		ts,
+		first_stmt_token_pos,
+		&ts->token.source_code_pos
+	);
+	if (sno_token_is_assignment(ts->token.type)) {
+		sno_TokenType assignment_token = ts->token.type;
 		sno_read_next_token(ts); // Skip assignment token
 		if (assignment_token == sno_TK_ASSIGN) {
 			ts->cs->instructions.count--; // Remove the final get-instruction, convert to set later
@@ -1122,8 +1137,8 @@ static void parse_expression_statement(sno_Tokenizer* ts) {
 		emit_instruction(ts, last_instruction + 1);
 		return;
 	}
-	if (ts->cur_token.type == sno_TK_INC || ts->cur_token.type == sno_TK_DEC) {
-		sno_Bool is_inc = (ts->cur_token.type == sno_TK_INC);
+	if (ts->token.type == sno_TK_INC || ts->token.type == sno_TK_DEC) {
+		sno_Bool is_inc = (ts->token.type == sno_TK_INC);
 		sno_not_implemented;
 	}
 
@@ -1134,7 +1149,7 @@ static void parse_expression_statement(sno_Tokenizer* ts) {
 
 	uint8_t num_lhs = 1;
 	while (1) {
-		if (ts->cur_token.type == sno_TK_COMMA) {
+		if (ts->token.type == sno_TK_COMMA) {
 			num_lhs++;
 			if (num_lhs > sno_MAX_STACK_ARGS) {
 				sno_throw_syntax_error_at_cur_token(
@@ -1143,9 +1158,13 @@ static void parse_expression_statement(sno_Tokenizer* ts) {
 				);
 			}
 			skip_token(ts, sno_TK_COMMA);
-			const sno_Token first_token = ts->cur_token;
+			uint32_t first_token_pos = ts->token.source_code_pos;
 			parse_expression(ts);
-			shuffling_required |= check_last_expression_is_valid_lhs(ts, &first_token);
+			shuffling_required |= check_last_expression_is_valid_lhs(
+				ts,
+				first_token_pos,
+				ts->token.source_code_pos
+			);
 			// Defer the last instruction
 			deferred_instructions[num_lhs - 1] = get_last_instruction(ts->cs);
 			ts->cs->instructions.count--;
@@ -1156,27 +1175,26 @@ static void parse_expression_statement(sno_Tokenizer* ts) {
 	}
 	sno_assert(num_lhs < sno_MAX_STACK_ARGS);
 	sno_assert(num_lhs >= 1);
-	if (ts->cur_token.type != sno_TK_ASSIGN) {
-		if (sno_token_is_assignment(ts->cur_token.type)) {
+	if (ts->token.type != sno_TK_ASSIGN) {
+		if (sno_token_is_assignment(ts->token.type)) {
 			// TODO: Better error message
 		}
-		sno_throw_syntax_error_at_token(
+		sno_throw_syntax_error_at_cur_token(
 			ts,
-			&ts->prev_token,
 			"Expected an '=' here. "
-			"All expression statements except function calls must assign to something"
+			"All expression statements other than function calls must assign to something"
 		);
 	}
-	sno_Token assignment_token = ts->cur_token;
+	uint32_t assignment_token_pos = ts->token.source_code_pos;
 	skip_token(ts, sno_TK_ASSIGN);
 	uint8_t num_rhs = 1;
 	for (uint8_t i = 0; i < num_lhs; i++) {
-		parse_expression(ts);
+		sno_Bool stmt_end = parse_expression(ts);
 		sno_Instruction* instructions = get_instruction_buffer(ts->cs);
 		last_instruction = get_last_instruction(ts->cs);
 		if (get_opcode(last_instruction) == sno_I_CALL) {
 			uint8_t num_returns = 1;
-			if (ts->prev_token.stmt_end) {
+			if (stmt_end) {
 				// This is the last rhs expression
 				// so call should get values for all remaining lhs
 				num_returns = num_lhs - i;
@@ -1184,10 +1202,10 @@ static void parse_expression_statement(sno_Tokenizer* ts) {
 			instructions[ts->cs->instructions.count - 1] =
 				set_call_num_returns(last_instruction, num_returns);
 		}
-		if (ts->prev_token.stmt_end) {
+		if (stmt_end) {
 			break;
 		}
-		if (ts->cur_token.type == sno_TK_COMMA) {
+		if (ts->token.type == sno_TK_COMMA) {
 			skip_token(ts, sno_TK_COMMA);
 			num_rhs++;
 			if (num_rhs > sno_MAX_STACK_ARGS) {
@@ -1197,9 +1215,9 @@ static void parse_expression_statement(sno_Tokenizer* ts) {
 				);
 			}
 			if (num_rhs > num_lhs) {
-				sno_throw_syntax_error_at_token(
+				sno_throw_syntax_error_at(
 					ts,
-					&assignment_token,
+					assignment_token_pos,
 					"There are %i item(s) on the left but %i item(s) on the right",
 					num_lhs,
 					num_rhs
@@ -1209,9 +1227,9 @@ static void parse_expression_statement(sno_Tokenizer* ts) {
 	}
 	if (get_opcode(last_instruction) != sno_I_CALL) {
 		if (num_lhs != num_rhs) {
-			sno_throw_syntax_error_at_token(
+			sno_throw_syntax_error_at(
 				ts,
-				&assignment_token,
+				assignment_token_pos,
 				"There are %i item(s) on the left but %i item(s) on the right",
 				num_lhs,
 				num_rhs
@@ -1226,7 +1244,7 @@ static void parse_expression_statement(sno_Tokenizer* ts) {
 		sno_Instruction deferred_instruction = deferred_instructions[i];
 		emit_instruction(ts, deferred_instruction + 1);
 	}
-	if (ts->cur_token.type == sno_TK_COMMA) {
+	if (ts->token.type == sno_TK_COMMA) {
 		sno_throw_syntax_error_at_cur_token(ts, "More expressions than assignments here");
 	}
 }
@@ -1239,8 +1257,8 @@ static void parse_function_statement(sno_Tokenizer* ts) {
 		);
 	}
 	skip_token(ts, sno_TK_FUNCTION);
-	const char* name_at = ts->cur_token.source_code;
-	const sno_String* name = ts->cur_token.info.u_string;
+	uint32_t name_at = ts->token.source_code_pos;
+	const sno_String* name = ts->token.info.u_string;
 	skip_token(ts, sno_TK_IDENTIFIER);
 	parse_function(ts);
 	emit_instruction_1_at(
@@ -1259,10 +1277,10 @@ static void parse_function_statement(sno_Tokenizer* ts) {
 /// because if it isn't, there would be unreachable code. sno_FALSE otherwise.
 static sno_Bool parse_statement(sno_Tokenizer* ts) {
 	printf("   Parsing statement starting with token ");
-	sno_print_token(&ts->cur_token, &ts->next_token);
+	sno_print_token(&ts->token);
 	printf("\n");
 
-	switch (ts->cur_token.type) {
+	switch (ts->token.type) {
 	case sno_TK_IF: {
 		parse_if_statement(ts);
 		return sno_FALSE;
@@ -1304,7 +1322,7 @@ static sno_Bool parse_statement(sno_Tokenizer* ts) {
 
 static void parse_block(sno_Tokenizer* ts, sno_Bool is_loop, sno_Bool is_global_scope) {
 	printf("Parsing block starting with token ");
-	sno_print_token(&ts->cur_token, &ts->next_token);
+	sno_print_token(&ts->token);
 	printf("\n");
 	sno_assert_msg(!(is_loop && is_global_scope), "Global scope can't be a loop");
 
@@ -1313,7 +1331,7 @@ static void parse_block(sno_Tokenizer* ts, sno_Bool is_loop, sno_Bool is_global_
 	// 'return', 'break' and 'continue' statements must be at the end of a block
 	sno_Bool is_last = sno_FALSE;
 	while (!is_last) {
-		sno_TokenType token = ts->cur_token.type;
+		sno_TokenType token = ts->token.type;
 		if (token == sno_TK_EOF || token == sno_TK_RBRACE) {
 			// End of block
 			break;
@@ -1332,14 +1350,14 @@ static void parse_brace_block(sno_Tokenizer* ts, sno_Bool is_loop) {
 
 
 static sno_Bytecode* parse_source_code(sno_Tokenizer* ts) {
-	sno_read_initial_tokens(ts);
+	sno_read_initial_token(ts);
 
 	sno_Compiler cs = { 0 };
 	init_function_compiler(ts, &cs);
 	cs.is_global_scope = sno_TRUE;
 
 	parse_block(ts, sno_FALSE, sno_TRUE);
-	if (ts->cur_token.type != sno_TK_EOF) {
+	if (ts->token.type != sno_TK_EOF) {
 		sno_unreachable;
 		//sno_throw_syntax_error_at_cur_token(ts, "Global scope ended early here");
 	}
@@ -1365,7 +1383,7 @@ struct sno_Bytecode* sno_parse_source_code(
 	sno_assert_ptr(name);
 	sno_assert_ptr(source_code);
 
-	//sno_print_source_code(state, name, source_code);
+	sno_print_source_code(state, name, source_code);
 
 	sno_Bool success = sno_TRUE;
 	sno_Bytecode* bytecode = NULL;
@@ -1380,8 +1398,6 @@ struct sno_Bytecode* sno_parse_source_code(
 		ts.source_code_end = sno_string_chars(source_code) + source_code->length;
 		ts.cur_char = sno_string_chars(source_code);
 		ts.token_start = sno_string_chars(source_code);
-		ts.line = 1;
-		ts.column = 1;
 		ts.cs = NULL;
 
 		bytecode = parse_source_code(&ts);

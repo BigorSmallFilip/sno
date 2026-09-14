@@ -5,6 +5,13 @@
 #include "sno_string.h"
 #include "sno_value.h"
 #include <setjmp.h>
+#include <stdarg.h>
+
+typedef enum sno_ExceptionType {
+	sno_EXCEPTION_NONE,
+	sno_EXCEPTION_SYNTAX_ERROR,
+	sno_EXCEPTION_RUNTIME_ERROR,
+} sno_ExceptionType;
 
 typedef struct sno_ExceptionJump {
 	struct sno_ExceptionJump* prev;
@@ -28,8 +35,11 @@ typedef struct sno_State {
 	uint32_t stack_capacity;
 	sno_DynArray call_infos;
 	sno_StringInterningTable string_table;
+
+	sno_ExceptionType exception_type;
 	const sno_String* exception_msg;
 	sno_ExceptionJump* exception_jump;
+
 	sno_Table* globals;
 	sno_Table* string_prototype;
 	sno_Table* array_prototype;
@@ -46,19 +56,7 @@ sno_API void sno_free_state(sno_State* state);
 
 sno_API sno_Value* sno_reserve_stack(sno_State* state, uint32_t slots);
 
-sno_API void sno_check_table(sno_State* state, uint32_t slot);
-
-#define sno_self -1
-sno_API const sno_Value* sno_get_arg(sno_State* state, int arg);
-sno_API sno_Bool sno_get_bool_arg(sno_State* state, int arg);
-sno_API sno_Number sno_get_number_arg(sno_State* state, int arg);
-sno_API const sno_String* sno_get_string_arg(sno_State* state, int arg);
-sno_API sno_Array* sno_get_array_arg(sno_State* state, int arg);
-sno_API sno_Table* sno_get_table_arg(sno_State* state, int arg);
-sno_API sno_Function* sno_get_function_arg(sno_State* state, int arg);
-
-#define sno_arg(i) (state->stack[state->stack_base + 2 + (i)])
-#define sno_ret(i) (state->stack[state->stack_base + (i)])
+sno_API void sno_s_array_push(sno_State* state, uint32_t i);
 
 sno_API void sno_create_new_global(sno_State* state, const sno_String* name, const sno_Value* value);
 sno_API void sno_set_global(sno_State* state, const sno_String* name, const sno_Value* value);
@@ -76,7 +74,47 @@ sno_API sno_Bool sno_try_compile_source_code(
 sno_API void sno_call(sno_State* state, uint8_t num_args, uint8_t num_returns);
 sno_API sno_Bool sno_run_file(sno_State* state, const char* const path, size_t path_length);
 
-sno_API sno_no_return void sno_throw(sno_State* state, const sno_String* exception_msg);
+
+
+sno_API sno_no_return void sno_throw(
+	sno_State* state,
+	sno_ExceptionType exception_type,
+	const char* const exception_msg,
+	size_t exception_msg_len
+);
+
+sno_API sno_no_return void sno_throw_runtime_error(
+	sno_State* state,
+	const char* const format,
+	...
+);
+
+sno_API sno_no_return void sno_throw_runtime_error_va(
+	sno_State* state,
+	const char* const format,
+	va_list args
+);
+
+sno_API sno_no_return void sno_throw_at_source_code_pos(
+	sno_State* state,
+	sno_ExceptionType exception_type,
+	const sno_String* source_code,
+	const sno_String* source_code_name,
+	uint32_t source_code_pos,
+	const char* const format,
+	va_list args
+);
+
+sno_API sno_no_return void sno_throw_at_source_code_pos_open_close(
+	sno_State* state,
+	sno_ExceptionType exception_type,
+	const sno_String* source_code,
+	const sno_String* source_code_name,
+	uint32_t source_code_pos_open,
+	uint32_t source_code_pos_close,
+	const char* const format,
+	va_list args
+);
 
 double sno_perftimer();
 
