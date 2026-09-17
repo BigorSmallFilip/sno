@@ -683,6 +683,11 @@ static void parse_operand(sno_Tokenizer* ts) {
 			sno_read_next_token(ts);
 			if (ts->token.type == sno_TK_LPAREN) {
 				emit_instruction_1_at(ts, sno_I_GET_METHOD , name, dot_at);
+				uint32_t lparen_at = ts->token.source_code_pos;
+				skip_token(ts, sno_TK_LPAREN);
+				int num_args = parse_closed_expression_list(ts, sno_TK_RPAREN);
+				sno_Instruction call = sno_I_CALL | (num_args << 8) | (1 << 12);
+				emit_instruction_at(ts, call, lparen_at);
 			} else {
 				emit_instruction_1_at(ts, sno_I_GET_FIELD, name, dot_at);
 			}
@@ -988,7 +993,7 @@ static void parse_return_statement(sno_Tokenizer* ts) {
 			if (num_returns > sno_MAX_STACK_ARGS) {
 				sno_throw_syntax_error_at_cur_token(
 					ts,
-					"Too many return values. The max is 15"
+					"Too many return values. The max is 14"
 				);
 			}
 			parse_expression(ts);
@@ -1019,7 +1024,7 @@ static void parse_declaration_statement(sno_Tokenizer* ts) {
 		if (num_declarations > sno_MAX_STACK_ARGS) {
 			sno_throw_syntax_error_at_cur_token(
 				ts,
-				"Too many declarations in one statement. The max is 16"
+				"Too many declarations in one statement. The max is 14"
 			);
 		}
 		sno_Bool name_is_stmt_end = ts->token.stmt_end;
@@ -1154,7 +1159,7 @@ static void parse_expression_statement(sno_Tokenizer* ts) {
 			if (num_lhs > sno_MAX_STACK_ARGS) {
 				sno_throw_syntax_error_at_cur_token(
 					ts,
-					"Too many assignments in one statement. The max is 16"
+					"Too many assignments in one statement. The max is 14"
 				);
 			}
 			skip_token(ts, sno_TK_COMMA);
@@ -1211,7 +1216,7 @@ static void parse_expression_statement(sno_Tokenizer* ts) {
 			if (num_rhs > sno_MAX_STACK_ARGS) {
 				sno_throw_syntax_error_at_cur_token(
 					ts,
-					"Too many expressions in one statement. The max is 16"
+					"Too many expressions in one statement. The max is 14"
 				);
 			}
 			if (num_rhs > num_lhs) {

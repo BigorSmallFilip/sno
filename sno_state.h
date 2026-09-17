@@ -54,9 +54,26 @@ typedef struct sno_State {
 sno_API sno_State* sno_create_state();
 sno_API void sno_free_state(sno_State* state);
 
+
+
 sno_API sno_Value* sno_reserve_stack(sno_State* state, uint32_t slots);
+sno_API sno_Value* sno_get_stack_ptr(sno_State* state, uint32_t slot);
+
+sno_API void sno_check_arg_count(sno_State* state, uint8_t num_args, uint8_t num_args_expected);
+
+#define sno_self (-1)
+sno_API sno_Value* sno_get_arg(sno_State* state, int arg);
+sno_API sno_Value* sno_get_arg_typed(
+	sno_State* state,
+	sno_ValueType expected_type,
+	int arg
+);
+
+sno_API void sno_set_ret_number(sno_State* state, int ret, sno_Number number);
 
 sno_API void sno_s_array_push(sno_State* state, uint32_t i);
+
+
 
 sno_API void sno_create_new_global(sno_State* state, const sno_String* name, const sno_Value* value);
 sno_API void sno_set_global(sno_State* state, const sno_String* name, const sno_Value* value);

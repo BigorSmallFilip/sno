@@ -283,10 +283,44 @@ size_t check_array_index(
 void get_field(
 	sno_State* state,
 	sno_Bytecode* bytecode,
-	sno_Value* container,
+	sno_Instruction* pc,
+	sno_Value* inout_value,
 	sno_ConstID name
 ) {
-
+	sno_assert(name < bytecode->num_string_constants);
+	const sno_String* key_name = bytecode->string_constants[name];
+	sno_Value key;
+	key.type = sno_VT_STRING;
+	key.v.u_string = key_name;
+	switch (inout_value->type) {
+	case sno_VT_ARRAY: {
+		if (!sno_table_get(state->array_prototype, &key, inout_value)) {
+			throw_runtime_error_at_pc(
+				state, bytecode, pc,
+				"Array has no field named %.*s",
+				key_name->length,
+				sno_string_chars(key_name)
+			);
+		}
+	} break;
+	case sno_VT_TABLE: {
+		if (!sno_table_get(inout_value->v.u_table, &key, inout_value)) {
+			throw_runtime_error_at_pc(
+				state, bytecode, pc,
+				"Table has no field named %.*s",
+				key_name->length,
+				sno_string_chars(key_name)
+			);
+		}
+	} break;
+	default:
+		throw_runtime_error_at_pc(
+			state, bytecode, pc,
+			"Cannot get fields on %s",
+			sno_type_strings_noun[inout_value->type]
+		);
+		break;
+	}
 }
 
 
@@ -315,7 +349,7 @@ uint8_t sno_execute(sno_State* state, uint8_t num_args) {
 			sno_full_gc(state);
 		}
 
-		//printf("stack %02u   | ", (unsigned int)(stack_ptr - state->stack)); print_instruction(bytecode, pc);
+		printf("stack %02u   | ", (unsigned int)(sp - state->stack)); print_instruction(bytecode, pc);
 		pc++;
 
 		switch (opcode) {
@@ -492,32 +526,7 @@ uint8_t sno_execute(sno_State* state, uint8_t num_args) {
 			sp--;
 		} break;
 		case sno_I_GET_FIELD: {
-			get_field(state, bytecode, sp, arg);
-			sno_assert(arg < bytecode->num_string_constants);
-			const sno_String* key_name = bytecode->string_constants[arg];
-			sno_Value key;
-			key.type = sno_VT_STRING;
-			key.v.u_string = key_name;
-			switch (sp->type) {
-			case sno_VT_TABLE: {
-				if (!sno_table_get(sp->v.u_table, &key, sp)) {
-					throw_runtime_error_at_pc(
-						state, bytecode, pc,
-						"Table has no field named %.*s",
-						key_name->length,
-						sno_string_chars(key_name)
-					);
-				}
-				break;
-			}
-			default:
-				throw_runtime_error_at_pc(
-					state, bytecode, pc,
-					"Cannot get fields on %s",
-					sno_type_strings_noun[sp->type]
-				);
-				break;
-			}
+			get_field(state, bytecode, pc, sp, arg);
 		} break;
 		case sno_I_SET_FIELD: {
 			sno_assert(arg < bytecode->num_string_constants);
@@ -617,7 +626,9 @@ uint8_t sno_execute(sno_State* state, uint8_t num_args) {
 			sp--;
 		} break;
 		case sno_I_GET_METHOD: {
-
+			sp++;
+			sp[0] = sp[-1]; // Copy self as the first argument in method call
+			get_field(state, bytecode, pc, sp - 1, arg);
 		} break;
 
 		case sno_I_BINOP: {

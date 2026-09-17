@@ -121,7 +121,7 @@ typedef struct sno_Tokenizer {
 #define sno_MAX_NUMBER_CONSTANTS 50000
 #define sno_MAX_STRING_CONSTANTS 50000
 #define sno_MAX_SUB_FUNCTIONS 50000
-#define sno_MAX_STACK_ARGS 15
+#define sno_MAX_STACK_ARGS 14
 #define sno_MAX_STACK_CONSTRUCTOR_ARGS 64
 
 #define sno_MAX_BLOCK_DEPTH 50

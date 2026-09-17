@@ -70,8 +70,70 @@ sno_API sno_Value* sno_reserve_stack(sno_State* state, uint32_t slots) {
 	return sno_stack_base(state);
 }
 
-sno_API void sno_s_array_push(sno_State* state, uint32_t i) {
+sno_API sno_Value* sno_get_stack_ptr(sno_State* state, uint32_t slot) {
+	sno_assert_ptr(state);
+	sno_assert(state->stack_base + slot < state->stack_top);
+	return &state->stack[state->stack_base + slot];
+}
 
+sno_API void sno_check_arg_count(
+	sno_State* state,
+	uint8_t num_args,
+	uint8_t num_args_expected
+) {
+	sno_assert_ptr(state);
+	if (num_args != num_args_expected) {
+		sno_throw_runtime_error(
+			state,
+			"Expected %u args, but was given %u",
+			num_args_expected,
+			num_args
+		);
+	}
+}
+
+sno_API sno_Value* sno_get_arg(sno_State* state, int arg) {
+	return sno_get_stack_ptr(state, arg + 2);
+}
+
+const char* const arg_names[] = {
+	"self", "0", "1", "2", "3", "4", "5", "6", "7", "8", "9",
+	"10", "11", "12", "13",
+};
+
+sno_API sno_Value* sno_get_arg_typed(
+	sno_State* state,
+	sno_ValueType expected_type,
+	int arg
+) {
+	sno_assert_ptr(state);
+	sno_assert(arg >= sno_self && arg < sno_MAX_STACK_ARGS);
+	sno_Value* value = sno_get_stack_ptr(state, arg + 2);
+	if (value->type != expected_type) {
+		sno_throw_runtime_error(
+			state,
+			"Expected %s%s to be %s, but it was %s",
+			arg == sno_self ? "" : "arg ",
+			arg_names[arg + 1],
+			sno_type_strings_noun[expected_type],
+			sno_type_strings_noun[value->type]
+		);
+	}
+	return value;
+}
+
+sno_API void sno_set_ret_number(sno_State* state, int ret, sno_Number number) {
+	sno_assert_ptr(state);
+	sno_assert(ret >= 0 && ret < sno_MAX_STACK_ARGS);
+	sno_Value* value = sno_get_stack_ptr(state, ret);
+	value->type = sno_VT_NUMBER;
+	value->v.u_number = number;
+}
+
+
+
+sno_API void sno_s_array_push(sno_State* state, uint32_t i) {
+	
 }
 
 
@@ -170,7 +232,7 @@ sno_API void sno_call(sno_State* state, uint8_t num_args, uint8_t num_returns) {
 		);
 	}
 	sno_Function* function = base->v.u_function;
-	uint8_t num_real_returns = 0;
+	uint8_t num_real_returns;
 	if (function->is_c_function) {
 		sno_CFunction* c_function = function->u.c_function;
 		num_real_returns = c_function(state, num_args);
