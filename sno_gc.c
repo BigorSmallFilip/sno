@@ -13,39 +13,16 @@ static void print_gc_obj(sno_State* state, sno_GCObject* obj) {
 
 
 
-static void mark_all(sno_State* state, uint8_t mark) {
-	sno_GCObject* iter = state->gc_list_start;
-	size_t objects_marked = 0;
-	while (iter) {
-#ifdef DEBUG_PRINT_GC
-		printf("MARKING ");
-		print_gc_obj(state, iter);
-		putchar('\n');
-#endif
-		iter->gc_mark = mark;
-		iter = iter->gc_next;
-		objects_marked++;
-	}
-#ifdef DEBUG_PRINT_GC
-	printf("Marked %u objects\nNum GC objects = %u\n", objects_marked, state->num_gc_objects);
-#endif
-}
-
-
-
 static void mark_value(sno_State* state, sno_Value* value);
 
-
-
-static void mark_array_items(sno_State* state, sno_Array* arr, uint8_t mark) {
-	sno_assert(arr->gc_mark == sno_GC_MARK_LIVE);
+static void mark_array_items(sno_State* state, sno_Array* arr) {
 	for (size_t i = 0; i < arr->items.count; i++) {
 		sno_Value* item = &((sno_Value*)arr->items.buffer)[i];
 		mark_value(state, item);
 	}
 }
 
-static void mark_table_items(sno_State* state, sno_Table* table, uint8_t mark) {
+static void mark_table_items(sno_State* state, sno_Table* table) {
 	sno_TableNode* iter;
 	size_t bucket;
 	sno_table_iter(table, &bucket, &iter);
@@ -62,11 +39,6 @@ static void mark_table_items(sno_State* state, sno_Table* table, uint8_t mark) {
 	}
 }
 
-static void mark_table_and_items(sno_State* state, sno_Table* table, uint8_t mark) {
-	table->gc_mark = mark;
-	mark_table_items(state, table, mark);
-}
-
 static void mark_value(sno_State* state, sno_Value* value) {
 	if (!sno_type_is_gc(value->type)) {
 		return;
@@ -76,9 +48,9 @@ static void mark_value(sno_State* state, sno_Value* value) {
 	}
 	value->v.gc_obj->gc_mark = sno_GC_MARK_LIVE;
 	if (value->type == sno_VT_ARRAY) {
-		mark_array_items(state, value->v.u_array, sno_GC_MARK_LIVE);
+		mark_array_items(state, value->v.u_array);
 	} else if (value->type == sno_VT_TABLE) {
-		mark_table_items(state, value->v.u_table, sno_GC_MARK_LIVE);
+		mark_table_items(state, value->v.u_table);
 	} else if (value->type == sno_VT_STRING) {
 
 	} else if (value->type == sno_VT_FUNCTION) {
@@ -86,15 +58,15 @@ static void mark_value(sno_State* state, sno_Value* value) {
 	}
 }
 
-
-
 static void mark_stack(sno_State* state) {
 	for (size_t i = 0; i < state->stack_top; i++) {
 		mark_value(state, &state->stack[i]);
 	}
 }
 
-static void free_all_objects_marked_grey(sno_State* state, sno_Bool print) {
+
+
+static void sweep(sno_State* state, sno_Bool print) {
 	sno_GCObject* iter = state->gc_list_start;
 	sno_GCObject* prev = NULL;
 	while (iter) {
@@ -102,15 +74,16 @@ static void free_all_objects_marked_grey(sno_State* state, sno_Bool print) {
 
 		if (print) {
 #ifdef DEBUG_PRINT_GC
-			printf(iter->gc_mark == sno_GC_MARK_GREY ? "DEAD " : "LIVE ");
+			printf(iter->gc_mark ? "LIVE " : "DEAD ");
 			print_gc_obj(state, iter);
 			putchar('\n');
 #endif
 		}
 
-		if (iter->gc_mark == sno_GC_MARK_GREY) {
+		if (iter->gc_mark == sno_GC_MARK_DEAD) {
 			sno_free_gc_object(state, iter, prev);
 		} else {
+			iter->gc_mark = sno_GC_MARK_DEAD;
 			prev = iter;
 		}
 		iter = next;
@@ -126,17 +99,31 @@ void sno_full_gc(sno_State* state) {
 	);
 #endif
 	double start_time = sno_perftimer();
-
-	mark_all(state, sno_GC_MARK_GREY);
-
-	mark_table_and_items(state, state->globals, sno_GC_MARK_LIVE);
-	mark_table_and_items(state, state->string_prototype, sno_GC_MARK_LIVE);
-	mark_table_and_items(state, state->array_prototype, sno_GC_MARK_LIVE);
-	mark_table_and_items(state, state->table_prototype, sno_GC_MARK_LIVE);
+	
+	state->globals->gc_mark = sno_GC_MARK_LIVE;
+	mark_table_items(state, state->globals);
+	state->string_prototype->gc_mark = sno_GC_MARK_LIVE;
+	mark_table_items(state, state->string_prototype);
+	state->array_prototype->gc_mark = sno_GC_MARK_LIVE;
+	mark_table_items(state, state->array_prototype);
+	state->table_prototype->gc_mark = sno_GC_MARK_LIVE;
+	mark_table_items(state, state->table_prototype);
 	mark_stack(state);
 
-	free_all_objects_marked_grey(state, sno_TRUE);
+	size_t memory_before = state->memory_allocated;
+	size_t num_allocations_before = state->num_allocations;
+	sweep(state, sno_TRUE);
+	size_t memory_freed = memory_before - state->memory_allocated;
+	size_t num_allocations_freed = num_allocations_before - state->num_allocations;
 
 	double duration = sno_perftimer() - start_time;
-	printf("GARBAGE COLLECTION PASS COMPLETE AFTER %gms\n", duration * 1000.0);
+#ifdef DEBUG_PRINT_GC
+	printf(
+		"GARBAGE COLLECTION PASS COMPLETE AFTER %gms\n"
+		"%u allocations, %u bytes freed\n",
+		duration * 1000.0,
+		(unsigned int)num_allocations_freed,
+		(unsigned int)memory_freed
+	);
+#endif
 }

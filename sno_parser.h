@@ -7,6 +7,8 @@
 
 
 enum {
+	sno_TK_TERMINATOR,
+
 	sno_TK_IF,
 	sno_TK_ELSE,
 	sno_TK_FOR,

@@ -9,6 +9,7 @@
 #define is_digit(c) ((c) >= '0' && (c) <= '9')
 
 const char* const sno_token_strings[sno_NUM_TOKENS] = {
+	"(terminator)"
 	"if",
 	"else",
 	"for",
@@ -112,6 +113,7 @@ void sno_print_token(const sno_Token* token) {
 		printf(ANSI_EOF "(End of file)");
 	} else {
 		switch (token->type) {
+		case sno_TK_TERMINATOR: printf(ANSI_KEYWORD "(terminator)"); break;
 		case sno_TK_IF: printf(ANSI_KEYWORD "if"); break;
 		case sno_TK_ELSE:  printf(ANSI_KEYWORD "else"); break;
 		case sno_TK_FOR: printf(ANSI_KEYWORD "for"); break;
@@ -792,7 +794,7 @@ static sno_TokenType lex_token(sno_Tokenizer* ts, sno_Token* token) {
 
 void sno_read_initial_token(sno_Tokenizer* ts) {
 	(void)skip_whitespace_and_comments(ts);
-	ts->token.type = sno_TK_EOF;
+	ts->token.type = sno_TK_EOF; // Will become prev_token
 	sno_read_next_token(ts);
 }
 
