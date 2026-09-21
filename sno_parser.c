@@ -374,7 +374,7 @@ static sno_inline void skip_token(sno_Tokenizer* ts, sno_TokenType type) {
 
 
 
-static sno_Bool parse_expression(sno_Tokenizer* ts);
+static void parse_expression(sno_Tokenizer* ts);
 static uint32_t parse_closed_expression_list(sno_Tokenizer* ts, sno_TokenType end_token);
 static void parse_block(sno_Tokenizer* ts, sno_Bool is_loop, sno_Bool is_global_scope);
 static void parse_brace_block(sno_Tokenizer* ts, sno_Bool is_loop);
@@ -770,14 +770,8 @@ static sno_BinOp parse_subexpression(
 		sno_read_next_token(ts);
 		parse_subexpression(ts, UNOP_PRECEDENCE);
 		emit_instruction_1(ts, sno_I_UNOP, unary_op);
-		if (ts->prev_token.stmt_end) {
-			return sno_NOT_BINOP;
-		}
 	} else {
 		parse_operand(ts);
-		if (ts->prev_token.stmt_end) {
-			return sno_NOT_BINOP;
-		}
 	}
 	sno_BinOp binary_op = get_binop(ts->token.type);
 	while (binary_op != sno_NOT_BINOP && operator_precedence[binary_op].left > precedence) {
@@ -796,17 +790,13 @@ static sno_BinOp parse_subexpression(
 			next_op = parse_subexpression(ts, operator_precedence[binary_op].right);
 			emit_instruction_1_at(ts, sno_I_BINOP, binary_op, binary_op_at);
 		}
-		if (ts->prev_token.stmt_end) {
-			return sno_NOT_BINOP;
-		}
 		binary_op = next_op;
 	}
 	return binary_op;
 }
 
-static sno_Bool parse_expression(sno_Tokenizer* ts) {
+static void parse_expression(sno_Tokenizer* ts) {
 	parse_subexpression(ts, 0);
-	return ts->prev_token.stmt_end;
 }
 
 static uint32_t parse_closed_expression_list(sno_Tokenizer* ts, sno_TokenType end_token) {
@@ -982,10 +972,9 @@ static void parse_return_statement(sno_Tokenizer* ts) {
 	if (ts->cs->is_global_scope) {
 		sno_throw_syntax_error_at_cur_token(ts, "Only functions can have return statements");
 	}
-	sno_Bool no_expr = ts->token.stmt_end;
 	skip_token(ts, sno_TK_RETURN);
 	uint8_t num_returns = 0;
-	if (no_expr) {
+	if (ts->token.type == sno_TK_TERMINATOR) {
 		emit_instruction(ts, sno_I_LOAD_NONE);
 	} else {
 		while (1) {
@@ -997,7 +986,7 @@ static void parse_return_statement(sno_Tokenizer* ts) {
 				);
 			}
 			parse_expression(ts);
-			if (ts->prev_token.stmt_end) {
+			if (ts->token.type == sno_TK_TERMINATOR) {
 				break;
 			} else if (ts->token.type == sno_TK_COMMA) {
 				skip_token(ts, sno_TK_COMMA);
@@ -1027,9 +1016,9 @@ static void parse_declaration_statement(sno_Tokenizer* ts) {
 				"Too many declarations in one statement. The max is 14"
 			);
 		}
-		sno_Bool name_is_stmt_end = ts->token.stmt_end;
 		skip_token(ts, sno_TK_IDENTIFIER);
-		if (name_is_stmt_end) {
+		if (ts->token.type == sno_TK_TERMINATOR) {
+			skip_token(ts, sno_TK_TERMINATOR);
 			no_assignment = sno_TRUE;
 			break;
 		}
@@ -1056,8 +1045,8 @@ static void parse_declaration_statement(sno_Tokenizer* ts) {
 					i + 1
 				);
 			}
-			sno_Bool stmt_end = parse_expression(ts);
-			if (stmt_end) {
+			parse_expression(ts);
+			if (ts->token.type == sno_TK_TERMINATOR) {
 				sno_Instruction* last_instruction = get_ptr_to_last_instruction(ts->cs);
 				if (get_opcode(*last_instruction) == sno_I_CALL) {
 					*last_instruction = set_call_num_returns(*last_instruction, num_declarations - i);
@@ -1098,12 +1087,12 @@ static void parse_declaration_statement(sno_Tokenizer* ts) {
 
 static void parse_expression_statement(sno_Tokenizer* ts) {
 	uint32_t first_stmt_token_pos = ts->token.source_code_pos;
-	sno_Bool first_was_stmt_end = parse_expression(ts);
+	parse_expression(ts);
 	sno_Instruction last_instruction = get_last_instruction(ts->cs);
 	if (get_opcode(last_instruction) == sno_I_CALL) {
 		*get_ptr_to_last_instruction(ts->cs) = set_call_num_returns(last_instruction, 0);
 		// Make sure it was the last thing on the statement
-		if (!first_was_stmt_end) {
+		if (ts->token.type != sno_TK_TERMINATOR) {
 			sno_throw_syntax_error_open_close(
 				ts,
 				first_stmt_token_pos,
@@ -1342,6 +1331,16 @@ static void parse_block(sno_Tokenizer* ts, sno_Bool is_loop, sno_Bool is_global_
 			break;
 		}
 		is_last = parse_statement(ts);
+		if (
+			ts->token.type != sno_TK_TERMINATOR &&
+			ts->token.type != sno_TK_RBRACE
+		) {
+			sno_throw_syntax_error_at_cur_token(
+				ts,
+				"Statement didn't end properly"
+			);
+		}
+		sno_read_next_token(ts);
 	}
 	exit_block(ts->cs);
 }

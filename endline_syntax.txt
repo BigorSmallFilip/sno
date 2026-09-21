@@ -1,0 +1,3 @@
+
+Insert semicolon if last token on line is
+identifier number string break continue return ++ -- ) ] }

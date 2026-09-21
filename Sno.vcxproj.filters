@@ -94,6 +94,9 @@
     <Text Include="onesno.c">
       <Filter>Source Files</Filter>
     </Text>
+    <Text Include="endline_syntax.txt">
+      <Filter>Source Files</Filter>
+    </Text>
   </ItemGroup>
   <ItemGroup>
     <None Include="test.sno">

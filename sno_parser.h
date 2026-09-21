@@ -95,7 +95,6 @@ extern const char* const sno_token_strings[sno_NUM_TOKENS];
 
 typedef struct sno_Token {
 	sno_TokenType type;
-	sno_Bool stmt_end;
 	uint32_t source_code_pos;
 	union {
 		sno_Number u_number;
@@ -108,6 +107,7 @@ void sno_print_token(const sno_Token* token);
 typedef struct sno_Tokenizer {
 	sno_Token token;
 	sno_Token prev_token;
+	sno_Bool insert_terminator;
 	struct sno_State* main_state;
 	const struct sno_String* source_code_name;
 	const struct sno_String* source_code;

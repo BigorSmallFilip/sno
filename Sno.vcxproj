@@ -199,6 +199,7 @@
     <ClInclude Include="sno_vm.h" />
   </ItemGroup>
   <ItemGroup>
+    <Text Include="endline_syntax.txt" />
     <Text Include="onesno.c" />
   </ItemGroup>
   <ItemGroup>

@@ -113,7 +113,7 @@ void sno_print_token(const sno_Token* token) {
 		printf(ANSI_EOF "(End of file)");
 	} else {
 		switch (token->type) {
-		case sno_TK_TERMINATOR: printf(ANSI_KEYWORD "(terminator)"); break;
+		case sno_TK_TERMINATOR: printf(ANSI_OPERATOR ";"); break;
 		case sno_TK_IF: printf(ANSI_KEYWORD "if"); break;
 		case sno_TK_ELSE:  printf(ANSI_KEYWORD "else"); break;
 		case sno_TK_FOR: printf(ANSI_KEYWORD "for"); break;
@@ -421,13 +421,16 @@ static void read_multiline_comment(sno_Tokenizer* ts) {
 
 
 
-static sno_Bool skip_whitespace_and_comments(sno_Tokenizer* ts) {
+static sno_Bool skip_whitespace_and_comments(
+	sno_Tokenizer* ts,
+	sno_Bool insert_terminator_on_endline
+) {
 	int stmt_end = sno_FALSE;
 	while (ts->cur_char != ts->source_code_end) {
 		sno_assert(ts->cur_char < ts->source_code_end);
 		switch (*ts->cur_char) {
 		case '\n': {
-			stmt_end = sno_TRUE;
+			stmt_end = stmt_end || insert_terminator_on_endline;
 			break;
 		}
 		case '\\': {
@@ -793,16 +796,39 @@ static sno_TokenType lex_token(sno_Tokenizer* ts, sno_Token* token) {
 
 
 void sno_read_initial_token(sno_Tokenizer* ts) {
-	(void)skip_whitespace_and_comments(ts);
+	(void)skip_whitespace_and_comments(ts, sno_FALSE);
 	ts->token.type = sno_TK_EOF; // Will become prev_token
+	ts->insert_terminator = sno_FALSE;
 	sno_read_next_token(ts);
 }
 
 void sno_read_next_token(sno_Tokenizer* ts) {
 	sno_assert_ptr(ts);
 	ts->prev_token = ts->token;
-	ts->token.type = lex_token(ts, &ts->token);
-	ts->token.stmt_end = skip_whitespace_and_comments(ts);
+	if (ts->insert_terminator) {
+		ts->insert_terminator = sno_FALSE;
+		ts->token.type = sno_TK_TERMINATOR;
+	} else {
+		ts->token.type = lex_token(ts, &ts->token);
+		sno_Bool insert_terminator_on_endline = sno_FALSE;
+		switch (ts->token.type) {
+		case sno_TK_IDENTIFIER:
+		case sno_TK_NUMBER:
+		case sno_TK_STRING:
+		case sno_TK_BREAK:
+		case sno_TK_CONTINUE:
+		case sno_TK_RETURN:
+		case sno_TK_RPAREN:
+		case sno_TK_RBRACKET:
+		case sno_TK_RBRACE:
+			insert_terminator_on_endline = sno_TRUE;
+		default: break;
+		}
+		ts->insert_terminator = skip_whitespace_and_comments(
+			ts,
+			insert_terminator_on_endline
+		);
+	}
 }
 
 void sno_continue_interpolated_string(sno_Tokenizer* ts) {
@@ -810,7 +836,7 @@ void sno_continue_interpolated_string(sno_Tokenizer* ts) {
 	sno_Bool interpolated = sno_FALSE;
 	read_string_literal(ts, &ts->token, &interpolated);
 	ts->token.type = sno_TK_STRING + interpolated;
-	ts->token.stmt_end = sno_FALSE;
+	sno_assert(!ts->insert_terminator);
 }
 
 
@@ -1049,12 +1075,12 @@ static void print_source_code_throws(
 			printf("stmt | ");
 		}
 		sno_print_token(&ts.token);
-		if (ts.token.stmt_end) {
+		if (ts.token.type == sno_TK_TERMINATOR) {
 			putchar('\n');
 		} else {
 			putchar(' ');
 		}
-		new_stmt = ts.token.stmt_end;
+		new_stmt = ts.token.type == sno_TK_TERMINATOR;
 		
 		sno_read_next_token(&ts);
 		if (ts.token.type < 0) {
