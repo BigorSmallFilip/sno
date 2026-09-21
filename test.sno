@@ -1,5 +1,32 @@
 
-var condition = false
-if condition {
-	print("yes")
+function eratosthenes(limit) {
+    var is_primes = [false, false]
+    for i = 2, limit {
+        is_primes.push(true)
+    }
+    for m = 2, limit {
+        if is_primes[m] {
+            for i = m * 2, limit, m {
+                is_primes[i] = false
+            }
+        }
+    }
+    var primes = []
+    for i, is_prime in is_primes {
+        if is_prime {
+            primes.push(i)
+        }
+    }
+    return primes
 }
+
+const prime_limit = 100000
+
+var primes = eratosthenes(prime_limit)
+
+print(primes)
+/*for i, prime in primes {
+    print("Prime no. ", i, " is ", prime)
+}*/
+print("That took ", duration, " seconds to calculate")
+
