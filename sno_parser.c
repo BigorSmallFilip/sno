@@ -1349,6 +1349,7 @@ static void parse_brace_block(sno_Tokenizer* ts, sno_Bool is_loop) {
 	expect_token_and_skip(ts, sno_TK_LBRACE);
 	parse_block(ts, is_loop, sno_FALSE);
 	expect_token_and_skip(ts, sno_TK_RBRACE);
+	expect_token_and_skip(ts, sno_TK_TERMINATOR);
 }
 
 
