@@ -346,10 +346,10 @@ uint8_t sno_execute(sno_State* state, uint8_t num_args) {
 		uint8_t arg = i >> 8;
 		
 		if (state->memory_allocated > 50000) {
-			sno_full_gc(state);
+			//sno_full_gc(state);
 		}
 
-		printf("stack %02u   | ", (unsigned int)(sp - state->stack)); print_instruction(bytecode, pc);
+		//printf("stack %02u   | ", (unsigned int)(sp - state->stack)); print_instruction(bytecode, pc);
 		pc++;
 
 		switch (opcode) {
@@ -382,6 +382,12 @@ uint8_t sno_execute(sno_State* state, uint8_t num_args) {
 			sp++;
 			sno_Function* function = sno_create_function(state, bytecode->sub_functions[arg]);
 			sno_set_function(*sp, function);
+		} break;
+		case sno_I_INTERPOLATE_STRING: {
+			char tempo[sno_STACK_BUFFER_LENGTH];
+			for (uint8_t i = 0; i < arg; i++) {
+				
+			}
 		} break;
 		case sno_I_NEW_ARRAY: {
 			sno_assert(arg <= sno_MAX_STACK_CONSTRUCTOR_ARGS);
@@ -486,11 +492,11 @@ uint8_t sno_execute(sno_State* state, uint8_t num_args) {
 		case sno_I_GET_LOCAL: {
 			sno_assert(arg < bytecode->local_var_slots);
 			sp++;
-			*sp = base[arg + 2];
+			*sp = base[arg + 1];
 		} break;
 		case sno_I_SET_LOCAL: {
 			sno_assert(arg < bytecode->local_var_slots);
-			base[arg + 2] = *sp;
+			base[arg + 1] = *sp;
 			sp--;
 		} break;
 		case sno_I_GET_GLOBAL: {
@@ -748,6 +754,83 @@ uint8_t sno_execute(sno_State* state, uint8_t num_args) {
 			sno_assert(stop->type == sno_VT_NUMBER);
 			sno_assert(step->type == sno_VT_NUMBER);
 			start->v.u_number += step->v.u_number;
+			pc += (int8_t)arg;
+		} break;
+
+		case sno_I_START_CONTAINER_FORLOOP: {
+			sp += 2;
+			sno_Value* container = sp - 2;
+			sno_Value* index = sp - 1;
+			sno_Value* node = sp - 0;
+			index->type = sno_VT_NUMBER; // Make sure the GC ignores these
+			node->type = sno_VT_NUMBER;
+			if (container->type == sno_VT_ARRAY) {
+				sno_Array* arr = container->v.u_array;
+				index->v.u_data = 0;
+				if (index->v.u_data < arr->items.count) {
+					// Push the key and value for the STORE_LOCAL instructions after this
+					sp += 2;
+					sp[-1] = ((sno_Value*)arr->items.buffer)[index->v.u_data];
+					sno_set_number(sp[0], index->v.u_data);
+				} else {
+					// Exit out of the loop
+					pc += (int8_t)arg;
+					sp -= 2;
+				}
+			} else if (container->type == sno_VT_TABLE) {
+				sno_Table* table = container->v.u_table;
+				const sno_TableNode* iter_node;
+				sno_table_iter(table, &index->v.u_data, &iter_node);
+				if (iter_node) {
+					// Push the key and value for the STORE_LOCAL instructions after this
+					sp += 2;
+					sp[-1].type = iter_node->value_type;
+					sp[-1].v.u_data = iter_node->value_union.u_data;
+					sp[0].type = iter_node->key_type;
+					sp[0].v.u_data = iter_node->key_union.u_data;
+				} else {
+					// Exit out of the loop
+					pc += (int8_t)arg;
+					sp -= 2;
+				}
+				node->v.u_ptr = (void*)iter_node;
+			}
+		} break;
+		case sno_I_END_CONTAINER_FORLOOP: {
+			sno_Value* container = sp - 2;
+			sno_Value* index = sp - 1;
+			sno_Value* node = sp - 0;
+			if (container->type == sno_VT_ARRAY) {
+				const sno_Array* arr = container->v.u_array;
+				index->v.u_data++;
+				if (index->v.u_data < arr->items.count) {
+					// Push the key and value for the STORE_LOCAL instructions after this
+					sp += 2;
+					sp[-1] = ((sno_Value*)arr->items.buffer)[index->v.u_data];
+					sno_set_number(sp[0], index->v.u_data);
+				} else {
+					// Exit out of the loop
+					sp -= 3;
+					break;
+				}
+			} else if (container->type == sno_VT_TABLE) {
+				const sno_Table* table = container->v.u_table;
+				const sno_TableNode* iter_node = node->v.u_ptr;
+				sno_table_next(table, &index->v.u_data, &iter_node);
+				if (node) {
+					// Push the key and value for the STORE_LOCAL instructions after this
+					sp += 2;
+					sp[-1].type = iter_node->value_type;
+					sp[-1].v.u_data = iter_node->value_union.u_data;
+					sp[0].type = iter_node->key_type;
+					sp[0].v.u_data = iter_node->key_union.u_data;
+				} else {
+					// Exit out of the loop
+					sp -= 3;
+					break;
+				}
+				node->v.u_ptr = (void*)iter_node;
+			}
 			pc += (int8_t)arg;
 		} break;
 

@@ -9,7 +9,7 @@
 #define is_digit(c) ((c) >= '0' && (c) <= '9')
 
 const char* const sno_token_strings[sno_NUM_TOKENS] = {
-	"(terminator)"
+	";"
 	"if",
 	"else",
 	"for",
@@ -379,7 +379,7 @@ endstring:
 
 static void read_comment(sno_Tokenizer* ts) {
 	sno_assert_ptr(ts);
-	for (;;) {
+	while (ts->cur_char < ts->source_code_end) {
 		ts->cur_char++;
 		if (*ts->cur_char == '\n' ||
 			*ts->cur_char == '\r' ||
@@ -390,7 +390,7 @@ static void read_comment(sno_Tokenizer* ts) {
 static void read_multiline_comment(sno_Tokenizer* ts) {
 	sno_assert_ptr(ts);
 	const char* start = ts->cur_char;
-	for (;;) {
+	while (1) {
 		sno_assert(ts->cur_char <= ts->source_code_end);
 		if (ts->cur_char == ts->source_code_end) {
 			sno_throw_syntax_error_at(
@@ -461,13 +461,14 @@ static sno_Bool skip_whitespace_and_comments(
 			if (next == '/') {
 				ts->cur_char += 2;
 				read_comment(ts);
+				stmt_end = stmt_end || insert_terminator_on_endline;
 			} else if (next == '*') {
 				ts->cur_char += 2;
 				read_multiline_comment(ts);
 			} else {
 				return stmt_end;
 			}
-			break;
+			continue;
 		}
 		default: {
 			return stmt_end;

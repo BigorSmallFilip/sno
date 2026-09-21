@@ -190,7 +190,7 @@ sno_API void sno_print_globals(const sno_State* state) {
 }
 
 sno_API void sno_print_exception_msg(const sno_State* state) {
-	sno_assert_ptr(state);
+	if (!state->exception_msg) { return; }
 	fprintf(
 		stderr,
 		"%.*s\n",
@@ -251,6 +251,9 @@ sno_API sno_Bool sno_run_file(
 ) {
 	const sno_String* name = sno_create_string(state, path, path_length);
 	const sno_String* file = sno_load_string_from_file(state, path, path_length);
+	if (!name || !file) {
+		return sno_FALSE;
+	}
 	sno_Value* base = sno_stack_base(state);
 	if (!sno_try_compile_source_code(state, name, file)) {
 		return sno_FALSE;
@@ -305,6 +308,11 @@ sno_API sno_no_return void sno_throw_runtime_error_va(
 		format,
 		args
 	);
+	length += snprintf(
+		buffer + length,
+		sno_STACK_BUFFER_LENGTH - 1 - length,
+		sno_ANSI_NORMAL
+	);
 	va_end(args);
 	sno_throw(state, sno_EXCEPTION_RUNTIME_ERROR, buffer, length);
 }
@@ -337,6 +345,11 @@ sno_API sno_no_return void sno_throw_at_source_code_pos(
 		sno_STACK_BUFFER_LENGTH - 1 - length,
 		format,
 		args
+	);
+	length += snprintf(
+		buffer + length,
+		sno_STACK_BUFFER_LENGTH - 1 - length,
+		sno_ANSI_NORMAL
 	);
 	sno_throw(state, exception_type, buffer, (size_t)length);
 }
@@ -371,6 +384,11 @@ sno_API sno_no_return void sno_throw_at_source_code_pos_open_close(
 		sno_STACK_BUFFER_LENGTH - 1 - length,
 		format,
 		args
+	);
+	length += snprintf(
+		buffer + length,
+		sno_STACK_BUFFER_LENGTH - 1 - length,
+		sno_ANSI_NORMAL
 	);
 	//va_end(args);
 	sno_throw(state, exception_type, buffer, length);

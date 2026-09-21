@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <string.h>
 
 #include "sno_utility.h"
 #include "sno_state.h"
@@ -69,15 +70,15 @@ static const char* load_string_from_file(sno_State* state, const char* filename,
 
 
 EMSCRIPTEN_EXPORT int main(int argc, char** argv) {
-	printf("Hello Sno\n");
-
 	if (argc == 2) {
-		printf("With an arg \"%s\"\n", argv[1]);
+	} else {
+		printf("The Sno Programming Language... lol\n");
+		return 0;
 	}
 
 	sno_State* state = sno_create_state();
 
-	if (!sno_run_file(state, sno_str_comma_len("test.sno"))) {
+	if (!sno_run_file(state, argv[1], strlen(argv[1]))) {
 		sno_print_exception_msg(state);
 		return -1;
 	} else {

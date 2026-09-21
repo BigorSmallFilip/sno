@@ -241,6 +241,11 @@ const sno_String* sno_load_string_from_file(
 	path_zero[path_length] = '\0';
 	FILE* file = fopen(path_zero, "r");
 	if (!file) {
+		printf(
+			sno_ANSI_RED "Couldn't open file \"%.*s\"\n" sno_ANSI_NORMAL,
+			(unsigned int)path_length,
+			path
+		);
 		return NULL;
 	}
 	fseek(file, 0L, SEEK_END);

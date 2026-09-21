@@ -858,6 +858,7 @@ static void parse_if_statement(sno_Tokenizer* ts) {
 
 static void parse_for_statement(sno_Tokenizer* ts) {
 	sno_Bool is_numeric_for_loop = sno_TRUE;
+	const sno_Token for_token = ts->token;
 	skip_token(ts, sno_TK_FOR);
 	expect_token(ts, sno_TK_IDENTIFIER);
 	sno_Token iter1 = ts->token;
@@ -915,11 +916,12 @@ static void parse_for_statement(sno_Tokenizer* ts) {
 		try_declare_local_variable(ts, iter2);
 	}
 
-	uint32_t start = emit_instruction(
+	uint32_t start = emit_instruction_at(
 		ts,
 		is_numeric_for_loop ?
 			sno_I_START_NUMERIC_FORLOOP :
-			sno_I_START_CONTAINER_FORLOOP
+			sno_I_START_CONTAINER_FORLOOP,
+		for_token.source_code_pos
 	);
 	if (is_numeric_for_loop) {
 		emit_instruction_1(ts, sno_I_SET_LOCAL, iter_local_id);
@@ -933,15 +935,16 @@ static void parse_for_statement(sno_Tokenizer* ts) {
 		}
 	}
 	parse_brace_block(ts, sno_TRUE);
-	uint32_t end = emit_instruction(
+	uint32_t end = emit_instruction_at(
 		ts,
 		is_numeric_for_loop ? 
 			sno_I_END_NUMERIC_FORLOOP :
-			sno_I_END_CONTAINER_FORLOOP
+			sno_I_END_CONTAINER_FORLOOP,
+		for_token.source_code_pos
 	);
 
 	set_jump_dst(ts, start, end + 1);
-	set_jump_dst(ts, end, start);
+	set_jump_dst(ts, end, start + (is_numeric_for_loop ? 0 : 1));
 	
 	deactivate_local_variables(ts->cs, iter_local_id);
 }
@@ -1270,9 +1273,9 @@ static void parse_function_statement(sno_Tokenizer* ts) {
 /// @return sno_TRUE if this statement must be the last in a block,
 /// because if it isn't, there would be unreachable code. sno_FALSE otherwise.
 static sno_Bool parse_statement(sno_Tokenizer* ts) {
-	printf("   Parsing statement starting with token ");
-	sno_print_token(&ts->token);
-	printf("\n");
+	//printf("   Parsing statement starting with token ");
+	//sno_print_token(&ts->token);
+	//printf("\n");
 
 	switch (ts->token.type) {
 	case sno_TK_IF: {
@@ -1315,9 +1318,9 @@ static sno_Bool parse_statement(sno_Tokenizer* ts) {
 }
 
 static void parse_block(sno_Tokenizer* ts, sno_Bool is_loop, sno_Bool is_global_scope) {
-	printf("Parsing block starting with token ");
-	sno_print_token(&ts->token);
-	printf("\n");
+	//printf("Parsing block starting with token ");
+	//sno_print_token(&ts->token);
+	//printf("\n");
 	sno_assert_msg(!(is_loop && is_global_scope), "Global scope can't be a loop");
 
 	sno_Block block;
@@ -1386,7 +1389,9 @@ struct sno_Bytecode* sno_parse_source_code(
 	sno_assert_ptr(name);
 	sno_assert_ptr(source_code);
 
+#ifdef sno_DEBUG
 	sno_print_source_code(state, name, source_code);
+#endif
 
 	sno_Bool success = sno_TRUE;
 	sno_Bytecode* bytecode = NULL;

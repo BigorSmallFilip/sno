@@ -20,13 +20,9 @@ function eratosthenes(limit) {
     return primes
 }
 
-const prime_limit = 100000
+const prime_limit = 3000
 
 var primes = eratosthenes(prime_limit)
 
+print("All the primes up to ", prime_limit, " are:")
 print(primes)
-/*for i, prime in primes {
-    print("Prime no. ", i, " is ", prime)
-}*/
-print("That took ", duration, " seconds to calculate")
-

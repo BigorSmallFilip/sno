@@ -343,7 +343,14 @@ void sno_print_value(sno_State* state, const sno_Value* v) {
 	switch (v->type) {
 	case sno_VT_NONE: printf("none"); break;
 	case sno_VT_BOOL: printf(v->v.u_number != 0 ? "true" : "false"); break;
-	case sno_VT_NUMBER: printf("%g", v->v.u_number); break;
+	case sno_VT_NUMBER: {
+		sno_Number n = v->v.u_number;
+		if (sno_number_is_valid_i64(n)) {
+			printf("%lli", (int64_t)n);
+		} else {
+			printf("%g", v->v.u_number);
+		}
+	} break;
 	case sno_VT_STRING: printf("%.*s", (unsigned int)v->v.u_string->length, sno_string_chars(v->v.u_string)); break;
 	case sno_VT_ARRAY: print_array(state, v->v.u_array); break;
 	case sno_VT_TABLE: print_table(state, v->v.u_table); break;
