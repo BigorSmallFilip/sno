@@ -631,6 +631,28 @@ uint8_t sno_execute(sno_State* state, uint8_t num_args) {
 			get_field(state, bytecode, pc, sp - 1, arg);
 		} break;
 
+		case sno_I_UNOP: {
+			if (arg == sno_UNOP_LNOT) {
+				sp[0].type = sno_VT_BOOL;
+				sp[0].v.u_number = !sno_value_to_bool(&sp[0]) ?
+					sno_NUMBER_TRUE : sno_NUMBER_FALSE;
+			} else {
+				if (sp[0].type != sno_VT_NUMBER) {
+					throw_runtime_error_at_pc(state, bytecode, pc,
+						"Cannot perform this operation on %s",
+						sno_type_strings_noun[sp[0].type]
+					);
+				}
+				sno_Number* n = &sp[0].v.u_number;
+				switch (arg) {
+				case sno_UNOP_NEG: *n = -*n; break;
+				case sno_UNOP_INC: *n += 1; break;
+				case sno_UNOP_DEC: *n -= 1; break;
+				case sno_UNOP_BITFLIP: *n = ~(sno_Int)(*n); break;
+				default: sno_unreachable;
+				}
+			}
+		} break;
 		case sno_I_BINOP: {
 			sp--;
 			if (arg >= sno_BINOP_ADD && arg <= sno_BINOP_GE) {

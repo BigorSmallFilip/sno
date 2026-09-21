@@ -813,6 +813,9 @@ void sno_read_next_token(sno_Tokenizer* ts) {
 		sno_Bool insert_terminator_on_endline = sno_FALSE;
 		switch (ts->token.type) {
 		case sno_TK_IDENTIFIER:
+		case sno_TK_FALSE:
+		case sno_TK_TRUE:
+		case sno_TK_NONE:
 		case sno_TK_NUMBER:
 		case sno_TK_STRING:
 		case sno_TK_BREAK:
