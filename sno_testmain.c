@@ -76,6 +76,8 @@ EMSCRIPTEN_EXPORT int main(int argc, char** argv) {
 		return 0;
 	}
 
+	//printf("%llu be %llu", 1024, sno_smallest_power_of_2_greater_than_or_equal_to(1024));
+	
 	sno_State* state = sno_create_state();
 
 	if (!sno_run_file(state, argv[1], strlen(argv[1]))) {

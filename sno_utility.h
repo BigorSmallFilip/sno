@@ -250,6 +250,6 @@ typedef uint16_t sno_Instruction;
 #define sno_str_comma_len(str) (str), (sizeof(str) - 1)
 
 struct sno_State;
-struct sno_String;
+struct sno_IString;
 
 #endif

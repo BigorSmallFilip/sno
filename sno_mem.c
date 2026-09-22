@@ -48,6 +48,21 @@ void sno_free(sno_State* state, void* block, size_t size) {
 
 
 
+size_t sno_smallest_power_of_2_greater_than_or_equal_to(size_t n) {
+	n += (n == 0);
+	n--;
+	n |= n >> 1;
+	n |= n >> 2;
+	n |= n >> 4;
+	n |= n >> 8;
+	n |= n >> 16;
+	n |= n >> 32;
+	n++;
+	return n;
+}
+
+
+
 void sno_dynarray_init(
 	sno_State* state,
 	sno_DynArray* dynarray,
@@ -77,7 +92,7 @@ void sno_dynarray_resize(
 	sno_assert(new_capacity >= dynarray->count);
 	sno_assert(new_capacity > 1);
 	sno_assert(sno_is_power_of_2(new_capacity));
-	if (dynarray->capacity == new_capacity) return;
+	sno_assert(new_capacity != dynarray->capacity);
 	dynarray->buffer = sno_realloc(
 		state,
 		dynarray->buffer,
@@ -93,12 +108,12 @@ void sno_dynarray_reserve(sno_State* state, sno_DynArray* dynarray, size_t eleme
 	sno_assert(dynarray->capacity >= sno_MIN_DYNARRAY_CAPACITY);
 	// TODO: Implement this better
 	size_t new_capacity = dynarray->capacity;
-try_again:
 	if (dynarray->count + free_space > new_capacity) {
-		new_capacity <<= 1;
-		goto try_again;
+		new_capacity = sno_smallest_power_of_2_greater_than_or_equal_to(
+			dynarray->count + free_space
+		);
+		sno_dynarray_resize(state, dynarray, element_size, new_capacity);
 	}
-	sno_dynarray_resize(state, dynarray, element_size, new_capacity);
 }
 
 void sno_dynarray_push_back(
@@ -223,4 +238,23 @@ void sno_dynarray_clear(
 	sno_assert_ptr(dynarray->buffer);
 	sno_assert(dynarray->capacity >= sno_MIN_DYNARRAY_CAPACITY);
 	sno_free(state, dynarray->buffer, dynarray->capacity * element_size);
+}
+
+void sno_dynarray_push_back_bytes(
+	sno_State* state,
+	sno_DynArray* dynarray, 
+	const void* sno_restrict ptr,
+	size_t length
+) {
+	sno_assert_ptr(state);
+	sno_assert_ptr(dynarray);
+	sno_assert_ptr(dynarray->buffer);
+	if (dynarray->count + length > dynarray->capacity) {
+		size_t new_capacity = sno_smallest_power_of_2_greater_than_or_equal_to(
+			dynarray->count + length
+		);
+		sno_dynarray_resize(state, dynarray, 1, dynarray->capacity);
+	}
+	memcpy((char*)dynarray->buffer + dynarray->count, ptr, length);
+	dynarray->count += length;
 }

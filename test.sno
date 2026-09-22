@@ -1,28 +1,9 @@
 
-function eratosthenes(limit) {
-    var is_primes = [false, false]
-    for i = 2, limit {
-        is_primes.push(true)
-    }
-    for m = 2, limit {
-        if is_primes[m] {
-            for i = m * 2, limit, m {
-                is_primes[i] = false
-            }
-        }
-    }
-    var primes = []
-    for i, is_prime in is_primes {
-        if is_prime {
-            primes.push(i)
-        }
-    }
-    return primes
+var t = {
+    [0] = "a"
+    [1] = "b"
+    [false] = "c"
+    [true] = "d"
 }
 
-const prime_limit = 3000
-
-var primes = eratosthenes(prime_limit)
-
-print("All the primes up to ", prime_limit, " are:")
-print(primes)
+print(t)

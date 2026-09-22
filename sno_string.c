@@ -6,12 +6,12 @@
 
 
 
-static sno_String* create_new_interned_string(
+static sno_IString* create_new_interned_string(
 	sno_State* state,
 	const char* string,
 	size_t length,
 	sno_Hash hash,
-	sno_String* iter
+	sno_IString* iter
 );
 
 static sno_Hash hash_string(const char* string, size_t length) {
@@ -37,7 +37,7 @@ static void init_builtin_strings(sno_State* state) {
 		const char* string = sno_builtin_strings[i];
 		size_t length = strlen(string);
 		sno_Hash hash = hash_string(string, length);
-		sno_String* iter = string_table->strings[hash & string_table->capacity_mask];
+		sno_IString* iter = string_table->strings[hash & string_table->capacity_mask];
 		while (iter != NULL) {
 			if (iter->next) {
 				iter = iter->next;
@@ -45,7 +45,7 @@ static void init_builtin_strings(sno_State* state) {
 				break;
 			}
 		}
-		sno_String* string_obj = create_new_interned_string(state, string, length, hash, iter);
+		sno_IString* string_obj = create_new_interned_string(state, string, length, hash, iter);
 		string_obj->builtin_id = i;
 	}
 	
@@ -61,7 +61,7 @@ void sno_init_string_interning_table(sno_State* state, size_t capacity) {
 	sno_StringInterningTable* string_table = &state->string_table;
 	string_table->capacity_mask = capacity - 1;
 	string_table->num_strings = 0;
-	string_table->strings = sno_calloc(state, capacity, sizeof(sno_String*));
+	string_table->strings = sno_calloc(state, capacity, sizeof(sno_IString*));
 	init_builtin_strings(state);
 }
 
@@ -72,24 +72,24 @@ void sno_resize_string_interning_table(sno_State* state, size_t new_capacity) {
 	sno_assert(sno_is_power_of_2(new_capacity));
 
 	sno_StringInterningTable* string_table = &state->string_table;
-	sno_String** new_array = sno_calloc(state, new_capacity, sizeof(sno_String*));
+	sno_IString** new_array = sno_calloc(state, new_capacity, sizeof(sno_IString*));
 	size_t new_capacity_mask = new_capacity - 1;
 	for (size_t i = 0; i < string_table->capacity_mask + 1; i++) {
-		sno_String* str = string_table->strings[i];
+		sno_IString* str = string_table->strings[i];
 		while (str != NULL) {
 			if (!new_array[str->hash & new_capacity_mask]) {
 				str->next = NULL;
 				new_array[str->hash & new_capacity_mask] = str;
 			} else {
 				// Insert at front
-				sno_String* old_first = new_array[str->hash & new_capacity_mask];
+				sno_IString* old_first = new_array[str->hash & new_capacity_mask];
 				str->next = old_first;
 				new_array[str->hash & new_capacity_mask] = str;
 			}
 			str = str->next;
 		}
 	}
-	sno_free(state, string_table->strings, (string_table->capacity_mask + 1) * sizeof(sno_String*));
+	sno_free(state, string_table->strings, (string_table->capacity_mask + 1) * sizeof(sno_IString*));
 	string_table->strings = new_array;
 	string_table->capacity_mask = new_capacity_mask;
 }
@@ -100,14 +100,14 @@ void sno_free_string_interning_table(sno_State* state) {
 
 	sno_StringInterningTable* string_table = &state->string_table;
 	for (size_t i = 0; i < string_table->capacity_mask + 1; i++) {
-		sno_String* iter = string_table->strings[i];
+		sno_IString* iter = string_table->strings[i];
 		while (iter != NULL) {
-			sno_String* next = iter->next;
-			sno_free(state, iter, iter->length + sizeof(sno_String));
+			sno_IString* next = iter->next;
+			sno_free(state, iter, iter->length + sizeof(sno_IString));
 			iter = next;
 		};
 	}
-	sno_free(state, string_table->strings, (string_table->capacity_mask + 1) * sizeof(sno_String*));
+	sno_free(state, string_table->strings, (string_table->capacity_mask + 1) * sizeof(sno_IString*));
 }
 
 void sno_print_string_interning_table(const sno_State* state) {
@@ -118,7 +118,7 @@ void sno_print_string_interning_table(const sno_State* state) {
 	size_t num_filled_buckets = 0;
 	size_t num_lone_strings = 0;
 	for (size_t i = 0; i < string_table->capacity_mask + 1; i++) {
-		sno_String* str_iter = string_table->strings[i];
+		sno_IString* str_iter = string_table->strings[i];
 		if (str_iter) {
 			num_filled_buckets++;
 			if (str_iter->next == NULL) {
@@ -161,12 +161,12 @@ void sno_print_string_interning_table(const sno_State* state) {
 
 
 
-static sno_String* create_new_interned_string(
+static sno_IString* create_new_interned_string(
 	sno_State* state,
 	const char* string,
 	size_t length,
 	sno_Hash hash,
-	sno_String* iter
+	sno_IString* iter
 ) {
 	sno_assert_ptr(state);
 	sno_assert_ptr(state->string_table.strings);
@@ -174,7 +174,7 @@ static sno_String* create_new_interned_string(
 	sno_assert(length <= sno_SIZE_T_LIMIT);
 
 	sno_StringInterningTable* string_table = &state->string_table;
-	sno_String* string_obj = sno_malloc(state, sizeof(sno_String) + length);
+	sno_IString* string_obj = sno_malloc(state, sizeof(sno_IString) + length);
 	sno_assert_ptr(string);
 	string_obj->hash = hash;
 	string_obj->length = length;
@@ -203,7 +203,7 @@ static sno_String* create_new_interned_string(
 	return string_obj;
 }
 
-const sno_String* sno_create_string(sno_State* state, const char* string, size_t length) {
+const sno_IString* sno_create_string(sno_State* state, const char* string, size_t length) {
 	sno_assert_ptr(state);
 	sno_assert_ptr(state->string_table.strings);
 	sno_assert_ptr(string);
@@ -211,7 +211,7 @@ const sno_String* sno_create_string(sno_State* state, const char* string, size_t
 	
 	sno_StringInterningTable* string_table = &state->string_table;
 	sno_Hash hash = hash_string(string, length);
-	sno_String* iter = string_table->strings[hash & string_table->capacity_mask];
+	sno_IString* iter = string_table->strings[hash & string_table->capacity_mask];
 	while (iter != NULL) {
 		if (
 			iter->length == length &&
@@ -229,7 +229,7 @@ const sno_String* sno_create_string(sno_State* state, const char* string, size_t
 	return create_new_interned_string(state, string, length, hash, iter);
 }
 
-const sno_String* sno_load_string_from_file(
+const sno_IString* sno_load_string_from_file(
 	sno_State* state,
 	const char* const path,
 	size_t path_length

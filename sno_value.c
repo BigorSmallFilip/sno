@@ -77,6 +77,7 @@ static sno_Bool key_equals(const sno_TableNode* node, const sno_Value* key) {
 	if (node->key_type != key->type) return sno_FALSE;
 	switch (key->type) {
 	case sno_VT_NONE: return sno_TRUE;
+	case sno_VT_BOOL:
 	case sno_VT_NUMBER: return key->v.u_number == node->key_union.u_number;
 	case sno_VT_STRING: return key->v.u_string == node->key_union.u_string;
 	case sno_VT_ARRAY: return key->v.u_array == node->key_union.u_array;
@@ -359,6 +360,100 @@ void sno_print_value(sno_State* state, const sno_Value* v) {
 	}
 }
 
+
+
+static void array_to_string(
+	sno_State* state,
+	sno_DynArray* string,
+	const sno_Array* arr,
+	size_t recursion_limit
+) {
+	if (recursion_limit == -1) {
+		sno_dynarray_push_back_bytes(state, string, sno_str_comma_len("[...]"));
+		return;
+	}
+	sno_Value* values = (sno_Value*)arr->items.buffer;
+	sno_dynarray_push_back_bytes(state, string, sno_str_comma_len("["));
+	for (size_t i = 0; i < arr->items.count; i++) {
+		sno_value_to_string(state, string, &values[i], recursion_limit);
+		if (i != arr->items.count - 1) {
+			sno_dynarray_push_back_bytes(state, string, sno_str_comma_len(", "));
+		}
+	}
+	sno_dynarray_push_back_bytes(state, string, sno_str_comma_len("]"));
+}
+
+void sno_value_to_string(
+	sno_State* state,
+	sno_DynArray* string,
+	const sno_Value* v,
+	size_t recursion_limit
+) {
+	switch (v->type) {
+	case sno_VT_NONE: {
+		sno_dynarray_push_back_bytes(state, string,
+			sno_str_comma_len("none")
+		);
+	} break;
+	case sno_VT_BOOL: {
+		if (v->v.u_number) {
+			sno_dynarray_push_back_bytes(state, string,
+				sno_str_comma_len("true")
+			);
+		} else {
+			sno_dynarray_push_back_bytes(state, string,
+				sno_str_comma_len("false")
+			);
+		}
+	} break;
+	case sno_VT_NUMBER: {
+		sno_Number n = v->v.u_number;
+		char buf[sno_STACK_BUFFER_LENGTH];
+		int len;
+		if (sno_number_is_valid_i64(n)) {
+			len = snprintf(buf, sno_STACK_BUFFER_LENGTH - 1, "%g", n);
+		} else {
+			len = snprintf(buf, sno_STACK_BUFFER_LENGTH - 1, "%lli", (uint64_t)n);
+		}
+		sno_dynarray_push_back_bytes(state, string, buf, len);
+	} break;
+	case sno_VT_STRING: {
+		sno_dynarray_push_back_bytes(state, string,
+			sno_string_chars(v->v.u_string),
+			v->v.u_string->length
+		);
+	} break;
+	case sno_VT_ARRAY: {
+		array_to_string(state, string, v->v.u_array, recursion_limit - 1);
+	} break;
+	default:
+		break;
+	}
+}
+
+const sno_IString* sno_interpolate_string(
+	sno_State* state,
+	const sno_Value* values,
+	uint32_t num_values
+) {
+	sno_DynArray stringbuf;
+	sno_dynarray_init(state, &stringbuf, 1, 256);
+	for (uint32_t i = 0; i < num_values; i++) {
+		sno_value_to_string(
+			state,
+			&stringbuf,
+			&values[i],
+			4
+		);
+	}
+	const sno_IString* istring = sno_create_string(
+		state,
+		(const char*)stringbuf.buffer,
+		stringbuf.count
+	);
+	return istring;
+}
+
 sno_Bool sno_value_equals(const sno_Value* a, const sno_Value* b) {
 	if (a->type != b->type) return sno_FALSE;
 	if (a->type == sno_VT_NONE) return sno_TRUE;
@@ -395,6 +490,7 @@ static sno_Hash hash_pointer(void* ptr) {
 sno_Hash sno_hash_value(const sno_Value* value) {
 	switch (value->type) {
 	case sno_VT_NONE: return 0;
+	case sno_VT_BOOL: value->v.u_number ? 1 : 2;
 	case sno_VT_NUMBER: return hash_number(value->v.u_number);
 	case sno_VT_STRING: return value->v.u_string->hash;
 	case sno_VT_ARRAY:

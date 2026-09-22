@@ -9,7 +9,7 @@
 #define is_digit(c) ((c) >= '0' && (c) <= '9')
 
 const char* const sno_token_strings[sno_NUM_TOKENS] = {
-	";"
+	";",
 	"if",
 	"else",
 	"for",
@@ -73,7 +73,7 @@ const char* const sno_token_strings[sno_NUM_TOKENS] = {
 	":",
 	"number",
 	"string",
-	"interpolated string"
+	"interpolated string",
 	"identifier",
 };
 
@@ -336,7 +336,7 @@ static void read_string_literal(sno_Tokenizer* ts, sno_Token* token, sno_Bool* i
 			case 'v':  escapedchar = '\v'; break;
 			case '\\': escapedchar = '\\'; break;
 			case '\"': escapedchar = '\"'; break;
-			case '\'': escapedchar = '\''; break;
+			//case '\'': escapedchar = '\''; break;
 			case '0':  escapedchar = '\0'; break;
 			case '(': {
 				// Interpolated string
@@ -356,7 +356,7 @@ static void read_string_literal(sno_Tokenizer* ts, sno_Token* token, sno_Bool* i
 			sno_dynarray_push_back(state, &formatted_string, 1, &escapedchar);
 			break;
 		}
-		case '\'': case '\"': {
+		case '\"': {
 			goto endstring;
 		}
 
@@ -610,7 +610,7 @@ static sno_TokenType lex_token(sno_Tokenizer* ts, sno_Token* token) {
 		ts->cur_char++;
 		return sno_TK_COLON;
 	}
-	case '\'': case '\"': {
+	case '\"': {
 		sno_Bool interpolated = sno_FALSE;
 		read_string_literal(ts, token, &interpolated);
 		return sno_TK_STRING + interpolated;
@@ -889,7 +889,7 @@ static size_t find_column_number(const char* line_start, const char* view) {
 static int sprint_line(
 	char* buffer,
 	int buffer_size,
-	const sno_String* source_code,
+	const sno_IString* source_code,
 	uint32_t pos,
 	uint32_t extra_pos,
 	uint32_t* out_spaces_before_pos,
@@ -945,7 +945,7 @@ static int sprint_line(
 static int sprint_and_underline_pos_on_line(
 	char* buffer,
 	int buffer_size,
-	const sno_String* source_code,
+	const sno_IString* source_code,
 	uint32_t pos,
 	uint32_t underline_length
 ) {
@@ -975,7 +975,7 @@ int sno_sprintf_source_code_pos(
 	sno_State* state,
 	char* buffer,
 	int buffer_size,
-	const sno_String* source_code,
+	const sno_IString* source_code,
 	uint32_t source_code_pos
 ) {
 	int length = sprint_and_underline_pos_on_line(
@@ -1059,8 +1059,8 @@ sno_no_return void sno_throw_syntax_error_open_close(
 
 static void print_source_code_throws(
 	sno_State* state,
-	const sno_String* name,
-	const sno_String* source_code
+	const sno_IString* name,
+	const sno_IString* source_code
 ) {
 	sno_Tokenizer ts = { 0 };
 	ts.main_state = state;
@@ -1097,8 +1097,8 @@ static void print_source_code_throws(
 
 sno_Bool sno_print_source_code(
 	sno_State* state,
-	const sno_String* name,
-	const sno_String* source_code
+	const sno_IString* name,
+	const sno_IString* source_code
 ) {
 	sno_assert_ptr(state);
 	sno_assert_ptr(source_code);

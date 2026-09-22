@@ -116,7 +116,7 @@ static void print_instruction(const sno_Bytecode* bytecode, const sno_Instructio
 		break;
 	}
 	case sno_I_LOAD_STRING: {
-		const sno_String* s = bytecode->string_constants[arg];
+		const sno_IString* s = bytecode->string_constants[arg];
 		printf("\"%.*s\"", (unsigned int)s->length, sno_string_chars(s));
 		break;
 	}
@@ -140,7 +140,7 @@ static void print_instruction(const sno_Bytecode* bytecode, const sno_Instructio
 	case sno_I_SET_FIELD:
 	case sno_I_NEW_GLOBAL:
 	case sno_I_GET_METHOD: {
-		const sno_String* s = bytecode->string_constants[arg];
+		const sno_IString* s = bytecode->string_constants[arg];
 		printf("%.*s", (unsigned int)s->length, sno_string_chars(s));
 		break;
 	}
@@ -288,7 +288,7 @@ void get_field(
 	sno_ConstID name
 ) {
 	sno_assert(name < bytecode->num_string_constants);
-	const sno_String* key_name = bytecode->string_constants[name];
+	const sno_IString* key_name = bytecode->string_constants[name];
 	sno_Value key;
 	key.type = sno_VT_STRING;
 	key.v.u_string = key_name;
@@ -349,7 +349,9 @@ uint8_t sno_execute(sno_State* state, uint8_t num_args) {
 			//sno_full_gc(state);
 		}
 
-		//printf("stack %02u   | ", (unsigned int)(sp - state->stack)); print_instruction(bytecode, pc);
+#ifdef sno_DEBUG
+		printf("stack %02u   | ", (unsigned int)(sp - state->stack)); print_instruction(bytecode, pc);
+#endif
 		pc++;
 
 		switch (opcode) {
@@ -374,7 +376,7 @@ uint8_t sno_execute(sno_State* state, uint8_t num_args) {
 		case sno_I_LOAD_STRING: {
 			sno_assert(arg < bytecode->num_string_constants);
 			sp++;
-			const sno_String* string = bytecode->string_constants[arg];
+			const sno_IString* string = bytecode->string_constants[arg];
 			sno_set_string(*sp, string);
 		} break;
 		case sno_I_LOAD_FUNCTION: {
@@ -385,9 +387,9 @@ uint8_t sno_execute(sno_State* state, uint8_t num_args) {
 		} break;
 		case sno_I_INTERPOLATE_STRING: {
 			char tempo[sno_STACK_BUFFER_LENGTH];
-			for (uint8_t i = 0; i < arg; i++) {
-				
-			}
+			sp -= arg - 1;
+			const sno_IString* result = sno_interpolate_string(state, sp, arg);
+			sno_set_string(sp[0], result);
 		} break;
 		case sno_I_NEW_ARRAY: {
 			sno_assert(arg <= sno_MAX_STACK_CONSTRUCTOR_ARGS);
@@ -501,7 +503,7 @@ uint8_t sno_execute(sno_State* state, uint8_t num_args) {
 		} break;
 		case sno_I_GET_GLOBAL: {
 			sno_assert(arg < bytecode->num_string_constants);
-			const sno_String* name = bytecode->string_constants[arg];
+			const sno_IString* name = bytecode->string_constants[arg];
 			sno_Value key;
 			key.type = sno_VT_STRING;
 			key.v.u_string = name;
@@ -517,7 +519,7 @@ uint8_t sno_execute(sno_State* state, uint8_t num_args) {
 		} break;
 		case sno_I_SET_GLOBAL: {
 			sno_assert(arg < bytecode->num_string_constants);
-			const sno_String* name = bytecode->string_constants[arg];
+			const sno_IString* name = bytecode->string_constants[arg];
 			sno_Value key;
 			key.type = sno_VT_STRING;
 			key.v.u_string = name;
@@ -539,7 +541,7 @@ uint8_t sno_execute(sno_State* state, uint8_t num_args) {
 			sno_Value* value = sp;
 			sno_Value* container = sp - 1;
 			sp -= 2;
-			const sno_String* key_name = bytecode->string_constants[arg];
+			const sno_IString* key_name = bytecode->string_constants[arg];
 			sno_Value key;
 			key.type = sno_VT_STRING;
 			key.v.u_string = key_name;
@@ -617,7 +619,7 @@ uint8_t sno_execute(sno_State* state, uint8_t num_args) {
 
 		case sno_I_NEW_GLOBAL: {
 			sno_assert(arg < bytecode->num_string_constants);
-			const sno_String* name = bytecode->string_constants[arg];
+			const sno_IString* name = bytecode->string_constants[arg];
 			sno_Value key;
 			key.type = sno_VT_STRING;
 			key.v.u_string = name;
@@ -661,6 +663,8 @@ uint8_t sno_execute(sno_State* state, uint8_t num_args) {
 		} break;
 		case sno_I_BINOP: {
 			sp--;
+			sno_Number* result = &sp[0].v.u_number;
+			sno_ValueType* result_type = &sp[0].type;
 			if (arg >= sno_BINOP_ADD && arg <= sno_BINOP_GE) {
 				sno_ValueType type_l = sp[0].type;
 				sno_ValueType type_r = sp[1].type;
@@ -674,10 +678,8 @@ uint8_t sno_execute(sno_State* state, uint8_t num_args) {
 						sno_type_strings_noun[type_r]
 					);
 				}
-				sno_ValueType* result_type = &sp[0].type;
 				*result_type = sno_VT_NUMBER;
 				sno_Number rhs = sp[1].v.u_number;
-				sno_Number* result = &sp[0].v.u_number;
 				switch (arg) {
 				case sno_BINOP_ADD: *result += rhs; break;
 				case sno_BINOP_SUB: *result -= rhs; break;
@@ -696,6 +698,16 @@ uint8_t sno_execute(sno_State* state, uint8_t num_args) {
 				case sno_BINOP_LE: *result = (sno_Number)(*result <= rhs); *result_type = sno_VT_BOOL; break;
 				case sno_BINOP_GE: *result = (sno_Number)(*result >= rhs); *result_type = sno_VT_BOOL; break;
 				}
+			} else {
+				sno_assert(
+					arg == sno_BINOP_EQ ||
+					arg == sno_BINOP_NEQ
+				);
+				*result = (sno_value_equals(&sp[0], &sp[1]) ==
+					(arg == sno_BINOP_EQ)) ?
+					sno_NUMBER_TRUE :
+					sno_NUMBER_FALSE;
+				*result_type = sno_VT_BOOL;
 			}
 		} break;
 		case sno_I_TO_BOOL: {

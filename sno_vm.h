@@ -82,7 +82,7 @@ enum {
 };
 
 typedef struct sno_LocalVar {
-	const struct sno_String* name;
+	const struct sno_IString* name;
 	uint32_t start_pc;
 	uint32_t end_pc;
 	uint8_t slot;
@@ -90,8 +90,8 @@ typedef struct sno_LocalVar {
 
 typedef struct sno_Bytecode {
 	sno_gc_header;
-	const struct sno_String* name;
-	const struct sno_String* source_code;
+	const struct sno_IString* name;
+	const struct sno_IString* source_code;
 	uint16_t num_number_constants;
 	uint16_t num_string_constants;
 	uint16_t num_sub_functions;
@@ -101,7 +101,7 @@ typedef struct sno_Bytecode {
 	uint32_t instructions_size;
 	sno_Instruction* instructions;
 	sno_Number* number_constants;
-	const struct sno_String** string_constants;
+	const struct sno_IString** string_constants;
 	struct sno_Bytecode** sub_functions;
 	sno_LocalVar* local_vars;
 	uint32_t* instruction_source_code_offsets;

@@ -126,8 +126,14 @@ sno_API void sno_set_ret_number(sno_State* state, int ret, sno_Number number) {
 	sno_assert_ptr(state);
 	sno_assert(ret >= 0 && ret < sno_MAX_STACK_ARGS);
 	sno_Value* value = sno_get_stack_ptr(state, ret);
-	value->type = sno_VT_NUMBER;
-	value->v.u_number = number;
+	sno_set_number(*value, number);
+}
+
+sno_API void sno_set_ret_bool(sno_State* state, int ret, sno_Bool b) {
+	sno_assert_ptr(state);
+	sno_assert(ret >= 0 && ret < sno_MAX_STACK_ARGS);
+	sno_Value* value = sno_get_stack_ptr(state, ret);
+	sno_set_bool(*value, b);
 }
 
 
@@ -140,7 +146,7 @@ sno_API void sno_s_array_push(sno_State* state, uint32_t i) {
 
 
 
-sno_API void sno_create_new_global(sno_State* state, const sno_String* name, const sno_Value* value) {
+sno_API void sno_create_new_global(sno_State* state, const sno_IString* name, const sno_Value* value) {
 	sno_Value key;
 	key.type = sno_VT_STRING;
 	key.v.u_string = name;
@@ -154,7 +160,7 @@ sno_API void sno_create_new_global(sno_State* state, const sno_String* name, con
 	}
 }
 
-sno_API void sno_set_global(sno_State* state, const sno_String* name, const sno_Value* value) {
+sno_API void sno_set_global(sno_State* state, const sno_IString* name, const sno_Value* value) {
 	sno_Value key;
 	key.type = sno_VT_STRING;
 	key.v.u_string = name;
@@ -168,7 +174,7 @@ sno_API void sno_set_global(sno_State* state, const sno_String* name, const sno_
 	}
 }
 
-sno_API void sno_get_global(sno_State* state, const sno_String* name, const sno_Value* out_value) {
+sno_API void sno_get_global(sno_State* state, const sno_IString* name, const sno_Value* out_value) {
 	sno_Value key;
 	key.type = sno_VT_STRING;
 	key.v.u_string = name;
@@ -201,8 +207,8 @@ sno_API void sno_print_exception_msg(const sno_State* state) {
 
 sno_API sno_Bool sno_try_compile_source_code(
 	sno_State* state,
-	const sno_String* name,
-	const sno_String* source_code
+	const sno_IString* name,
+	const sno_IString* source_code
 ) {
 	sno_assert_ptr(state);
 	sno_assert_ptr(name);
@@ -249,8 +255,8 @@ sno_API sno_Bool sno_run_file(
 	const char* const path,
 	size_t path_length
 ) {
-	const sno_String* name = sno_create_string(state, path, path_length);
-	const sno_String* file = sno_load_string_from_file(state, path, path_length);
+	const sno_IString* name = sno_create_string(state, path, path_length);
+	const sno_IString* file = sno_load_string_from_file(state, path, path_length);
 	if (!name || !file) {
 		return sno_FALSE;
 	}
@@ -320,8 +326,8 @@ sno_API sno_no_return void sno_throw_runtime_error_va(
 sno_API sno_no_return void sno_throw_at_source_code_pos(
 	sno_State* state,
 	sno_ExceptionType exception_type,
-	const sno_String* source_code,
-	const sno_String* source_code_name,
+	const sno_IString* source_code,
+	const sno_IString* source_code_name,
 	uint32_t source_code_pos,
 	const char* const format,
 	va_list args
@@ -357,8 +363,8 @@ sno_API sno_no_return void sno_throw_at_source_code_pos(
 sno_API sno_no_return void sno_throw_at_source_code_pos_open_close(
 	sno_State* state,
 	sno_ExceptionType exception_type,
-	const sno_String* source_code,
-	const sno_String* source_code_name,
+	const sno_IString* source_code,
+	const sno_IString* source_code_name,
 	uint32_t source_code_pos_open,
 	uint32_t source_code_pos_close,
 	const char* const format,

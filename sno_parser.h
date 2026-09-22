@@ -98,7 +98,7 @@ typedef struct sno_Token {
 	uint32_t source_code_pos;
 	union {
 		sno_Number u_number;
-		const struct sno_String* u_string;
+		const struct sno_IString* u_string;
 	} info;
 } sno_Token;
 
@@ -109,8 +109,8 @@ typedef struct sno_Tokenizer {
 	sno_Token prev_token;
 	sno_Bool insert_terminator;
 	struct sno_State* main_state;
-	const struct sno_String* source_code_name;
-	const struct sno_String* source_code;
+	const struct sno_IString* source_code_name;
+	const struct sno_IString* source_code;
 	const char* source_code_end;
 	const char* cur_char;
 	const char* token_start;
@@ -165,7 +165,7 @@ int sno_sprintf_source_code_pos(
 	struct sno_State* state,
 	char* buffer,
 	int buffer_size,
-	const struct sno_String* source_code,
+	const struct sno_IString* source_code,
 	uint32_t source_code_pos
 );
 
@@ -196,13 +196,13 @@ sno_no_return void sno_throw_syntax_error_open_close(
 
 struct sno_Bytecode* sno_parse_source_code(
 	struct sno_State* state,
-	const struct sno_String* name,
-	const struct sno_String* source_code
+	const struct sno_IString* name,
+	const struct sno_IString* source_code
 );
 sno_Bool sno_print_source_code(
 	struct sno_State* state,
-	const struct sno_String* name,
-	const struct sno_String* source_code
+	const struct sno_IString* name,
+	const struct sno_IString* source_code
 );
 
 #endif

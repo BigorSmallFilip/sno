@@ -29,7 +29,7 @@ typedef union sno_ValueUnion {
 	struct sno_Value* u_stack_ptr;
 	sno_Number u_number;
 	struct sno_GCObject* gc_obj;
-	const struct sno_String* u_string;
+	const struct sno_IString* u_string;
 	struct sno_Array* u_array;
 	struct sno_Table* u_table;
 	struct sno_Function* u_function;
@@ -41,6 +41,7 @@ typedef struct sno_Value {
 } sno_Value;
 
 #define sno_set_none(value)               (value).type = sno_VT_NONE;     (value).v.u_data     = 0
+#define sno_set_bool(value, b)            (value).type = sno_VT_BOOL;     (value).v.u_number   = ((b) ? sno_NUMBER_TRUE : sno_NUMBER_FALSE) 
 #define sno_set_false(value)              (value).type = sno_VT_BOOL;     (value).v.u_number   = sno_NUMBER_FALSE
 #define sno_set_true(value)               (value).type = sno_VT_BOOL;     (value).v.u_number   = sno_NUMBER_TRUE
 #define sno_set_number(value, number)     (value).type = sno_VT_NUMBER;   (value).v.u_number   = ((sno_Number)(number))
@@ -134,6 +135,19 @@ void sno_free_gc_object(
 );
 
 void sno_print_value(struct sno_State* state, const sno_Value* v);
+
+void sno_value_to_string(
+	struct sno_State* state,
+	sno_DynArray* string,
+	const sno_Value* v,
+	size_t recursion_limit
+);
+const struct sno_IString* sno_interpolate_string(
+	struct sno_State* state,
+	const sno_Value* values,
+	uint32_t num_values
+);
+
 sno_Bool sno_value_equals(const sno_Value* a, const sno_Value* b);
 sno_Bool sno_value_to_bool(const sno_Value* v);
 sno_Hash sno_hash_value(const sno_Value* value);

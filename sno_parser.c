@@ -25,7 +25,7 @@ static uint8_t add_number_constant(sno_Compiler* cs, sno_Number number) {
 	return const_id;
 }
 
-static uint8_t add_string_constant(sno_Compiler* cs, const sno_String* string) {
+static uint8_t add_string_constant(sno_Compiler* cs, const sno_IString* string) {
 	sno_State* state = cs->ts->main_state;
 	if (cs->string_constants.count > sno_MAX_NUMBER_CONSTANTS) {
 		sno_throw_syntax_error_at_cur_token(
@@ -34,7 +34,7 @@ static uint8_t add_string_constant(sno_Compiler* cs, const sno_String* string) {
 		);
 	}
 	for (size_t i = 0; i < cs->string_constants.count; i++) {
-		const sno_String* c = (sno_String*)sno_dynarray_get_ptr(state, &cs->string_constants, i);
+		const sno_IString* c = (sno_IString*)sno_dynarray_get_ptr(state, &cs->string_constants, i);
 		if (c == string) {
 			return i;
 		}
@@ -138,13 +138,13 @@ static uint32_t emit_instruction_number(sno_Tokenizer* ts, sno_Number number) {
 	return emit_instruction_1(ts, sno_I_LOAD_NUMBER, add_number_constant(ts->cs, number));
 }
 
-static uint32_t emit_instruction_string(sno_Tokenizer* ts, const sno_String* string) {
+static uint32_t emit_instruction_string(sno_Tokenizer* ts, const sno_IString* string) {
 	return emit_instruction_1(ts, sno_I_LOAD_STRING, add_string_constant(ts->cs, string));
 }
 
 
 
-static sno_LocalID register_local_variable(sno_Tokenizer* ts, const sno_String* name) {
+static sno_LocalID register_local_variable(sno_Tokenizer* ts, const sno_IString* name) {
 	sno_LocalVar local;
 	local.name = name;
 	local.slot = ts->cs->num_active_local_var_slots;
@@ -155,7 +155,7 @@ static sno_LocalID register_local_variable(sno_Tokenizer* ts, const sno_String* 
 }
 
 static sno_LocalSlot try_declare_local_variable(sno_Tokenizer* ts, sno_Token token) {
-	const sno_String* name = token.info.u_string;
+	const sno_IString* name = token.info.u_string;
 	for (sno_LocalSlot i = 1; i < ts->cs->num_active_local_var_slots; i++) {
 		sno_LocalID local_id = ts->cs->active_local_vars[i];
 		const sno_LocalVar* local = (sno_LocalVar*)sno_dynarray_get(
@@ -199,7 +199,7 @@ static void deactivate_local_variables(sno_Compiler* cs, sno_LocalSlot to_id) {
 	cs->num_active_local_var_slots = to_id;
 }
 
-static int search_local_variable_in_function(sno_Compiler* cs, const sno_String* name) {
+static int search_local_variable_in_function(sno_Compiler* cs, const sno_IString* name) {
 	sno_assert(cs->num_active_local_var_slots < sno_MAX_ACTIVE_LOCAL_VARS);
 	for (int i = cs->num_active_local_var_slots - 1; i >= 1; i--) {
 		sno_LocalVar* local = sno_dynarray_get(cs->ts->main_state, &cs->local_vars, sizeof(sno_LocalVar), cs->active_local_vars[i]);
@@ -210,7 +210,7 @@ static int search_local_variable_in_function(sno_Compiler* cs, const sno_String*
 	return -1;
 }
 
-static sno_Bool recursive_search_local_variable(sno_Compiler* cs, const sno_String* name) {
+static sno_Bool recursive_search_local_variable(sno_Compiler* cs, const sno_IString* name) {
 	if (cs->current_block->is_global) {
 		// If you've reached the global scope then stop searching
 		return sno_FALSE;
@@ -294,7 +294,7 @@ static void init_function_compiler(sno_Tokenizer* ts, sno_Compiler* cs) {
 	ts->cs = cs;
 	sno_dynarray_init(state, &cs->local_vars, sizeof(sno_LocalVar), 4);
 	sno_dynarray_init(state, &cs->number_constants, sizeof(sno_Number), 4);
-	sno_dynarray_init(state, &cs->string_constants, sizeof(const sno_String*), 4);
+	sno_dynarray_init(state, &cs->string_constants, sizeof(const sno_IString*), 4);
 	sno_dynarray_init(state, &cs->sub_functions, sizeof(sno_Bytecode*), 4);
 	sno_dynarray_init(state, &cs->instructions, sizeof(sno_Instruction), 64);
 	sno_dynarray_init(state, &cs->instruction_source_code_offsets, sizeof(uint32_t), 64);
@@ -310,9 +310,9 @@ static void free_function_compiler(sno_Tokenizer* ts, sno_Compiler* cs) {
 	bc->num_number_constants = cs->number_constants.count;
 	memcpy(bc->number_constants, cs->number_constants.buffer, sizeof(sno_Number) * cs->number_constants.count);
 
-	bc->string_constants = sno_malloc(state, sizeof(sno_String*) * cs->string_constants.count);
+	bc->string_constants = sno_malloc(state, sizeof(sno_IString*) * cs->string_constants.count);
 	bc->num_string_constants = cs->string_constants.count;
-	memcpy(bc->string_constants, cs->string_constants.buffer, sizeof(const sno_String*) * cs->string_constants.count);
+	memcpy(bc->string_constants, cs->string_constants.buffer, sizeof(const sno_IString*) * cs->string_constants.count);
 
 	bc->sub_functions = sno_malloc(state, sizeof(sno_Bytecode*) * cs->sub_functions.count);
 	bc->num_sub_functions = cs->sub_functions.count;
@@ -334,7 +334,7 @@ static void free_function_compiler(sno_Tokenizer* ts, sno_Compiler* cs) {
 	memcpy(bc->local_vars, cs->local_vars.buffer, sizeof(bc->local_vars[0]) * cs->local_vars.count);
 
 	sno_dynarray_clear(state, &cs->number_constants, sizeof(sno_Number));
-	sno_dynarray_clear(state, &cs->string_constants, sizeof(const sno_String*));
+	sno_dynarray_clear(state, &cs->string_constants, sizeof(const sno_IString*));
 	sno_dynarray_clear(state, &cs->sub_functions, sizeof(sno_Bytecode*));
 	sno_dynarray_clear(state, &cs->instructions, sizeof(sno_Instruction));
 	sno_dynarray_clear(state, &cs->local_vars, sizeof(sno_LocalVar));
@@ -391,6 +391,7 @@ static void parse_interpolated_string(sno_Tokenizer* ts) {
 		if (ts->token.type != sno_TK_RPAREN) {
 			sno_throw_syntax_error_at_cur_token(ts, "Invalid string interpolation expression");
 		}
+		ts->cur_char = sno_string_chars(ts->source_code) + ts->token.source_code_pos;
 		sno_continue_interpolated_string(ts);
 		sno_assert(
 			ts->token.type == sno_TK_STRING ||
@@ -401,6 +402,7 @@ static void parse_interpolated_string(sno_Tokenizer* ts) {
 			sno_read_next_token(ts);
 			break;
 		}
+		sno_read_next_token(ts);
 	}
 	emit_instruction_1(ts, sno_I_INTERPOLATE_STRING, num_concats);
 }
@@ -451,31 +453,34 @@ static void parse_array_constructor(sno_Tokenizer* ts) {
 static void parse_key_value_pair(sno_Tokenizer* ts) {
 	if (ts->token.type == sno_TK_IDENTIFIER) {
 		// String key
-		emit_instruction_string(ts, ts->token.info.u_string);
+		const sno_Token identifier_token = ts->token;
+		emit_instruction_string(ts, identifier_token.info.u_string);
 		skip_token(ts, sno_TK_IDENTIFIER);
-		/*if (ts->cur_token.stmt_end) {
-			identifier(ts, &ts->cur_token);
-		} else if (ts->next_token.type == sno_TK_COMMA) {
-			if (!ts->next_token.stmt_end) {
-				sno_throw_syntax_error_at_token(
-					ts,
-					&ts->next_token,
-					"This comma should be at the end of the previous line"
-				);
-			}
-			identifier(ts, &ts->cur_token);
-		}*/
+		if (
+			ts->token.type == sno_TK_COMMA ||
+			ts->token.type == sno_TK_TERMINATOR ||
+			ts->token.type == sno_TK_RBRACE
+		) {
+			identifier(ts, &identifier_token); // Shorthand "key" = identifier key
+			return;
+		}
 	} else if (ts->token.type == sno_TK_LBRACKET) {
+		skip_token(ts, sno_TK_LBRACKET);
 		// Expression key
 		uint32_t pos_open = ts->token.source_code_pos;
 		parse_expression(ts);
 		uint32_t pos_close = ts->token.source_code_pos;
-		sno_throw_syntax_error_open_close(
-			ts,
-			pos_open,
-			pos_close,
-			"This key is missing its closing ']'"
-		);
+		if (ts->token.type != sno_TK_RBRACKET) {
+			sno_throw_syntax_error_open_close(
+				ts,
+				pos_open,
+				pos_close,
+				"This key is missing its closing ']'"
+			);
+		}
+		skip_token(ts, sno_TK_RBRACKET);
+	} else {
+		sno_throw_syntax_error_at_cur_token(ts, "Expected a table key");
 	}
 	if (ts->token.type != sno_TK_ASSIGN) {
 		sno_throw_syntax_error_at_cur_token(ts, "Expected an assignment for this key");
@@ -496,8 +501,11 @@ static void parse_table_constructor(sno_Tokenizer* ts) {
 	sno_Bool concat = sno_FALSE;
 	parse_key_value_pair(ts);
 	while (1) {
-		if (ts->token.type == sno_TK_COMMA) {
-			skip_token(ts, sno_TK_COMMA);
+		if (
+			ts->token.type == sno_TK_COMMA ||
+			ts->token.type == sno_TK_TERMINATOR
+		) {
+			sno_read_next_token(ts);
 			if (ts->token.type == sno_TK_RBRACE) {
 				break;
 			}
@@ -679,7 +687,7 @@ static void parse_operand(sno_Tokenizer* ts) {
 			uint32_t dot_at = ts->token.source_code_pos;
 			skip_token(ts, sno_TK_DOT);
 			expect_token(ts, sno_TK_IDENTIFIER);
-			const sno_String* name = add_string_constant(ts->cs, ts->token.info.u_string);
+			const sno_IString* name = add_string_constant(ts->cs, ts->token.info.u_string);
 			sno_read_next_token(ts);
 			if (ts->token.type == sno_TK_LPAREN) {
 				emit_instruction_1_at(ts, sno_I_GET_METHOD , name, dot_at);
@@ -1255,7 +1263,7 @@ static void parse_function_statement(sno_Tokenizer* ts) {
 	}
 	skip_token(ts, sno_TK_FUNCTION);
 	uint32_t name_at = ts->token.source_code_pos;
-	const sno_String* name = ts->token.info.u_string;
+	const sno_IString* name = ts->token.info.u_string;
 	skip_token(ts, sno_TK_IDENTIFIER);
 	parse_function(ts);
 	emit_instruction_1_at(
@@ -1382,8 +1390,8 @@ static sno_Bytecode* parse_source_code(sno_Tokenizer* ts) {
 
 struct sno_Bytecode* sno_parse_source_code(
 	sno_State* state,
-	const sno_String* name,
-	const sno_String* source_code
+	const sno_IString* name,
+	const sno_IString* source_code
 ) {
 	sno_assert_ptr(state);
 	sno_assert_ptr(name);

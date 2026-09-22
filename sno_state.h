@@ -37,7 +37,7 @@ typedef struct sno_State {
 	sno_StringInterningTable string_table;
 
 	sno_ExceptionType exception_type;
-	const sno_String* exception_msg;
+	const sno_IString* exception_msg;
 	sno_ExceptionJump* exception_jump;
 
 	sno_Table* globals;
@@ -70,22 +70,23 @@ sno_API sno_Value* sno_get_arg_typed(
 );
 
 sno_API void sno_set_ret_number(sno_State* state, int ret, sno_Number number);
+sno_API void sno_set_ret_bool(sno_State* state, int ret, sno_Bool b);
 
 sno_API void sno_s_array_push(sno_State* state, uint32_t i);
 
 
 
-sno_API void sno_create_new_global(sno_State* state, const sno_String* name, const sno_Value* value);
-sno_API void sno_set_global(sno_State* state, const sno_String* name, const sno_Value* value);
-sno_API void sno_get_global(sno_State* state, const sno_String* name, const sno_Value* out_value);
+sno_API void sno_create_new_global(sno_State* state, const sno_IString* name, const sno_Value* value);
+sno_API void sno_set_global(sno_State* state, const sno_IString* name, const sno_Value* value);
+sno_API void sno_get_global(sno_State* state, const sno_IString* name, const sno_Value* out_value);
 
 sno_API void sno_print_globals(const sno_State* state);
 sno_API void sno_print_exception_msg(const sno_State* state);
 
 sno_API sno_Bool sno_try_compile_source_code(
 	sno_State* state,
-	const sno_String* name,
-	const sno_String* source_code
+	const sno_IString* name,
+	const sno_IString* source_code
 );
 
 sno_API void sno_call(sno_State* state, uint8_t num_args, uint8_t num_returns);
@@ -115,8 +116,8 @@ sno_API sno_no_return void sno_throw_runtime_error_va(
 sno_API sno_no_return void sno_throw_at_source_code_pos(
 	sno_State* state,
 	sno_ExceptionType exception_type,
-	const sno_String* source_code,
-	const sno_String* source_code_name,
+	const sno_IString* source_code,
+	const sno_IString* source_code_name,
 	uint32_t source_code_pos,
 	const char* const format,
 	va_list args
@@ -125,8 +126,8 @@ sno_API sno_no_return void sno_throw_at_source_code_pos(
 sno_API sno_no_return void sno_throw_at_source_code_pos_open_close(
 	sno_State* state,
 	sno_ExceptionType exception_type,
-	const sno_String* source_code,
-	const sno_String* source_code_name,
+	const sno_IString* source_code,
+	const sno_IString* source_code_name,
 	uint32_t source_code_pos_open,
 	uint32_t source_code_pos_close,
 	const char* const format,
