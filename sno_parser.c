@@ -274,7 +274,7 @@ static void exit_block(sno_Compiler* cs) {
 
 static void init_bytecode(sno_State* state, sno_Tokenizer* ts, sno_Compiler* cs) {
 	sno_Bytecode* bytecode = sno_alloc_type(state, sno_Bytecode);
-	bytecode->max_stack_needed = 64;
+	bytecode->max_stack_needed = 17;
 	bytecode->local_var_slots = 0;
 	bytecode->source_code = ts->source_code;
 	bytecode->name = ts->source_code_name;
@@ -375,6 +375,7 @@ static sno_inline void skip_token(sno_Tokenizer* ts, sno_TokenType type) {
 
 
 static void parse_expression(sno_Tokenizer* ts);
+static void parse_function(sno_Tokenizer* ts);
 static uint32_t parse_closed_expression_list(sno_Tokenizer* ts, sno_TokenType end_token);
 static void parse_block(sno_Tokenizer* ts, sno_Bool is_loop, sno_Bool is_global_scope);
 static void parse_brace_block(sno_Tokenizer* ts, sno_Bool is_loop);
@@ -451,7 +452,14 @@ static void parse_array_constructor(sno_Tokenizer* ts) {
 }
 
 static void parse_key_value_pair(sno_Tokenizer* ts) {
-	if (ts->token.type == sno_TK_IDENTIFIER) {
+	if (ts->token.type == sno_TK_FUNCTION) {
+		skip_token(ts, sno_TK_FUNCTION);
+		expect_token(ts, sno_TK_IDENTIFIER);
+		emit_instruction_string(ts, ts->token.info.u_string);
+		skip_token(ts, sno_TK_IDENTIFIER);
+		parse_function(ts);
+		return;
+	} else if (ts->token.type == sno_TK_IDENTIFIER) {
 		// String key
 		const sno_Token identifier_token = ts->token;
 		emit_instruction_string(ts, identifier_token.info.u_string);
@@ -461,32 +469,17 @@ static void parse_key_value_pair(sno_Tokenizer* ts) {
 			ts->token.type == sno_TK_TERMINATOR ||
 			ts->token.type == sno_TK_RBRACE
 		) {
-			identifier(ts, &identifier_token); // Shorthand "key" = identifier key
+			// Shorthand struct field
+			// "key": key
+			identifier(ts, &identifier_token);
 			return;
 		}
-	} else if (ts->token.type == sno_TK_LBRACKET) {
-		skip_token(ts, sno_TK_LBRACKET);
-		// Expression key
-		uint32_t pos_open = ts->token.source_code_pos;
-		parse_expression(ts);
-		uint32_t pos_close = ts->token.source_code_pos;
-		if (ts->token.type != sno_TK_RBRACKET) {
-			sno_throw_syntax_error_open_close(
-				ts,
-				pos_open,
-				pos_close,
-				"This key is missing its closing ']'"
-			);
-		}
-		skip_token(ts, sno_TK_RBRACKET);
 	} else {
-		sno_throw_syntax_error_at_cur_token(ts, "Expected a table key");
+		// Key is an expression
+		parse_expression(ts);
 	}
-	if (ts->token.type != sno_TK_ASSIGN) {
-		sno_throw_syntax_error_at_cur_token(ts, "Expected an assignment for this key");
-	}
-	skip_token(ts, sno_TK_ASSIGN);
-	parse_expression(ts);
+	expect_token_and_skip(ts, sno_TK_COLON);
+	parse_expression(ts); // Value expression
 }
 
 static void parse_table_constructor(sno_Tokenizer* ts) {
@@ -1144,7 +1137,15 @@ static void parse_expression_statement(sno_Tokenizer* ts) {
 	}
 	if (ts->token.type == sno_TK_INC || ts->token.type == sno_TK_DEC) {
 		sno_Bool is_inc = (ts->token.type == sno_TK_INC);
-		sno_not_implemented;
+		emit_instruction_1_at(
+			ts,
+			sno_I_UNOP,
+			is_inc ? sno_UNOP_INC : sno_UNOP_DEC,
+			ts->token.source_code_pos
+		);
+		emit_instruction(ts, last_instruction + 1);
+		sno_read_next_token(ts);
+		return;
 	}
 
 	sno_Instruction deferred_instructions[sno_MAX_STACK_ARGS];

@@ -1,9 +1,31 @@
 
-var t = {
-    [0] = "a"
-    [1] = "b"
-    [false] = "c"
-    [true] = "d"
+const PersonPrototype = {
+    function identify(self) {
+        print("Hello. I am ", self.name, ". My age is ", self.age, " units.")
+    }
+
+    function greet(self, other) {
+        print("Greetings, ", other.name, "! I am ", self.name, ".")
+    }
+
+    function age_up(self, units) {
+        self.age += units
+    }
 }
 
-print(t)
+const Person = {
+    function new(name, age) {
+        return {
+            name
+            age
+        }.set_prototype(PersonPrototype)
+    }
+}
+
+var alice = Person.new("Alice", 30)
+var bob = Person.new("Bob", -1 / 12)
+
+print(alice)
+
+alice.identify()
+bob.greet(alice)

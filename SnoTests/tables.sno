@@ -1,0 +1,10 @@
+
+var t = {
+	a: 3
+	b: 4,
+	c: 5;
+}
+
+t["d"] = 6
+
+assert(function(){return 10;}() == 10)

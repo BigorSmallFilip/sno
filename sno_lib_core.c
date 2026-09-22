@@ -15,8 +15,18 @@ uint8_t snol_core_perftimer(sno_State* state, uint8_t num_args) {
 	return 1;
 }
 
+uint8_t snol_core_assert(sno_State* state, uint8_t num_args) {
+	sno_check_arg_count(state, num_args, 1);
+	sno_Value* condition = sno_get_arg(state, 0);
+	if (!sno_value_to_bool(condition)) {
+		sno_throw_runtime_error(state, "Assertion failed");
+	}
+	return 0;
+}
+
 const sno_Library sno_lib_core[] = {
 	sno_LibFn(core, print),
 	sno_LibFn(core, perftimer),
+	sno_LibFn(core, assert),
 	sno_LibEnd
 };

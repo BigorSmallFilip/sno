@@ -332,7 +332,7 @@ static void print_table(sno_State* state, const sno_Table* table) {
 			printf(", ");
 		}
 		sno_print_value(state, &key);
-		printf(" = ");
+		printf(": ");
 		sno_print_value(state, &value);
 		sno_table_next(table, &bucket, &node);
 		first = sno_FALSE;

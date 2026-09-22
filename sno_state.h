@@ -20,9 +20,9 @@ typedef struct sno_ExceptionJump {
 
 typedef struct sno_CallInfo {
 	uint32_t base;
-	sno_Instruction* saved_pc;
 	uint8_t num_args;
 	uint8_t num_returns;
+	sno_Instruction* saved_pc;
 } sno_CallInfo;
 
 #define sno_MAX_STACK 256

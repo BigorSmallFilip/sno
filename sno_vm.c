@@ -304,13 +304,20 @@ void get_field(
 		}
 	} break;
 	case sno_VT_TABLE: {
-		if (!sno_table_get(inout_value->v.u_table, &key, inout_value)) {
-			throw_runtime_error_at_pc(
-				state, bytecode, pc,
-				"Table has no field named %.*s",
-				key_name->length,
-				sno_string_chars(key_name)
-			);
+		sno_Table* table = inout_value->v.u_table;
+		if (!sno_table_get(table, &key, inout_value)) {
+			sno_Table* prototype = table->prototype;
+			if (!prototype) {
+				prototype = state->table_prototype;
+			}
+			if (!sno_table_get(prototype, &key, inout_value)) {
+				throw_runtime_error_at_pc(
+					state, bytecode, pc,
+					"Table has no field named %.*s",
+					key_name->length,
+					sno_string_chars(key_name)
+				);
+			}
 		}
 	} break;
 	default:

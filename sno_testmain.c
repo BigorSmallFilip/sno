@@ -69,6 +69,19 @@ static const char* load_string_from_file(sno_State* state, const char* filename,
 
 
 
+static sno_Bool run_file(
+	sno_State* state,
+	const char* const file_path
+) {
+	if (!sno_run_file(state, file_path, strlen(file_path))) {
+		sno_print_exception_msg(state);
+		return sno_FALSE;
+	}
+	return sno_TRUE;
+}
+
+
+
 EMSCRIPTEN_EXPORT int main(int argc, char** argv) {
 	if (argc == 2) {
 	} else {
@@ -79,6 +92,10 @@ EMSCRIPTEN_EXPORT int main(int argc, char** argv) {
 	//printf("%llu be %llu", 1024, sno_smallest_power_of_2_greater_than_or_equal_to(1024));
 	
 	sno_State* state = sno_create_state();
+
+#ifdef sno_DEBUG
+	run_file(state, "SnoTests\\tables.sno");
+#endif
 
 	if (!sno_run_file(state, argv[1], strlen(argv[1]))) {
 		sno_print_exception_msg(state);
