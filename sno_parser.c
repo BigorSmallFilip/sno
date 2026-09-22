@@ -410,14 +410,13 @@ static void parse_interpolated_string(sno_Tokenizer* ts) {
 
 static void parse_array_constructor(sno_Tokenizer* ts) {
 	uint32_t pos_open = ts->token.source_code_pos;
+	emit_instruction_at(ts, sno_I_NEW_ARRAY, pos_open);
 	skip_token(ts, sno_TK_LBRACKET);
 	if (ts->token.type == sno_TK_RBRACKET) {
 		skip_token(ts, sno_TK_RBRACKET);
-		emit_instruction_1_at(ts, sno_I_NEW_ARRAY, 0, pos_open);
 		return;
 	}
 	uint32_t len = 1;
-	sno_Bool concat = sno_FALSE;
 	parse_expression(ts);
 	while (1) {
 		if (ts->token.type == sno_TK_COMMA) {
@@ -428,9 +427,8 @@ static void parse_array_constructor(sno_Tokenizer* ts) {
 			parse_expression(ts);
 			len++;
 			if (len >= sno_MAX_STACK_CONSTRUCTOR_ARGS) {
-				emit_instruction_1_at(ts, sno_I_NEW_ARRAY + concat, len, pos_open);
+				emit_instruction_1_at(ts, sno_I_CONCAT_ARRAY, len, pos_open);
 				len = 0;
-				concat = sno_TRUE;
 			}
 		} else if (ts->token.type == sno_TK_RBRACKET) {
 			break;
@@ -445,7 +443,7 @@ static void parse_array_constructor(sno_Tokenizer* ts) {
 
 	}
 	if (len > 0) {
-		emit_instruction_1_at(ts, sno_I_NEW_ARRAY + concat, len, ts->token.source_code_pos);
+		emit_instruction_1_at(ts, sno_I_CONCAT_ARRAY, len, ts->token.source_code_pos);
 	}
 	skip_token(ts, sno_TK_RBRACKET);
 	return;
@@ -484,14 +482,13 @@ static void parse_key_value_pair(sno_Tokenizer* ts) {
 
 static void parse_table_constructor(sno_Tokenizer* ts) {
 	uint32_t pos_open = ts->token.source_code_pos;
+	emit_instruction_at(ts, sno_I_NEW_TABLE, pos_open);
 	skip_token(ts, sno_TK_LBRACE);
 	if (ts->token.type == sno_TK_RBRACE) {
 		skip_token(ts, sno_TK_RBRACE);
-		emit_instruction_1_at(ts, sno_I_NEW_TABLE, 0, pos_open);
 		return;
 	}
 	uint32_t len = 1;
-	sno_Bool concat = sno_FALSE;
 	parse_key_value_pair(ts);
 	while (1) {
 		if (
@@ -505,9 +502,8 @@ static void parse_table_constructor(sno_Tokenizer* ts) {
 			parse_key_value_pair(ts);
 			len++;
 			if (len >= sno_MAX_STACK_CONSTRUCTOR_ARGS / 2) {
-				emit_instruction_1_at(ts, sno_I_NEW_TABLE + concat, len, pos_open);
+				emit_instruction_1_at(ts, sno_I_CONCAT_TABLE, len, pos_open);
 				len = 0;
-				concat = sno_TRUE;
 			}
 		} else if (ts->token.type == sno_TK_RBRACE) {
 			break;
@@ -523,7 +519,7 @@ static void parse_table_constructor(sno_Tokenizer* ts) {
 	}
 	skip_token(ts, sno_TK_RBRACE);
 	if (len > 0) {
-		emit_instruction_1_at(ts, sno_I_NEW_TABLE + concat, len, pos_open);
+		emit_instruction_1_at(ts, sno_I_CONCAT_TABLE, len, pos_open);
 	}
 	return;
 }

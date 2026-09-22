@@ -1,6 +1,7 @@
 #include "sno_state.h"
 
 #include "sno_mem.h"
+#include "sno_gc.h"
 #include "sno_parser.h"
 #include "sno_vm.h"
 #include "sno_lib.h"
@@ -21,6 +22,7 @@ sno_API sno_State* sno_create_state() {
 	if (!state) {
 		return NULL;
 	}
+	state->live_memory_last_gc = sno_START_GC_MEM;
 	sno_init_string_interning_table(state, 64);
 	init_stack(state, 128);
 	sno_load_core_libs(state);
@@ -49,8 +51,13 @@ static void resize_stack(sno_State* state, uint32_t new_capacity) {
 	sno_assert(state->stack_capacity > 0);
 	sno_assert_msg(new_capacity != 0, "Capcity must not be 0");
 	sno_assert_msg(sno_is_power_of_2(new_capacity), "Capcity must be power of 2");
+	printf("New capacity: (%u)\n", (unsigned int)new_capacity);
 	if (new_capacity <= sno_MAX_STACK) {
-		sno_throw_runtime_error(state, "Tried to make the stack really really big");
+		sno_throw_runtime_error(
+			state,
+			"Tried to make the stack really really big (%u)",
+			(unsigned int)new_capacity
+		);
 	}
 
 	state->stack = sno_realloc(state, state->stack, state->stack_capacity, new_capacity * sizeof(sno_Value));
@@ -242,12 +249,12 @@ sno_API void sno_call(sno_State* state, uint8_t num_args, uint8_t num_returns) {
 		num_returns,
 		NULL,
 	};
-	sno_dynarray_push_back(
+	/*sno_dynarray_push_back(
 		state,
 		&state->call_infos,
 		sizeof(sno_CallInfo),
 		&call_info
-	);
+	);*/
 
 	sno_Value* base = sno_stack_base(state);
 	if (base->type != sno_VT_FUNCTION) {
@@ -267,6 +274,8 @@ sno_API void sno_call(sno_State* state, uint8_t num_args, uint8_t num_returns) {
 	for (uint8_t i = num_real_returns; i < num_returns; i++) {
 		sno_set_none(base[i]);
 	}
+
+	//sno_dynarray_pop_back(state, &state->call_infos, sizeof(sno_CallInfo), &call_info);
 }
 
 sno_API sno_Bool sno_run_file(

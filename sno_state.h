@@ -49,6 +49,7 @@ typedef struct sno_State {
 	size_t num_gc_objects;
 	size_t memory_allocated;
 	size_t num_allocations;
+	size_t live_memory_last_gc;
 } sno_State;
 
 sno_API sno_State* sno_create_state();

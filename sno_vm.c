@@ -352,12 +352,12 @@ uint8_t sno_execute(sno_State* state, uint8_t num_args) {
 		uint8_t opcode = i & 0xFF;
 		uint8_t arg = i >> 8;
 		
-		if (state->memory_allocated > 50000) {
+		//if (state->memory_allocated > 50000) {
 			//sno_full_gc(state);
-		}
+		//}
 
 #ifdef sno_DEBUG
-		printf("stack %02u   | ", (unsigned int)(sp - state->stack)); print_instruction(bytecode, pc);
+		//printf("stack %02u   | ", (unsigned int)(sp - state->stack)); print_instruction(bytecode, pc);
 #endif
 		pc++;
 
@@ -399,48 +399,32 @@ uint8_t sno_execute(sno_State* state, uint8_t num_args) {
 			sno_set_string(sp[0], result);
 		} break;
 		case sno_I_NEW_ARRAY: {
-			sno_assert(arg <= sno_MAX_STACK_CONSTRUCTOR_ARGS);
-			sno_Value* items_start = sp - arg;
-			sp -= (int)arg - 1;
+			sp++;
 			sno_Array* arr = sno_create_array(state, 8);
-			if (arg > 0) {
-				sno_concat_array(state, arr, sp, arg);
-			}
 			sno_set_array(*sp, arr);
 		} break;
 		case sno_I_CONCAT_ARRAY: {
 			sno_assert(arg <= sno_MAX_STACK_CONSTRUCTOR_ARGS);
+			sno_assert(arg > 0);
 			sno_Value* items_start = sp - arg;
 			sp -= arg;
 			sno_assert(sp->type == sno_VT_ARRAY);
 			sno_Array* arr = sp->v.u_array;
-			if (arg > 0) {
-				sno_concat_array(state, arr, sp + 1, arg);
-			}
+			sno_concat_array(state, arr, sp + 1, arg);
 		} break;
 		case sno_I_NEW_TABLE: {
-			sno_assert(arg <= sno_MAX_STACK_CONSTRUCTOR_ARGS / 2);
-			sno_Value* items_start = sp - arg * 2;
-			sp -= (int)(arg * 2) - 1;
+			sp++;
 			sno_Table* table = sno_create_table(state, 8);
-			for (uint8_t i = 0; i < arg; i++) {
-				if (sno_table_set_or_add_key(state, table, &sp[i * 2], &sp[i * 2 + 1])) {
-					throw_runtime_error_at_pc(
-						state, bytecode, pc,
-						"Repetead key"
-					);
-				}
-			}
 			sno_set_table(*sp, table);
 		} break;
 		case sno_I_CONCAT_TABLE: {
 			sno_assert(arg <= sno_MAX_STACK_CONSTRUCTOR_ARGS / 2);
 			sno_Value* items_start = sp - arg * 2;
-			sp -= (int)(arg * 2) - 1;
+			sp -= (uint32_t)(arg * 2);
 			sno_assert(sp->type == sno_VT_TABLE);
 			sno_Table* table = sp->v.u_table;
 			for (uint8_t i = 0; i < arg; i++) {
-				if (sno_table_set_or_add_key(state, table, &sp[i * 2], &sp[i * 2 + 1])) {
+				if (sno_table_set_or_add_key(state, table, &sp[i * 2 + 1], &sp[i * 2 + 2])) {
 					throw_runtime_error_at_pc(
 						state, bytecode, pc,
 						"Repetead key"
@@ -857,10 +841,12 @@ uint8_t sno_execute(sno_State* state, uint8_t num_args) {
 			uint8_t num_args = arg & 0x0F;
 			uint8_t num_returns = arg >> 4;
 			uint32_t saved_base = state->stack_base;
+			uint32_t saved_top = state->stack_top;
 			uint32_t stack_idx = sp - state->stack;
 			state->stack_base = stack_idx - (num_args + 1);
 			sno_call(state, num_args, num_returns);
 			state->stack_base = saved_base;
+			state->stack_top = saved_top;
 			sp = state->stack + stack_idx - 2 - num_args + num_returns;
 		} break;
 		case sno_I_RETURN: {

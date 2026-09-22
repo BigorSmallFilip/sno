@@ -1,6 +1,7 @@
 #include "sno_mem.h"
 
 #include "sno_state.h"
+#include "sno_gc.h"
 #include <stdlib.h>
 #include <string.h>
 
@@ -8,6 +9,7 @@ void* sno_malloc(sno_State* state, size_t size) {
 	//printf("Allocating %u bytes\n", (unsigned int)size);
 	state->num_allocations++;
 	state->memory_allocated += size;
+	sno_consider_gc(state);
 	void* block = malloc(size);
 	if (!block) {
 		sno_panic("Allocation failed");
@@ -19,6 +21,7 @@ void* sno_calloc(sno_State* state, size_t count, size_t size) {
 	//printf("Allocating %u bytes\n", (unsigned int)(count * size));
 	state->num_allocations++;
 	state->memory_allocated += count * size;
+	sno_consider_gc(state);
 	void* block = calloc(count, size);
 	if (!block) {
 		sno_panic("Allocation failed");
@@ -31,6 +34,7 @@ void* sno_realloc(sno_State* state, void* block, size_t old_size, size_t new_siz
 	sno_assert_ptr(block);
 	state->memory_allocated -= old_size;
 	state->memory_allocated += new_size;
+	sno_consider_gc(state);
 	void* new_block = realloc(block, new_size);
 	if (!new_block) {
 		sno_panic("Allocation failed");

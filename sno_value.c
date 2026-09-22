@@ -3,6 +3,7 @@
 #include "sno_state.h"
 #include "sno_vm.h"
 #include "sno_parser.h"
+#include "sno_gc.h"
 #include <string.h>
 
 
@@ -36,11 +37,12 @@ sno_Array* sno_create_array(sno_State* state, size_t capacity) {
 	sno_assert(capacity >= 4);
 	sno_Array* arr = sno_alloc_type(state, sno_Array);
 	sno_assert_ptr(arr);
-	arr->gc_next = state->gc_list_start;
-	arr->gc_type = sno_OT_ARRAY;
-	state->gc_list_start = (sno_GCObject*)arr;
-	state->num_gc_objects++;
 	sno_dynarray_init(state, &arr->items, sizeof(sno_Value), capacity);
+	arr->gc_mark = sno_GC_MARK_DEAD;
+	arr->gc_type = sno_OT_ARRAY;
+	arr->gc_next = state->gc_list_start;
+	state->num_gc_objects++;
+	state->gc_list_start = (sno_GCObject*)arr;
 	return arr;
 }
 
@@ -60,13 +62,14 @@ sno_Table* sno_create_table(sno_State* state, size_t capacity) {
 	sno_assert(capacity >= 8);
 	sno_Table* table = sno_alloc_type(state, sno_Table);
 	sno_assert_ptr(table);
-	table->gc_next = state->gc_list_start;
-	table->gc_type = sno_OT_TABLE;
-	state->gc_list_start = (sno_GCObject*)table;
-	state->num_gc_objects++;
 	table->count = 0;
 	table->capacity_mask = capacity - 1;
 	table->nodes = sno_calloc(state, capacity, sizeof(sno_TableNode));
+	table->gc_mark = sno_GC_MARK_DEAD;
+	table->gc_type = sno_OT_TABLE;
+	table->gc_next = state->gc_list_start;
+	state->num_gc_objects++;
+	state->gc_list_start = (sno_GCObject*)table;
 	sno_assert_ptr(table->nodes);
 	return table;
 }
@@ -263,6 +266,7 @@ void sno_free_gc_object(
 	sno_GCObject* prev
 ) {
 	if (prev) {
+		sno_assert(prev->gc_next == obj);
 		prev->gc_next = obj->gc_next;
 	} else {
 		sno_assert(state->gc_list_start == obj);
@@ -299,7 +303,12 @@ static void print_array(sno_State* state, const sno_Array* arr) {
 		return;
 	}
 	printf("[");
-	for (size_t i = 0; i < arr->items.count; i++) {
+	size_t items_to_print = min(20, arr->items.count);
+	for (size_t i = 0; i < items_to_print; i++) {
+		if (i == 20 - 1) {
+			printf(", ... ");
+			break;
+		}
 		if (i != 0) {
 			printf(", ");
 		}
