@@ -180,6 +180,8 @@ static sno_IString* create_new_interned_string(
 	string_obj->length = length;
 	string_obj->next = NULL;
 	string_obj->gc_mark = 0;
+	string_obj->gc_type = sno_OT_STRING;
+	state->num_gc_objects++;
 	memcpy((char*)sno_string_chars(string_obj), string, length);
 	if (iter == NULL) {
 		// No existing string in bucket
@@ -199,7 +201,6 @@ static sno_IString* create_new_interned_string(
 		sno_resize_string_interning_table(state, (string_table->capacity_mask + 1) << 1);
 	}
 
-	string_obj->gc_type = sno_OT_STRING;
 	return string_obj;
 }
 
@@ -267,4 +268,16 @@ const sno_IString* sno_load_string_from_file(
 	}
 	fclose(file);
 	return sno_create_string(state, filebuffer, readsize);
+}
+
+void sno_free_string(
+	sno_State* state,
+	sno_IString* string,
+	sno_IString* prev
+) {
+	if (prev) {
+		prev->next = string->next;
+	}
+	sno_free(state, string, sizeof(sno_IString) + string->length);
+	state->num_gc_objects--;
 }

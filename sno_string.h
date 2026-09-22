@@ -52,4 +52,10 @@ const sno_IString* sno_load_string_from_file(
 	size_t path_length
 );
 
+void sno_free_string(
+	struct sno_State* state,
+	sno_IString* string,
+	sno_IString* prev
+);
+
 #endif

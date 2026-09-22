@@ -280,14 +280,12 @@ void sno_free_gc_object(
 		sno_Array* arr = (sno_Array*)obj;
 		sno_dynarray_clear(state, &arr->items, sizeof(sno_Value));
 		sno_free(state, obj, sizeof(sno_Array));
-		break;
-	}
+	} break;
 	case sno_OT_TABLE: {
 		sno_Table* table = (sno_Table*)obj;
 		clear_table(state, table);
 		sno_free(state, obj, sizeof(sno_Table));
-		break;
-	}
+	} break;
 	default:
 		break;
 	}
@@ -303,9 +301,9 @@ static void print_array(sno_State* state, const sno_Array* arr) {
 		return;
 	}
 	printf("[");
-	size_t items_to_print = min(20, arr->items.count);
+	size_t items_to_print = min(10, arr->items.count);
 	for (size_t i = 0; i < items_to_print; i++) {
-		if (i == 20 - 1) {
+		if (i == 10 - 1) {
 			printf(", ... ");
 			break;
 		}
@@ -420,9 +418,9 @@ void sno_value_to_string(
 		char buf[sno_STACK_BUFFER_LENGTH];
 		int len;
 		if (sno_number_is_valid_i64(n)) {
-			len = snprintf(buf, sno_STACK_BUFFER_LENGTH - 1, "%g", n);
-		} else {
 			len = snprintf(buf, sno_STACK_BUFFER_LENGTH - 1, "%lli", (uint64_t)n);
+		} else {
+			len = snprintf(buf, sno_STACK_BUFFER_LENGTH - 1, "%g", n);
 		}
 		sno_dynarray_push_back_bytes(state, string, buf, len);
 	} break;

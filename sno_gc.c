@@ -2,7 +2,7 @@
 #include "sno_state.h"
 #include "sno_value.h"
 
-//#define DEBUG_PRINT_GC_EVERYTHING
+#define DEBUG_PRINT_GC_EVERYTHING
 #define DEBUG_PRINT_GC_RESULT
 
 static void print_gc_obj(sno_State* state, sno_GCObject* obj) {
@@ -53,7 +53,7 @@ static void mark_value(sno_State* state, sno_Value* value) {
 	} else if (value->type == sno_VT_TABLE) {
 		mark_table_items(state, value->v.u_table);
 	} else if (value->type == sno_VT_STRING) {
-
+		printf(sno_ANSI_YELLOW "String is safe\n" sno_ANSI_NORMAL);
 	} else if (value->type == sno_VT_FUNCTION) {
 
 	}
@@ -67,18 +67,15 @@ static void mark_stack(sno_State* state) {
 
 
 
-static void sweep(sno_State* state, sno_Bool print) {
+static void sweep(sno_State* state) {
 	sno_GCObject* iter = state->gc_list_start;
 	sno_GCObject* prev = NULL;
 	while (iter) {
-		if (print) {
 #ifdef DEBUG_PRINT_GC_EVERYTHING
-			printf(iter->gc_mark ? "LIVE " : "DEAD ");
-			print_gc_obj(state, iter);
-			putchar('\n');
+		printf(iter->gc_mark ? "LIVE " : "DEAD ");
+		print_gc_obj(state, iter);
+		putchar('\n');
 #endif
-		}
-
 		sno_GCObject* next = iter->gc_next;
 		if (iter->gc_mark == sno_GC_MARK_DEAD) {
 			sno_free_gc_object(state, iter, prev);
@@ -89,6 +86,31 @@ static void sweep(sno_State* state, sno_Bool print) {
 		iter = next;
 	}
 }
+
+static void sweep_strings(sno_State* state) {
+	sno_StringInterningTable* str_table = &state->string_table;
+	for (size_t i = 0; i < str_table->capacity_mask + 1; i++) {
+		sno_IString* iter = str_table->strings[i];
+		sno_IString* prev = NULL;
+		while (iter) {
+#ifdef DEBUG_PRINT_GC_EVERYTHING
+			printf(iter->gc_mark ? "LIVE " : "DEAD ");
+			print_gc_obj(state, iter);
+			putchar('\n');
+#endif
+			sno_IString* next = iter->next;
+			if (iter->gc_mark == sno_GC_MARK_DEAD) {
+				sno_free_string(state, iter, prev);
+			} else {
+				iter->gc_mark = sno_GC_MARK_DEAD;
+				prev = iter;
+			}
+			iter = next;
+		}
+	}
+}
+
+
 
 static void mark_all_as_live(sno_State* state) {
 	size_t num_iters = 0;
@@ -132,7 +154,8 @@ void sno_full_gc(sno_State* state) {
 
 	size_t memory_before = state->memory_allocated;
 	size_t num_allocations_before = state->num_allocations;
-	sweep(state, sno_TRUE);
+	sweep(state);
+	sweep_strings(state);
 	size_t memory_freed = memory_before - state->memory_allocated;
 	size_t num_allocations_freed = num_allocations_before - state->num_allocations;
 

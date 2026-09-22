@@ -20,29 +20,20 @@ function eratosthenes(limit) {
     return primes
 }
 
-const prime_limit = 100000
 
-var time_start = perftimer()
-var primes = eratosthenes(prime_limit)
-var duration = perftimer() - time_start
 
-print("The biggest prime less than ", prime_limit, " is ", primes[primes.length() - 1])
-print("That took ", duration, " seconds to calculate")
+var avg = 0
+const iters = 100
+const prime_limit = 1000000
 
-eratosthenes(prime_limit)
+for i = 0, iters {
+    var time_start = perftimer()
+    var primes = eratosthenes(prime_limit)
+    var duration = perftimer() - time_start
+    avg += duration
 
-primes = none
+    print("The biggest prime less than \(prime_limit) is \(primes[primes.length() - 1])")
+    print("That took \(duration * 1000)ms to calculate")
+}
 
-eratosthenes(prime_limit); print("done");
-eratosthenes(prime_limit); print("done");
-eratosthenes(prime_limit); print("done");
-eratosthenes(prime_limit); print("done");
-eratosthenes(prime_limit); print("done");
-eratosthenes(prime_limit); print("done");
-eratosthenes(prime_limit); print("done");
-eratosthenes(prime_limit); print("done");
-eratosthenes(prime_limit); print("done");
-eratosthenes(prime_limit); print("done");
-
-print("FORCE THE GARBAGE TO BE COLLECTED!")
-force_gc()
+print("Avg time to get primes below \(prime_limit) is \(avg / iters * 1000)ms")
