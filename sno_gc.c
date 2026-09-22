@@ -3,7 +3,7 @@
 #include "sno_value.h"
 
 //#define DEBUG_PRINT_GC_EVERYTHING
-//#define DEBUG_PRINT_GC_RESULT
+#define DEBUG_PRINT_GC_RESULT
 
 static void print_gc_obj(sno_State* state, sno_GCObject* obj) {
 	sno_Value v;

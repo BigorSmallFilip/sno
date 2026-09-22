@@ -104,7 +104,7 @@ EMSCRIPTEN_EXPORT int main(int argc, char** argv) {
 
 	}
 
-	sno_full_gc(state);
+	//sno_print_string_interning_table(state);
 
 	//printf("%.*s\n", (unsigned int)source_code->length, sno_string_chars(source_code));
 	
