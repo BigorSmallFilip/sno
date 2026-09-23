@@ -4,7 +4,7 @@
 #include "sno_vm.h"
 
 //#define DEBUG_PRINT_GC_EVERYTHING
-//#define DEBUG_PRINT_GC_RESULT
+#define DEBUG_PRINT_GC_RESULT
 
 static void print_gc_obj(sno_State* state, sno_GCObject* obj) {
 	if (obj->gc_type >= sno_OT_BYTECODE) {
@@ -41,6 +41,9 @@ static void mark_string(sno_State* state, const sno_IString* string) {
 }
 
 static void mark_array_items(sno_State* state, sno_Array* arr) {
+	if (!sno_type_is_gc(arr->items_type)) {
+		return;
+	}
 	for (size_t i = 0; i < arr->items.count; i++) {
 		sno_Value* item = &((sno_Value*)arr->items.buffer)[i];
 		mark_value(state, item);

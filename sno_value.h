@@ -78,12 +78,17 @@ typedef struct sno_GCObject {
 
 
 
+#define sno_HT_MULTIPLE -1
+#define sno_HT_UNDEFINED -2
+
 typedef struct sno_Array {
 	sno_gc_header;
+	int8_t items_type;
 	sno_DynArray items;
 } sno_Array;
 
 sno_Array* sno_create_array(struct sno_State* state, size_t capacity);
+void sno_push_back_array(struct sno_State* state, sno_Array* arr, sno_Value* item);
 void sno_concat_array(struct sno_State* state, sno_Array* arr, sno_Value* items, size_t count);
 
 

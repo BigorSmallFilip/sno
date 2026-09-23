@@ -41,13 +41,36 @@ sno_Array* sno_create_array(sno_State* state, size_t capacity) {
 	arr->gc_mark = sno_GC_MARK_DEAD;
 	arr->gc_type = sno_OT_ARRAY;
 	arr->gc_next = state->gc_list_start;
+	arr->items_type = sno_HT_UNDEFINED;
 	state->num_non_string_gc_objects++;
 	state->gc_list_start = (sno_GCObject*)arr;
 	return arr;
 }
 
+void sno_push_back_array(sno_State* state, sno_Array* arr, sno_Value* item) {
+	if (arr->items_type == sno_HT_UNDEFINED) {
+		arr->items_type = item->type;
+	} else if (arr->items_type != item->type) {
+		arr->items_type = sno_HT_MULTIPLE;
+	}
+	sno_dynarray_push_back(state, &arr->items, sizeof(sno_Value), item);
+}
+
 void sno_concat_array(sno_State* state, sno_Array* arr, sno_Value* items, size_t count) {
 	sno_assert(count != 0);
+
+	size_t i = 0;
+	if (arr->items_type == sno_HT_UNDEFINED) {
+		arr->items_type = items[0].type;
+		i++;
+	}
+	for (; i < count; i++) {
+		if (items[i].type != arr->items_type) {
+			arr->items_type = sno_HT_MULTIPLE;
+			break;
+		}
+	}
+
 	sno_dynarray_reserve(state, &arr->items, sizeof(sno_Value), count);
 	memcpy(((sno_Value*)arr->items.buffer) + arr->items.count, items, sizeof(sno_Value) * count);
 	arr->items.count += count;
@@ -477,6 +500,7 @@ const sno_IString* sno_interpolate_string(
 		(const char*)stringbuf.buffer,
 		stringbuf.count
 	);
+	sno_dynarray_clear(state, &stringbuf, 1);
 	return istring;
 }
 

@@ -122,7 +122,7 @@
       <CompileAs>CompileAsC</CompileAs>
       <UseFullPaths>false</UseFullPaths>
       <DisableLanguageExtensions>false</DisableLanguageExtensions>
-      <FavorSizeOrSpeed>Neither</FavorSizeOrSpeed>
+      <FavorSizeOrSpeed>Size</FavorSizeOrSpeed>
       <Optimization>MaxSpeed</Optimization>
     </ClCompile>
     <Link>
@@ -166,7 +166,7 @@
       <CompileAs>CompileAsC</CompileAs>
       <UseFullPaths>false</UseFullPaths>
       <DisableLanguageExtensions>false</DisableLanguageExtensions>
-      <FavorSizeOrSpeed>Neither</FavorSizeOrSpeed>
+      <FavorSizeOrSpeed>Size</FavorSizeOrSpeed>
       <Optimization>MaxSpeed</Optimization>
     </ClCompile>
     <Link>
