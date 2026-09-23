@@ -15,7 +15,11 @@ enum {
 };
 typedef uint8_t sno_ValueType;
 
-#define sno_type_is_gc(type) ((type) == sno_VT_ARRAY || (type) == sno_VT_TABLE)
+#define sno_type_is_gc(type) ( \
+	(type) == sno_VT_STRING || \
+	(type) == sno_VT_ARRAY || \
+	(type) == sno_VT_TABLE || \
+	(type) == sno_VT_FUNCTION)
 
 extern const char* const sno_type_strings[7];
 extern const char* const sno_type_strings_noun[7];

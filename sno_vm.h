@@ -98,7 +98,7 @@ typedef struct sno_Bytecode {
 	uint16_t num_local_vars;
 	uint8_t local_var_slots;
 	uint32_t max_stack_needed;
-	uint32_t instructions_size;
+	uint32_t num_instructions;
 	sno_Instruction* instructions;
 	sno_Number* number_constants;
 	const struct sno_IString** string_constants;
@@ -108,6 +108,7 @@ typedef struct sno_Bytecode {
 } sno_Bytecode;
 
 void sno_print_bytecode(const sno_Bytecode* bytecode);
+void sno_free_bytecode(sno_State* state, sno_Bytecode* bytecode);
 
 uint8_t sno_execute(sno_State* state, uint8_t num_args);
 

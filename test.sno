@@ -24,7 +24,7 @@ function eratosthenes(limit) {
 
 var avg = 0
 const iters = 100
-const prime_limit = 1000000
+const prime_limit = 10000000
 
 for i = 0, iters {
     var time_start = perftimer()

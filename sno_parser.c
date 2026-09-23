@@ -274,6 +274,10 @@ static void exit_block(sno_Compiler* cs) {
 
 static void init_bytecode(sno_State* state, sno_Tokenizer* ts, sno_Compiler* cs) {
 	sno_Bytecode* bytecode = sno_alloc_type(state, sno_Bytecode);
+	bytecode->gc_mark = 0;
+	bytecode->gc_type = sno_OT_BYTECODE;
+	bytecode->gc_next = NULL;
+
 	bytecode->max_stack_needed = 17;
 	bytecode->local_var_slots = 0;
 	bytecode->source_code = ts->source_code;
@@ -322,7 +326,7 @@ static void free_function_compiler(sno_Tokenizer* ts, sno_Compiler* cs) {
 	//printf("%.*s\n", s->len, s->str);
 
 	bc->instructions = sno_malloc(state, sizeof(bc->instructions[0]) * cs->instructions.count);
-	bc->instructions_size = cs->instructions.count;
+	bc->num_instructions = cs->instructions.count;
 	memcpy(bc->instructions, cs->instructions.buffer, sizeof(bc->instructions[0]) * cs->instructions.count);
 
 	bc->instruction_source_code_offsets = sno_malloc(state, sizeof(bc->instruction_source_code_offsets[0]) * cs->instructions.count);
@@ -341,6 +345,9 @@ static void free_function_compiler(sno_Tokenizer* ts, sno_Compiler* cs) {
 
 	bc->gc_next = state->gc_list_start;
 	bc->gc_type = sno_OT_BYTECODE;
+	bc->gc_mark = 0;
+	state->gc_list_start = (sno_GCObject*)bc;
+	state->num_non_string_gc_objects++;
 
 	ts->cs = cs->parent;
 }
@@ -577,7 +584,7 @@ static void parse_function(sno_Tokenizer* ts) {
 	free_function_compiler(ts, &cs);
 
 #ifdef sno_DEBUG
-	sno_print_bytecode(bytecode);
+	//sno_print_bytecode(bytecode);
 #endif
 
 	uint8_t sub_function_index = add_sub_function(ts->cs, bytecode);
@@ -1377,7 +1384,7 @@ static sno_Bytecode* parse_source_code(sno_Tokenizer* ts) {
 	free_function_compiler(ts, &cs);
 
 #ifdef sno_DEBUG
-	sno_print_bytecode(cs.bytecode);
+	//sno_print_bytecode(cs.bytecode);
 #endif
 
 	return cs.bytecode;
@@ -1395,7 +1402,7 @@ struct sno_Bytecode* sno_parse_source_code(
 	sno_assert_ptr(source_code);
 
 #ifdef sno_DEBUG
-	sno_print_source_code(state, name, source_code);
+	//sno_print_source_code(state, name, source_code);
 #endif
 
 	sno_Bool success = sno_TRUE;

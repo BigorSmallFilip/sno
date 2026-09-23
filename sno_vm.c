@@ -207,11 +207,47 @@ void sno_print_bytecode(const sno_Bytecode* bytecode) {
 		return;
 	}
 	printf("Bytecode: {\n");
-	printf("  Instructions size %i: [\n", bytecode->instructions_size);
-	for (sno_Instruction* i = bytecode->instructions; i < bytecode->instructions + bytecode->instructions_size; i++) {
+	printf("  Instructions size %i: [\n", bytecode->num_instructions);
+	for (sno_Instruction* i = bytecode->instructions; i < bytecode->instructions + bytecode->num_instructions; i++) {
 		print_instruction(bytecode, i);
 	}
 	printf("  ]\n");
+}
+
+
+
+void sno_free_bytecode(sno_State* state, sno_Bytecode* bytecode) {
+	sno_free(
+		state,
+		bytecode->instructions,
+		sizeof(sno_Instruction) * bytecode->num_instructions
+	);
+	sno_free(
+		state,
+		bytecode->instruction_source_code_offsets,
+		sizeof(uint32_t) * bytecode->num_instructions
+	);
+	sno_free(
+		state,
+		bytecode->local_vars,
+		sizeof(sno_LocalVar) * bytecode->num_local_vars
+	);
+	sno_free(
+		state,
+		bytecode->number_constants,
+		sizeof(sno_Number) * bytecode->num_number_constants
+	);
+	sno_free(
+		state,
+		bytecode->string_constants,
+		sizeof(const sno_IString*) * bytecode->num_string_constants
+	);
+	sno_free(
+		state,
+		bytecode->sub_functions,
+		sizeof(sno_Bytecode*) * bytecode->num_sub_functions
+	);
+	sno_free(state, bytecode, sizeof(sno_Bytecode));
 }
 
 

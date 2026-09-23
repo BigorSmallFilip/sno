@@ -257,7 +257,7 @@ void sno_dynarray_push_back_bytes(
 		size_t new_capacity = sno_smallest_power_of_2_greater_than_or_equal_to(
 			dynarray->count + length
 		);
-		sno_dynarray_resize(state, dynarray, 1, dynarray->capacity);
+		sno_dynarray_resize(state, dynarray, 1, new_capacity);
 	}
 	memcpy((char*)dynarray->buffer + dynarray->count, ptr, length);
 	dynarray->count += length;

@@ -181,7 +181,6 @@ static sno_IString* create_new_interned_string(
 	string_obj->next = NULL;
 	string_obj->gc_mark = 0;
 	string_obj->gc_type = sno_OT_STRING;
-	state->num_gc_objects++;
 	memcpy((char*)sno_string_chars(string_obj), string, length);
 	if (iter == NULL) {
 		// No existing string in bucket
@@ -279,5 +278,4 @@ void sno_free_string(
 		prev->next = string->next;
 	}
 	sno_free(state, string, sizeof(sno_IString) + string->length);
-	state->num_gc_objects--;
 }

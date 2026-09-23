@@ -41,7 +41,7 @@ sno_Array* sno_create_array(sno_State* state, size_t capacity) {
 	arr->gc_mark = sno_GC_MARK_DEAD;
 	arr->gc_type = sno_OT_ARRAY;
 	arr->gc_next = state->gc_list_start;
-	state->num_gc_objects++;
+	state->num_non_string_gc_objects++;
 	state->gc_list_start = (sno_GCObject*)arr;
 	return arr;
 }
@@ -68,7 +68,7 @@ sno_Table* sno_create_table(sno_State* state, size_t capacity) {
 	table->gc_mark = sno_GC_MARK_DEAD;
 	table->gc_type = sno_OT_TABLE;
 	table->gc_next = state->gc_list_start;
-	state->num_gc_objects++;
+	state->num_non_string_gc_objects++;
 	state->gc_list_start = (sno_GCObject*)table;
 	sno_assert_ptr(table->nodes);
 	return table;
@@ -265,6 +265,7 @@ void sno_free_gc_object(
 	sno_GCObject* obj,
 	sno_GCObject* prev
 ) {
+	sno_assert(obj->gc_type != sno_OT_STRING);
 	if (prev) {
 		sno_assert(prev->gc_next == obj);
 		prev->gc_next = obj->gc_next;
@@ -272,7 +273,7 @@ void sno_free_gc_object(
 		sno_assert(state->gc_list_start == obj);
 		state->gc_list_start = obj->gc_next;
 	}
-	state->num_gc_objects--;
+	state->num_non_string_gc_objects--;
 	//printf("Freeing GC object. Now there are %u\n", state->num_gc_objects);
 	
 	switch (obj->gc_type) {
@@ -285,6 +286,13 @@ void sno_free_gc_object(
 		sno_Table* table = (sno_Table*)obj;
 		clear_table(state, table);
 		sno_free(state, obj, sizeof(sno_Table));
+	} break;
+	case sno_OT_FUNCTION: {
+		sno_free(state, obj, sizeof(sno_Function));
+	} break;
+	case sno_OT_BYTECODE: {
+		sno_Bytecode* bytecode = (sno_Bytecode*)obj;
+		sno_free_bytecode(state, bytecode);
 	} break;
 	default:
 		break;
@@ -362,7 +370,18 @@ void sno_print_value(sno_State* state, const sno_Value* v) {
 	case sno_VT_STRING: printf("%.*s", (unsigned int)v->v.u_string->length, sno_string_chars(v->v.u_string)); break;
 	case sno_VT_ARRAY: print_array(state, v->v.u_array); break;
 	case sno_VT_TABLE: print_table(state, v->v.u_table); break;
-	case sno_VT_FUNCTION: printf("function 0x%p", v->v.u_function); break;
+	case sno_VT_FUNCTION: {
+		if (v->v.u_function->is_c_function) {
+			printf("C function 0x%p", v->v.u_function);
+		} else {
+			printf(
+				"Sno function 0x%p \"%.*s\"",
+				v->v.u_function,
+				(unsigned int)   v->v.u_function->u.bytecode->name->length,
+				sno_string_chars(v->v.u_function->u.bytecode->name)
+			);
+		}
+	} break;
 	default: printf("0x%p", v->v.u_ptr); break;
 	}
 }
@@ -510,8 +529,12 @@ sno_Hash sno_hash_value(const sno_Value* value) {
 
 sno_Function* sno_create_function(sno_State* state, const sno_Bytecode* bytecode) {
 	sno_Function* function = sno_alloc_type(state, sno_Function);
-	function->gc_next = state->gc_list_start;
+	function->gc_mark = 0;
 	function->gc_type = sno_OT_FUNCTION;
+	function->gc_next = state->gc_list_start;
+	state->gc_list_start = (sno_GCObject*)function;
+	state->num_non_string_gc_objects++;
+
 	function->is_c_function = sno_FALSE;
 	function->u.bytecode = bytecode;
 	return function;
