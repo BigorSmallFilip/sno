@@ -108,5 +108,8 @@
     <None Include="SnoTests\tables.sno">
       <Filter>Source Files\SnoTests</Filter>
     </None>
+    <None Include="SnoTests\corelib.sno">
+      <Filter>Source Files\SnoTests</Filter>
+    </None>
   </ItemGroup>
 </Project>

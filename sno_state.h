@@ -70,8 +70,12 @@ sno_API sno_Value* sno_get_arg_typed(
 	int arg
 );
 
-sno_API void sno_set_ret_number(sno_State* state, int ret, sno_Number number);
+sno_API void sno_set_ret_none(sno_State* state, int ret);
 sno_API void sno_set_ret_bool(sno_State* state, int ret, sno_Bool b);
+sno_API void sno_set_ret_number(sno_State* state, int ret, sno_Number number);
+sno_API void sno_set_ret_string(sno_State* state, int ret, const sno_IString* string);
+sno_API void sno_set_ret_array(sno_State* state, int ret, sno_Array* arr);
+sno_API void sno_set_ret_table(sno_State* state, int ret, sno_Table* table);
 
 sno_API void sno_s_array_push(sno_State* state, uint32_t i);
 

@@ -207,6 +207,7 @@
     <Text Include="onesno.c" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="SnoTests\corelib.sno" />
     <None Include="SnoTests\tables.sno" />
     <None Include="test.sno" />
   </ItemGroup>

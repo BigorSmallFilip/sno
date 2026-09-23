@@ -1,0 +1,16 @@
+
+assert(true)
+assert(print)
+
+assert(typename(none) == "none")
+assert(typename(true) == "bool")
+assert(typename("" == "") == "bool")
+assert(typename(1) == "number")
+assert(typename(-1.5) == "number")
+assert(typename(1 / 0) == "number")
+assert(typename("What") == "string")
+assert(typename("") == "string")
+assert(typename([]) == "array")
+assert(typename({}) == "table")
+assert(typename(typename) == "function")
+assert(typename(typename(typename)) == "string")

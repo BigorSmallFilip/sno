@@ -6,6 +6,10 @@
 
 
 
+//#define DEBUG_PRINT_PARSER
+
+
+
 static uint8_t add_number_constant(sno_Compiler* cs, sno_Number number) {
 	sno_State* state = cs->ts->main_state;
 	if (cs->number_constants.count > sno_MAX_NUMBER_CONSTANTS) {
@@ -583,8 +587,8 @@ static void parse_function(sno_Tokenizer* ts) {
 	sno_Bytecode* bytecode = cs.bytecode;
 	free_function_compiler(ts, &cs);
 
-#ifdef sno_DEBUG
-	//sno_print_bytecode(bytecode);
+#ifdef DEBUG_PRINT_PARSER
+	sno_print_bytecode(bytecode);
 #endif
 
 	uint8_t sub_function_index = add_sub_function(ts->cs, bytecode);
@@ -1383,8 +1387,8 @@ static sno_Bytecode* parse_source_code(sno_Tokenizer* ts) {
 
 	free_function_compiler(ts, &cs);
 
-#ifdef sno_DEBUG
-	//sno_print_bytecode(cs.bytecode);
+#ifdef DEBUG_PRINT_PARSER
+	sno_print_bytecode(cs.bytecode);
 #endif
 
 	return cs.bytecode;
@@ -1401,7 +1405,7 @@ struct sno_Bytecode* sno_parse_source_code(
 	sno_assert_ptr(name);
 	sno_assert_ptr(source_code);
 
-#ifdef sno_DEBUG
+#ifdef DEBUG_PRINT_PARSER
 	//sno_print_source_code(state, name, source_code);
 #endif
 

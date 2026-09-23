@@ -52,6 +52,16 @@ const sno_IString* sno_load_string_from_file(
 	size_t path_length
 );
 
+const sno_IString* sno_string_to_lowercase(
+	struct sno_State* state,
+	const sno_IString* string
+);
+
+const sno_IString* sno_string_to_uppercase(
+	struct sno_State* state,
+	const sno_IString* string
+);
+
 void sno_free_string(
 	struct sno_State* state,
 	sno_IString* string,

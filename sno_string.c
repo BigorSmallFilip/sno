@@ -55,7 +55,7 @@ static void init_builtin_strings(sno_State* state) {
 
 void sno_init_string_interning_table(sno_State* state, size_t capacity) {
 	sno_assert_ptr(state);
-	sno_assert(capacity >= 16 && capacity <= sno_SIZE_T_LIMIT);
+	sno_assert(capacity >= 8 && capacity <= sno_SIZE_T_LIMIT);
 	sno_assert(sno_is_power_of_2(capacity));
 
 	sno_StringInterningTable* string_table = &state->string_table;
@@ -68,15 +68,19 @@ void sno_init_string_interning_table(sno_State* state, size_t capacity) {
 void sno_resize_string_interning_table(sno_State* state, size_t new_capacity) {
 	sno_assert_ptr(state);
 	sno_assert_ptr(state->string_table.strings);
-	sno_assert(new_capacity >= 16 && new_capacity <= sno_SIZE_T_LIMIT);
+	sno_assert(new_capacity >= 8 && new_capacity <= sno_SIZE_T_LIMIT);
 	sno_assert(sno_is_power_of_2(new_capacity));
+
+	//printf(sno_ANSI_CYAN "\n\nTHIS IS THE TABLE\n"); sno_print_string_interning_table(state); printf("\n\n" sno_ANSI_NORMAL);
 
 	sno_StringInterningTable* string_table = &state->string_table;
 	sno_IString** new_array = sno_calloc(state, new_capacity, sizeof(sno_IString*));
 	size_t new_capacity_mask = new_capacity - 1;
+	size_t iter_count = 0;
 	for (size_t i = 0; i < string_table->capacity_mask + 1; i++) {
 		sno_IString* str = string_table->strings[i];
 		while (str != NULL) {
+			sno_IString* next = str->next;
 			if (!new_array[str->hash & new_capacity_mask]) {
 				str->next = NULL;
 				new_array[str->hash & new_capacity_mask] = str;
@@ -86,9 +90,11 @@ void sno_resize_string_interning_table(sno_State* state, size_t new_capacity) {
 				str->next = old_first;
 				new_array[str->hash & new_capacity_mask] = str;
 			}
-			str = str->next;
+			str = next;
+			iter_count++;
 		}
 	}
+	sno_assert(iter_count == string_table->num_strings);
 	sno_free(state, string_table->strings, (string_table->capacity_mask + 1) * sizeof(sno_IString*));
 	string_table->strings = new_array;
 	string_table->capacity_mask = new_capacity_mask;
@@ -267,6 +273,34 @@ const sno_IString* sno_load_string_from_file(
 	}
 	fclose(file);
 	return sno_create_string(state, filebuffer, readsize);
+}
+
+const sno_IString* sno_string_to_lowercase(
+	sno_State* state,
+	const sno_IString* string
+) {
+	char* buf = sno_malloc(state, string->length);
+	for (uint32_t i = 0; i < string->length; i++) {
+		char c = sno_string_chars(string)[i];
+		buf[i] = c + (c >= 'A' && c <= 'Z') * ('a' - 'A');
+	}
+	const sno_IString* new_string = sno_create_string(state, buf, string->length);
+	sno_free(state, buf, string->length);
+	return new_string;
+}
+
+const sno_IString* sno_string_to_uppercase(
+	sno_State* state,
+	const sno_IString* string
+) {
+	char* buf = sno_malloc(state, string->length);
+	for (uint32_t i = 0; i < string->length; i++) {
+		char c = sno_string_chars(string)[i];
+		buf[i] = c + (c >= 'a' && c <= 'z') * ('A' - 'a');
+	}
+	const sno_IString* new_string = sno_create_string(state, buf, string->length);
+	sno_free(state, buf, string->length);
+	return new_string;
 }
 
 void sno_free_string(

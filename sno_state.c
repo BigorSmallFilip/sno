@@ -23,7 +23,7 @@ sno_API sno_State* sno_create_state() {
 		return NULL;
 	}
 	state->live_memory_last_gc = sno_START_GC_MEM;
-	sno_init_string_interning_table(state, 64);
+	sno_init_string_interning_table(state, 8);
 	init_stack(state, 128);
 	sno_load_core_libs(state);
 	sno_dynarray_init(state, &state->call_infos, sizeof(sno_CallInfo), 16);
@@ -135,11 +135,13 @@ sno_API sno_Value* sno_get_arg_typed(
 	return value;
 }
 
-sno_API void sno_set_ret_number(sno_State* state, int ret, sno_Number number) {
+
+
+sno_API void sno_set_ret_none(sno_State* state, int ret) {
 	sno_assert_ptr(state);
 	sno_assert(ret >= 0 && ret < sno_MAX_STACK_ARGS);
 	sno_Value* value = sno_get_stack_ptr(state, ret);
-	sno_set_number(*value, number);
+	sno_set_none(*value);
 }
 
 sno_API void sno_set_ret_bool(sno_State* state, int ret, sno_Bool b) {
@@ -147,6 +149,34 @@ sno_API void sno_set_ret_bool(sno_State* state, int ret, sno_Bool b) {
 	sno_assert(ret >= 0 && ret < sno_MAX_STACK_ARGS);
 	sno_Value* value = sno_get_stack_ptr(state, ret);
 	sno_set_bool(*value, b);
+}
+
+sno_API void sno_set_ret_number(sno_State* state, int ret, sno_Number number) {
+	sno_assert_ptr(state);
+	sno_assert(ret >= 0 && ret < sno_MAX_STACK_ARGS);
+	sno_Value* value = sno_get_stack_ptr(state, ret);
+	sno_set_number(*value, number);
+}
+
+sno_API void sno_set_ret_string(sno_State* state, int ret, const sno_IString* string) {
+	sno_assert_ptr(state);
+	sno_assert(ret >= 0 && ret < sno_MAX_STACK_ARGS);
+	sno_Value* value = sno_get_stack_ptr(state, ret);
+	sno_set_string(*value, string);
+}
+
+sno_API void sno_set_ret_array(sno_State* state, int ret, sno_Array* arr) {
+	sno_assert_ptr(state);
+	sno_assert(ret >= 0 && ret < sno_MAX_STACK_ARGS);
+	sno_Value* value = sno_get_stack_ptr(state, ret);
+	sno_set_array(*value, arr);
+}
+
+sno_API void sno_set_ret_table(sno_State* state, int ret, sno_Table* table) {
+	sno_assert_ptr(state);
+	sno_assert(ret >= 0 && ret < sno_MAX_STACK_ARGS);
+	sno_Value* value = sno_get_stack_ptr(state, ret);
+	sno_set_table(*value, table);
 }
 
 

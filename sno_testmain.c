@@ -93,8 +93,11 @@ EMSCRIPTEN_EXPORT int main(int argc, char** argv) {
 	
 	sno_State* state = sno_create_state();
 
-#ifdef sno_DEBUG
-	//run_file(state, "SnoTests\\tables.sno");
+//#define sno_RUN_TESTS
+#ifdef sno_RUN_TESTS
+	run_file(state, "SnoTests\\tables.sno");
+	run_file(state, "SnoTests\\corelib.sno");
+	return 0;
 #endif
 
 	if (!sno_run_file(state, argv[1], strlen(argv[1]))) {

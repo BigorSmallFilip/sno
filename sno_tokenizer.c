@@ -840,7 +840,10 @@ void sno_continue_interpolated_string(sno_Tokenizer* ts) {
 	sno_Bool interpolated = sno_FALSE;
 	read_string_literal(ts, &ts->token, &interpolated);
 	ts->token.type = sno_TK_STRING + interpolated;
-	sno_assert(!ts->insert_terminator);
+	ts->insert_terminator = skip_whitespace_and_comments(
+		ts,
+		sno_TRUE
+	);
 }
 
 

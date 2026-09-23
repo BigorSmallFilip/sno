@@ -281,17 +281,17 @@ static sno_no_return void throw_runtime_error_at_pc(
 
 
 
-size_t check_array_index(
+size_t check_index(
 	sno_State* state,
 	sno_Bytecode* bytecode,
 	sno_Instruction* pc,
-	sno_Array* arr,
+	size_t container_length,
 	sno_Value* key
 ) {
 	if (key->type != sno_VT_BOOL && key->type != sno_VT_NUMBER) {
 		throw_runtime_error_at_pc(
 			state, bytecode, pc,
-			"Cannot index into array with %s",
+			"Cannot index with %s",
 			sno_type_strings_noun[key->type]
 		);
 	}
@@ -299,18 +299,18 @@ size_t check_array_index(
 	if (!sno_number_is_valid_u64(index)) {
 		throw_runtime_error_at_pc(
 			state, bytecode, pc,
-			"Array index must be an integer. Here it was %g",
+			"Index must be an integer. Here it was %g",
 			index
 		);
 	}
 	uint64_t i_index = index;
 	sno_assert((sno_Number)i_index == index);
-	if (i_index >= arr->items.count) {
+	if (i_index >= container_length) {
 		throw_runtime_error_at_pc(
 			state, bytecode, pc,
-			"Array index was out of bounds. Tried to index item %u but the array only has %i item(s)",
+			"Index was out of bounds. Tried to index item %llu but the container's length is %llu",
 			i_index,
-			arr->items.count
+			container_length
 		);
 	}
 	return i_index;
@@ -329,6 +329,16 @@ void get_field(
 	key.type = sno_VT_STRING;
 	key.v.u_string = key_name;
 	switch (inout_value->type) {
+	case sno_VT_STRING: {
+		if (!sno_table_get(state->string_prototype, &key, inout_value)) {
+			throw_runtime_error_at_pc(
+				state, bytecode, pc,
+				"String has no field named %.*s",
+				key_name->length,
+				sno_string_chars(key_name)
+			);
+		}
+	} break;
 	case sno_VT_ARRAY: {
 		if (!sno_table_get(state->array_prototype, &key, inout_value)) {
 			throw_runtime_error_at_pc(
@@ -599,17 +609,25 @@ uint8_t sno_execute(sno_State* state, uint8_t num_args) {
 			sp--;
 			sno_Value* result = sp;
 			switch (container->type) {
+			case sno_VT_STRING: {
+				const sno_IString* string = container->v.u_string;
+				size_t index = check_index(state, bytecode, pc, string->length, key);
+				result->type = sno_VT_STRING;
+				result->v.u_string = sno_create_string(
+					state,
+					&sno_string_chars(string)[index],
+					1
+				);
+			} break;
 			case sno_VT_ARRAY: {
 				sno_Array* arr = container->v.u_array;
-				size_t index = check_array_index(state, bytecode, pc, arr, key);
+				size_t index = check_index(state, bytecode, pc, arr, key);
 				*result = ((sno_Value*)arr->items.buffer)[index];
-				break;
-			}
+			} break;
 			case sno_VT_TABLE: {
 				sno_Table* table = container->v.u_table;
 				sno_table_get(table, key, sp);
-				break;
-			}
+			} break;
 			default:
 				throw_runtime_error_at_pc(
 					state, bytecode, pc,
@@ -626,7 +644,7 @@ uint8_t sno_execute(sno_State* state, uint8_t num_args) {
 			switch (container->type) {
 			case sno_VT_ARRAY: {
 				sno_Array* arr = container->v.u_array;
-				size_t index = check_array_index(state, bytecode, pc, arr, key);
+				size_t index = check_index(state, bytecode, pc, arr, key);
 				((sno_Value*)arr->items.buffer)[index] = *value;
 				break;
 			}
@@ -856,7 +874,7 @@ uint8_t sno_execute(sno_State* state, uint8_t num_args) {
 				const sno_Table* table = container->v.u_table;
 				const sno_TableNode* iter_node = node->v.u_ptr;
 				sno_table_next(table, &index->v.u_data, &iter_node);
-				if (node) {
+				if (iter_node) {
 					// Push the key and value for the STORE_LOCAL instructions after this
 					sp += 2;
 					sp[-1].type = iter_node->value_type;
