@@ -222,13 +222,16 @@ typedef int32_t sno_Int;
 #else
 typedef double sno_Number;
 typedef int64_t sno_Int;
-#define sno_floor floor
-#define sno_ceil ceil
-#define sno_round round
+#define sno_floor(n) floor((n))
+#define sno_ceil(n) ceil((n))
+#define sno_round(n) round((n))
 #define sno_idiv(l, r) ((sno_Number)(((sno_Int)(l)) / ((sno_Int)(r))))
-#define sno_mod fmod
-#define sno_pow pow
+#define sno_mod(n, b) fmod((n), (b))
+#define sno_pow(n, b) pow((n), (b))
 #endif
+
+#define sno_min(a, b) ((a) < (b) ? (a) : (b))
+#define sno_max(a, b) ((a) > (b) ? (a) : (b))
 
 #define sno_number_is_valid_u8(num) ((sno_floor(num) == (num)) && ((num) >= 0) && ((num) <= UINT8_MAX))
 #define sno_number_is_valid_i8(num) ((sno_floor(num) == (num)) && ((num) >= INT8_MIN) && ((num) <= INT8_MAX))

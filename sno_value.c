@@ -332,7 +332,7 @@ static void print_array(sno_State* state, const sno_Array* arr) {
 		return;
 	}
 	printf("[");
-	size_t items_to_print = min(10, arr->items.count);
+	size_t items_to_print = sno_min(10, arr->items.count);
 	for (size_t i = 0; i < items_to_print; i++) {
 		if (i == 10 - 1) {
 			printf(", ... ");
