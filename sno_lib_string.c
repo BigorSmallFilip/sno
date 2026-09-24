@@ -30,7 +30,7 @@ uint8_t snol_string_is_lowercase(sno_State* state, uint8_t num_args) {
 	const char* chars = sno_string_chars(string);
 	sno_Bool result = sno_TRUE;
 	for (size_t i = 0; i < string->length; i++) {
-		if (chars[i] >= 'A' && chars <= 'Z') {
+		if (chars[i] >= 'A' && chars[i] <= 'Z') {
 			result = sno_FALSE;
 			break;
 		}
@@ -45,7 +45,7 @@ uint8_t snol_string_is_uppercase(sno_State* state, uint8_t num_args) {
 	const char* chars = sno_string_chars(string);
 	sno_Bool result = sno_TRUE;
 	for (size_t i = 0; i < string->length; i++) {
-		if (chars[i] >= 'a' && chars <= 'z') {
+		if (chars[i] >= 'a' && chars[i] <= 'z') {
 			result = sno_FALSE;
 			break;
 		}
