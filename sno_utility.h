@@ -208,6 +208,8 @@ typedef _Bool sno_Bool;
 #define sno_TRUE true
 #endif
 
+#include <math.h>
+
 #ifdef sno_USE_32BIT_NUMBERS
 typedef float sno_Number;
 typedef int32_t sno_Int;
