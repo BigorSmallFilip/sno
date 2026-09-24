@@ -687,17 +687,17 @@ static void parse_operand(sno_Tokenizer* ts) {
 			uint32_t dot_at = ts->token.source_code_pos;
 			skip_token(ts, sno_TK_DOT);
 			expect_token(ts, sno_TK_IDENTIFIER);
-			const sno_IString* name = add_string_constant(ts->cs, ts->token.info.u_string);
+			uint8_t name_const_id = add_string_constant(ts->cs, ts->token.info.u_string);
 			sno_read_next_token(ts);
 			if (ts->token.type == sno_TK_LPAREN) {
-				emit_instruction_1_at(ts, sno_I_GET_METHOD , name, dot_at);
+				emit_instruction_1_at(ts, sno_I_GET_METHOD , name_const_id, dot_at);
 				uint32_t lparen_at = ts->token.source_code_pos;
 				skip_token(ts, sno_TK_LPAREN);
 				int num_args = parse_closed_expression_list(ts, sno_TK_RPAREN);
 				sno_Instruction call = sno_I_CALL | (num_args << 8) | (1 << 12);
 				emit_instruction_at(ts, call, lparen_at);
 			} else {
-				emit_instruction_1_at(ts, sno_I_GET_FIELD, name, dot_at);
+				emit_instruction_1_at(ts, sno_I_GET_FIELD, name_const_id, dot_at);
 			}
 			break;
 		}
