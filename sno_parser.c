@@ -1202,7 +1202,12 @@ static void parse_expression_statement(sno_Tokenizer* ts) {
 	skip_token(ts, sno_TK_ASSIGN);
 	uint8_t num_rhs = 1;
 	for (uint8_t i = 0; i < num_lhs; i++) {
-		sno_Bool stmt_end = parse_expression(ts);
+		parse_expression(ts);
+		sno_Bool stmt_end = sno_FALSE;
+		if (ts->token.type == sno_TK_TERMINATOR) {
+			stmt_end = sno_TRUE;
+			sno_read_next_token(ts);
+		}
 		sno_Instruction* instructions = get_instruction_buffer(ts->cs);
 		last_instruction = get_last_instruction(ts->cs);
 		if (get_opcode(last_instruction) == sno_I_CALL) {
