@@ -8,21 +8,27 @@ enum {
 	sno_VT_NONE,
 	sno_VT_BOOL,
 	sno_VT_NUMBER,
+	sno_VT_LINALG,
 	sno_VT_STRING,
 	sno_VT_ARRAY,
 	sno_VT_TABLE,
 	sno_VT_FUNCTION,
+	sno_NUM_VALUE_TYPES,
 };
 typedef uint8_t sno_ValueType;
 
 #define sno_type_is_gc(type) ( \
+	(type) == sno_VT_LINALG || \
 	(type) == sno_VT_STRING || \
 	(type) == sno_VT_ARRAY || \
 	(type) == sno_VT_TABLE || \
 	(type) == sno_VT_FUNCTION)
 
-extern const char* const sno_type_strings[7];
-extern const char* const sno_type_strings_noun[7];
+extern const char* const sno_type_strings[sno_NUM_VALUE_TYPES];
+extern const char* const sno_type_strings_noun[sno_NUM_VALUE_TYPES];
+
+const char* const sno_get_type_string(const struct sno_Value* v);
+const char* const sno_get_type_string_noun(const struct sno_Value* v);
 
 #define sno_NUMBER_FALSE ((sno_Number)0)
 #define sno_NUMBER_TRUE ((sno_Number)1)
@@ -33,6 +39,7 @@ typedef union sno_ValueUnion {
 	struct sno_Value* u_stack_ptr;
 	sno_Number u_number;
 	struct sno_GCObject* gc_obj;
+	const struct sno_LinAlg* u_linalg;
 	const struct sno_IString* u_string;
 	struct sno_Array* u_array;
 	struct sno_Table* u_table;
@@ -49,6 +56,7 @@ typedef struct sno_Value {
 #define sno_set_false(value)              (value).type = sno_VT_BOOL;     (value).v.u_number   = sno_NUMBER_FALSE
 #define sno_set_true(value)               (value).type = sno_VT_BOOL;     (value).v.u_number   = sno_NUMBER_TRUE
 #define sno_set_number(value, number)     (value).type = sno_VT_NUMBER;   (value).v.u_number   = ((sno_Number)(number))
+#define sno_set_linalg(value, linalg)     (value).type = sno_VT_LINALG;   (value).v.u_linalg   = (linalg)
 #define sno_set_string(value, string)     (value).type = sno_VT_STRING;   (value).v.u_string   = (string)
 #define sno_set_array(value, arr)         (value).type = sno_VT_ARRAY;    (value).v.u_array    = (arr)
 #define sno_set_table(value, table)       (value).type = sno_VT_TABLE;    (value).v.u_table    = (table)
@@ -57,6 +65,7 @@ typedef struct sno_Value {
 
 
 enum {
+	sno_OT_LINALG,
 	sno_OT_STRING,
 	sno_OT_ARRAY,
 	sno_OT_TABLE,
@@ -75,6 +84,31 @@ typedef struct sno_GCObject {
 } sno_GCObject;
 #define sno_gc_header struct sno_GCObject* gc_next; uint8_t gc_mark; sno_GCObjectType gc_type
 #define sno_gc_string_header struct sno_GCObject* next; uint8_t gc_mark; sno_GCObjectType gc_type
+
+
+
+enum {
+	sno_LAT_VEC2,
+	sno_LAT_VEC3,
+	sno_LAT_VEC4,
+	sno_LAT_QUAT,
+	sno_LAT_MAT2,
+	sno_LAT_MAT3,
+	sno_LAT_MAT4,
+	sno_NUM_LINEAR_ALGEBRA_TYPES,
+};
+typedef uint8_t sno_LinAlgType;
+
+extern const char* const sno_linalg_type_strings[sno_NUM_LINEAR_ALGEBRA_TYPES];
+extern const uint8_t sno_linalg_type_length[sno_NUM_LINEAR_ALGEBRA_TYPES];
+
+typedef struct sno_LinAlg {
+	sno_gc_header;
+	sno_LinAlgType la_type;
+	sno_Number components[0];
+} sno_LinAlg;
+
+sno_LinAlg* sno_create_linalg(struct sno_State* state, sno_LinAlgType type);
 
 
 

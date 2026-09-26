@@ -8,25 +8,103 @@
 
 
 
-const char* const sno_type_strings[7] = {
+const char* const sno_type_strings[sno_NUM_VALUE_TYPES] = {
 	"none",
 	"bool",
 	"number",
+	"(linalg)",
 	"string",
 	"array",
 	"table",
 	"function",
 };
 
-const char* const sno_type_strings_noun[7] = {
+const char* const sno_type_strings_noun[sno_NUM_VALUE_TYPES] = {
 	"none",
 	"a bool",
 	"a number",
+	"a (linalg)",
 	"a string",
 	"an array",
 	"a table",
 	"a function",
 };
+
+
+
+const char* const sno_linalg_type_strings[sno_NUM_LINEAR_ALGEBRA_TYPES] = {
+	"vec2",
+	"vec3",
+	"vec4",
+	"quat",
+	"mat2",
+	"mat3",
+	"mat4",
+};
+
+const char* const sno_linalg_type_strings_noun[sno_NUM_LINEAR_ALGEBRA_TYPES] = {
+	"a vec2",
+	"a vec3",
+	"a vec4",
+	"a quat",
+	"a mat2",
+	"a mat3",
+	"a mat4",
+};
+
+const uint8_t sno_linalg_type_length[sno_NUM_LINEAR_ALGEBRA_TYPES] = {
+	2,
+	3,
+	4,
+	4,
+	4,
+	9,
+	16,
+};
+
+
+
+const char* const sno_get_type_string(const sno_Value* v) {
+	sno_assert_ptr(v);
+	sno_assert(v->type < sno_NUM_VALUE_TYPES);
+	if (v->type == sno_VT_LINALG) {
+		sno_LinAlgType linalg_type = v->v.u_linalg->la_type;
+		sno_assert(linalg_type < sno_NUM_LINEAR_ALGEBRA_TYPES);
+		return sno_linalg_type_strings[linalg_type];
+	}
+	return sno_type_strings[v->type];
+}
+
+const char* const sno_get_type_string_noun(const sno_Value* v) {
+	sno_assert_ptr(v);
+	sno_assert(v->type < sno_NUM_VALUE_TYPES);
+	if (v->type == sno_VT_LINALG) {
+		sno_LinAlgType linalg_type = v->v.u_linalg->la_type;
+		sno_assert(linalg_type < sno_NUM_LINEAR_ALGEBRA_TYPES);
+		return sno_linalg_type_strings_noun[linalg_type];
+	}
+	return sno_type_strings_noun[v->type];
+}
+
+
+
+sno_LinAlg* sno_create_linalg(sno_State* state, sno_LinAlgType type) {
+	sno_assert_ptr(state);
+	sno_assert(type >= 0 && type < sno_NUM_LINEAR_ALGEBRA_TYPES);
+	sno_LinAlg* linalg = sno_calloc(
+		state,
+		1,
+		sizeof(sno_LinAlg) +
+		sno_linalg_type_length[type] * sizeof(sno_Number)
+	);
+	linalg->la_type = type;
+	linalg->gc_mark = sno_GC_MARK_DEAD;
+	linalg->gc_type = sno_OT_LINALG;
+	linalg->gc_next = state->gc_list_start;
+	state->gc_list_start = (sno_GCObject*)linalg;
+	state->num_non_string_gc_objects++;
+	return linalg;
+}
 
 
 
@@ -324,6 +402,33 @@ void sno_free_gc_object(
 
 
 
+static void print_number(sno_State* state, sno_Number number) {
+	if (sno_number_is_valid_i64(number)) {
+		printf("%lli", (int64_t)number);
+	} else {
+		printf("%g", number);
+	}
+}
+
+static void print_linalg(sno_State* state, const sno_LinAlg* linalg) {
+	sno_assert_ptr(state);
+	sno_assert_ptr(linalg);
+	sno_assert(linalg->la_type <= sno_NUM_LINEAR_ALGEBRA_TYPES);
+	printf("%s(", sno_linalg_type_strings[linalg->la_type]);
+	const size_t length = sno_linalg_type_length[linalg->la_type];
+	size_t i = 0;
+	while (1) {
+		print_number(state, linalg->components[i]);
+		i++;
+		if (i < length) {
+			printf(", ");
+		} else {
+			printf(")");
+			return;
+		}
+	}
+}
+
 static void print_array(sno_State* state, const sno_Array* arr) {
 	sno_assert_ptr(state);
 	sno_assert_ptr(arr);
@@ -382,14 +487,8 @@ void sno_print_value(sno_State* state, const sno_Value* v) {
 	switch (v->type) {
 	case sno_VT_NONE: printf("none"); break;
 	case sno_VT_BOOL: printf(v->v.u_number != 0 ? "true" : "false"); break;
-	case sno_VT_NUMBER: {
-		sno_Number n = v->v.u_number;
-		if (sno_number_is_valid_i64(n)) {
-			printf("%lli", (int64_t)n);
-		} else {
-			printf("%g", v->v.u_number);
-		}
-	} break;
+	case sno_VT_NUMBER: print_number(state, v->v.u_number); break;
+	case sno_VT_LINALG: print_linalg(state, v->v.u_linalg); break;
 	case sno_VT_STRING: printf("%.*s", (unsigned int)v->v.u_string->length, sno_string_chars(v->v.u_string)); break;
 	case sno_VT_ARRAY: print_array(state, v->v.u_array); break;
 	case sno_VT_TABLE: print_table(state, v->v.u_table); break;

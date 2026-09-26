@@ -1,0 +1,77 @@
+
+operations:
+any null: crash
+bool => number
+number + number = number
+number + vecn = vecn
+number + quat = quat
+number + matn = matn
+
++       number  vecn    quat    matn
+number  number  vecn    quat    matn
+vecn    vecn    vecn    no
+quat    quat    no      quat
+matn    matn
+
++       number  vec2    vec3    vec4    quat    mat2    mat3    mat4
+number  number  vec2    vec3    vec4    quat    mat2    mat3    mat4
+vec2    vec2    vec2    -       -       -       -       -       -   
+vec3    vec3    -       vec3    -       -       -       -       -   
+vec4    vec4    -       -       vec4    -       -       -       -   
+quat    quat    -       -       -       quat    -       -       -   
+mat2    mat2    -       -       -       -       mat2    -       -   
+mat3    mat3    -       -       -       -       -       mat3    -   
+mat4    mat4    -       -       -       -       -       -       mat4
+
+-       number  vec2    vec3    vec4    quat    mat2    mat3    mat4
+number  number  vec2    vec3    vec4    quat    mat2    mat3    mat4
+vec2    vec2    vec2    -       -       -       -       -       -   
+vec3    vec3    -       vec3    -       -       -       -       -   
+vec4    vec4    -       -       vec4    -       -       -       -   
+quat    quat    -       -       -       quat    -       -       -   
+mat2    mat2    -       -       -       -       mat2    -       -   
+mat3    mat3    -       -       -       -       -       mat3    -   
+mat4    mat4    -       -       -       -       -       -       mat4
+
+*       number  vec2    vec3    vec4    quat    mat2    mat3    mat4
+number  number  vec2    vec3    vec4    quat    mat2    mat3    mat4
+vec2    vec2    vec2    -       -       -       vec2    -       -   
+vec3    vec3    -       vec3    -       vec3    -       vec3    -   
+vec4    vec4    -       -       vec4    vec4    -       vec4    vec4
+quat    quat    -       -       -       quat    -       -       -   
+mat2    mat2    -       -       -       -       mat2    -       -   
+mat3    mat3    -       -       -       -       -       mat3    -   
+mat4    mat4    -       -       -       -       -       -       mat4
+
+/       number  vec2    vec3    vec4    quat    mat2    mat3    mat4
+number  number  vec2    vec3    vec4    quat    mat2    mat3    mat4
+vec2    vec2    vec2    -       -       -       -       -       -   
+vec3    vec3    -       vec3    -       -       -       -       -   
+vec4    vec4    -       -       vec4    -       -       -       -   
+quat    quat    -       -       -       quat    -       -       -   
+mat2    mat2    vec2    -       -       -       mat2    -       -   
+mat3    mat3    -       vec3    -       -       -       mat3    -   
+mat4    mat4    -       -       vec4    -       -       -       mat4
+
+//      number  vec2    vec3    vec4    quat    mat2    mat3    mat4
+number  number  vec2    vec3    vec4    quat    mat2    mat3    mat4
+vec2    vec2    vec2    -       -       -       -       -       -   
+vec3    vec3    -       vec3    -       -       -       -       -   
+vec4    vec4    -       -       vec4    -       -       -       -   
+quat    quat    -       -       -       quat    -       -       -   
+mat2    mat2    vec2    -       -       -       mat2    -       -   
+mat3    mat3    -       vec3    -       -       -       mat3    -   
+mat4    mat4    -       -       vec4    -       -       -       mat4
+
+%       number  vec2    vec3    vec4    quat    mat2    mat3    mat4
+number  number  vec2    vec3    vec4    quat    mat2    mat3    mat4
+vec2    vec2    vec2    -       -       -       -       -       -   
+vec3    vec3    -       vec3    -       -       -       -       -   
+vec4    vec4    -       -       vec4    -       -       -       -   
+quat    quat    -       -       -       quat    -       -       -   
+mat2    mat2    -       -       -       -       mat2    -       -   
+mat3    mat3    -       -       -       -       -       mat3    -   
+mat4    mat4    -       -       -       -       -       -       mat4
+
+**      number  vec2    vec3    vec4    quat    mat2    mat3    mat4
+number  number  vec2    vec3    vec4    quat    mat2    mat3    mat4

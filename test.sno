@@ -1,39 +1,7 @@
 
-function eratosthenes(limit) {
-    var is_primes = [false, false]
-    for i = 2, limit {
-        is_primes.push(true)
-    }
-    for m = 2, limit {
-        if is_primes[m] {
-            for i = m * 2, limit, m {
-                is_primes[i] = false
-            }
-        }
-    }
-    var primes = []
-    for i, is_prime in is_primes {
-        if is_prime {
-            primes.push(i)
-        }
-    }
-    return primes
-}
+var p = vec3(true, 20, 30)
 
+p = vec2(1, 2)
+p = vec4(10, 20, p)
 
-
-var avg = 0
-const iters = 1000000
-const prime_limit = 1000000
-
-for i = 0, iters {
-    var time_start = perftimer()
-    var primes = eratosthenes(prime_limit)
-    var duration = perftimer() - time_start
-    avg += duration
-
-    print("The biggest prime less than ", prime_limit, " is ", primes[primes.length() - 1])
-    print("That took ", duration * 1000, "ms to calculate")
-}
-
-print("Avg time to get primes below ", prime_limit, " is ", avg / iters * 1000, "ms")
+print(p)

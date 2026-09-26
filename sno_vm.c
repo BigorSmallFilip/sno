@@ -66,6 +66,7 @@ const char* const sno_instruction_names[] = {
 	"LOAD_STRING",
 	"LOAD_FUNCTION",
 	"INTERPOLATE_STRING",
+	"NEW_LINALG",
 	"NEW_ARRAY",
 	"CONCAT_ARRAY",
 	"NEW_TABLE",
@@ -87,8 +88,8 @@ const char* const sno_instruction_names[] = {
 	"UNOP",
 	"BINOP",
 	"TO_BOOL",
-	"LAND",
-	"LOR",
+	"AND",
+	"OR",
 	"JUMP",
 	"JUMP_IF_TRUE",
 	"JUMP_IF_FALSE",
@@ -168,8 +169,8 @@ static void print_instruction(const sno_Bytecode* bytecode, const sno_Instructio
 		printf("%s", sno_unop_names[arg]);
 		break;
 	}
-	case sno_I_LAND:
-	case sno_I_LOR:
+	case sno_I_AND:
+	case sno_I_OR:
 	case sno_I_START_NUMERIC_FORLOOP:
 	case sno_I_END_NUMERIC_FORLOOP:
 	case sno_I_START_CONTAINER_FORLOOP:
@@ -316,7 +317,54 @@ size_t check_index(
 	return i_index;
 }
 
-void get_field(
+
+
+static sno_LinAlg* new_linalg(
+	sno_State* state,
+	sno_Bytecode* bytecode,
+	sno_Instruction* pc,
+	sno_LinAlgType type,
+	sno_Value* values,
+	uint8_t num_values
+) {
+	sno_LinAlg* linalg = sno_create_linalg(state, type);
+	size_t c = 0; // Current component index
+	const size_t size = sno_linalg_type_length[type];
+	for (size_t i = 0; i < num_values; i++) {
+		const sno_Value* value = &values[i];
+		switch (value->type) {
+		case sno_VT_BOOL:
+		case sno_VT_NUMBER: {
+			linalg->components[c++] = value->v.u_number;
+		} break;
+		case sno_VT_LINALG: {
+			const size_t arg_size = sno_linalg_type_length[
+				value->v.u_linalg->la_type
+			];
+			if (c + arg_size > size) {
+				throw_runtime_error_at_pc(state, bytecode, pc,
+					"Too many values for this initializer"
+				);
+			}
+			memcpy(
+				&linalg->components[c],
+				value->v.u_linalg->components,
+				arg_size * sizeof(sno_Number)
+			);
+			c += arg_size;
+		} break;
+		default: {
+			throw_runtime_error_at_pc(state, bytecode, pc,
+				"Cannot use %s in a linalg constructor",
+				sno_type_strings_noun[value->type]
+			);
+		}
+		}
+	}
+	return linalg;
+}
+
+static void get_field(
 	sno_State* state,
 	sno_Bytecode* bytecode,
 	sno_Instruction* pc,
@@ -374,6 +422,80 @@ void get_field(
 		);
 		break;
 	}
+}
+
+
+
+static void binop(
+	sno_State* state,
+	sno_Bytecode* bytecode,
+	sno_Instruction* pc,
+	sno_BinOp op,
+	sno_Value* lhs,
+	sno_Value* rhs
+) {
+	sno_assert(op >= 0 && op <= sno_BINOP_LOR);
+	sno_ValueType type_l = lhs->type;
+	sno_ValueType type_r = rhs->type;
+	if (type_l == sno_VT_NONE || type_l >= sno_VT_ARRAY ||
+		type_l == sno_VT_NONE || type_l >= sno_VT_ARRAY) {
+		goto invalid_types;
+	}
+	if ((type_l == sno_VT_BOOL || type_l == sno_VT_NUMBER) ||
+		(type_r == sno_VT_BOOL || type_r == sno_VT_NUMBER)
+	) {
+
+	}
+	sno_Number* result = &sp[0].v.u_number;
+	sno_ValueType* result_type = &sp[0].type;
+	if (arg >= sno_BINOP_ADD && arg <= sno_BINOP_GE) {
+		sno_ValueType type_l = sp[0].type;
+		sno_ValueType type_r = sp[1].type;
+		if (!(type_l == sno_VT_BOOL || type_l == sno_VT_NUMBER) ||
+			!(type_r == sno_VT_BOOL || type_r == sno_VT_NUMBER)) {
+			goto invalid_types;
+		}
+		*result_type = sno_VT_NUMBER;
+		sno_Number rhs = sp[1].v.u_number;
+		switch (arg) {
+		case sno_BINOP_ADD: *result += rhs; break;
+		case sno_BINOP_SUB: *result -= rhs; break;
+		case sno_BINOP_MUL: *result *= rhs; break;
+		case sno_BINOP_DIV: *result /= rhs; break;
+		case sno_BINOP_IDIV: *result = sno_idiv(*result, rhs); break;
+		case sno_BINOP_MOD: *result = sno_mod(*result, rhs); break;
+		case sno_BINOP_POW: *result = sno_pow(*result, rhs); break;
+		case sno_BINOP_BAND: *result = (sno_Number)(((sno_Int)*result) & ((sno_Int)rhs)); break;
+		case sno_BINOP_BOR: *result = (sno_Number)(((sno_Int)*result) | ((sno_Int)rhs)); break;
+		case sno_BINOP_BXOR: *result = (sno_Number)(((sno_Int)*result) ^ ((sno_Int)rhs)); break;
+		case sno_BINOP_SHL: *result = (sno_Number)(((sno_Int)*result) << ((sno_Int)rhs)); break;
+		case sno_BINOP_SHR: *result = (sno_Number)(((sno_Int)*result) >> ((sno_Int)rhs)); break;
+		case sno_BINOP_LT: *result = (sno_Number)(*result < rhs); *result_type = sno_VT_BOOL; break;
+		case sno_BINOP_GT: *result = (sno_Number)(*result > rhs); *result_type = sno_VT_BOOL; break;
+		case sno_BINOP_LE: *result = (sno_Number)(*result <= rhs); *result_type = sno_VT_BOOL; break;
+		case sno_BINOP_GE: *result = (sno_Number)(*result >= rhs); *result_type = sno_VT_BOOL; break;
+		}
+	} else {
+		sno_assert(
+			arg == sno_BINOP_EQ ||
+			arg == sno_BINOP_NEQ
+		);
+		*result = (sno_value_equals(&sp[0], &sp[1]) ==
+			(arg == sno_BINOP_EQ)) ?
+			sno_NUMBER_TRUE :
+			sno_NUMBER_FALSE;
+		*result_type = sno_VT_BOOL;
+	}
+	return;
+
+invalid_types:
+	throw_runtime_error_at_pc(
+		state, bytecode, pc,
+		"Attempted to %s %s and %s",
+		sno_binop_fancy_names[arg],
+		sno_get_type_string_noun(type_l),
+		sno_get_type_string_noun(type_r)
+	);
 }
 
 
@@ -444,6 +566,14 @@ uint8_t sno_execute(sno_State* state, uint8_t num_args) {
 			sp -= arg - 1;
 			const sno_IString* result = sno_interpolate_string(state, sp, arg);
 			sno_set_string(sp[0], result);
+		} break;
+		case sno_I_NEW_LINALG: {
+			sno_LinAlgType type = arg & 0x07;
+			sno_assert(type >= 0 && type < sno_NUM_LINEAR_ALGEBRA_TYPES);
+			uint8_t num_values = arg >> 3;
+			sp -= num_values - 1;
+			sno_LinAlg* linalg = new_linalg(state, bytecode, pc, type, sp, num_values);
+			sno_set_linalg(sp[0], linalg);
 		} break;
 		case sno_I_NEW_ARRAY: {
 			sp++;
@@ -709,62 +839,17 @@ uint8_t sno_execute(sno_State* state, uint8_t num_args) {
 		} break;
 		case sno_I_BINOP: {
 			sp--;
-			sno_Number* result = &sp[0].v.u_number;
-			sno_ValueType* result_type = &sp[0].type;
-			if (arg >= sno_BINOP_ADD && arg <= sno_BINOP_GE) {
-				sno_ValueType type_l = sp[0].type;
-				sno_ValueType type_r = sp[1].type;
-				if (!(type_l == sno_VT_BOOL || type_l == sno_VT_NUMBER) ||
-					!(type_r == sno_VT_BOOL || type_r == sno_VT_NUMBER)) {
-					throw_runtime_error_at_pc(
-						state, bytecode, pc,
-						"Attempted to %s %s and %s",
-						sno_binop_fancy_names[arg],
-						sno_type_strings_noun[type_l],
-						sno_type_strings_noun[type_r]
-					);
-				}
-				*result_type = sno_VT_NUMBER;
-				sno_Number rhs = sp[1].v.u_number;
-				switch (arg) {
-				case sno_BINOP_ADD: *result += rhs; break;
-				case sno_BINOP_SUB: *result -= rhs; break;
-				case sno_BINOP_MUL: *result *= rhs; break;
-				case sno_BINOP_DIV: *result /= rhs; break;
-				case sno_BINOP_IDIV: *result = sno_idiv(*result, rhs); break;
-				case sno_BINOP_MOD: *result = sno_mod(*result, rhs); break;
-				case sno_BINOP_POW: *result = sno_pow(*result, rhs); break;
-				case sno_BINOP_BAND: *result = (sno_Number)(((sno_Int)*result) & ((sno_Int)rhs)); break;
-				case sno_BINOP_BOR: *result = (sno_Number)(((sno_Int)*result) | ((sno_Int)rhs)); break;
-				case sno_BINOP_BXOR: *result = (sno_Number)(((sno_Int)*result) ^ ((sno_Int)rhs)); break;
-				case sno_BINOP_SHL: *result = (sno_Number)(((sno_Int)*result) << ((sno_Int)rhs)); break;
-				case sno_BINOP_SHR: *result = (sno_Number)(((sno_Int)*result) >> ((sno_Int)rhs)); break;
-				case sno_BINOP_LT: *result = (sno_Number)(*result < rhs); *result_type = sno_VT_BOOL; break;
-				case sno_BINOP_GT: *result = (sno_Number)(*result > rhs); *result_type = sno_VT_BOOL; break;
-				case sno_BINOP_LE: *result = (sno_Number)(*result <= rhs); *result_type = sno_VT_BOOL; break;
-				case sno_BINOP_GE: *result = (sno_Number)(*result >= rhs); *result_type = sno_VT_BOOL; break;
-				}
-			} else {
-				sno_assert(
-					arg == sno_BINOP_EQ ||
-					arg == sno_BINOP_NEQ
-				);
-				*result = (sno_value_equals(&sp[0], &sp[1]) ==
-					(arg == sno_BINOP_EQ)) ?
-					sno_NUMBER_TRUE :
-					sno_NUMBER_FALSE;
-				*result_type = sno_VT_BOOL;
-			}
+			binop(state, bytecode, pc, arg, &sp[0], &sp[1]);
 		} break;
 		case sno_I_TO_BOOL: {
 			sno_Bool b = sno_value_to_bool(sp);
 			sp->type = sno_VT_BOOL;
 			sp->v.u_number = b ? sno_NUMBER_TRUE : sno_NUMBER_FALSE;
 		} break;
-		case sno_I_LAND:
-		case sno_I_LOR: {
+		case sno_I_AND:
+		case sno_I_OR: {
 			sno_Bool b = sno_value_to_bool(sp);
-			if (b == (opcode == sno_I_LOR)) {
+			if (b == (opcode == sno_I_OR)) {
 				sp->type = sno_VT_BOOL;
 				sp->v.u_number = b ? sno_NUMBER_TRUE : sno_NUMBER_FALSE;
 				pc += (int8_t)arg;

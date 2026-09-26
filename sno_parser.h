@@ -24,6 +24,13 @@ enum {
 	sno_TK_TRUE,
 	sno_TK_FALSE,
 	sno_TK_NONE,
+	sno_TK_VEC2,
+	sno_TK_VEC3,
+	sno_TK_VEC4,
+	sno_TK_QUAT,
+	sno_TK_MAT2,
+	sno_TK_MAT3,
+	sno_TK_MAT4,
 
 	sno_TK_ADD,
 	sno_TK_SUB,

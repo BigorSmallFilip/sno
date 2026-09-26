@@ -6,7 +6,7 @@
 
 
 
-//#define DEBUG_PRINT_PARSER
+#define DEBUG_PRINT_PARSER
 
 
 
@@ -419,6 +419,22 @@ static void parse_interpolated_string(sno_Tokenizer* ts) {
 	emit_instruction_1(ts, sno_I_INTERPOLATE_STRING, num_concats);
 }
 
+static void parse_linalg_constructor(sno_Tokenizer* ts) {
+	uint32_t at = ts->token.source_code_pos;
+	sno_TokenType type = ts->token.type - sno_TK_VEC2;
+	uint8_t size = sno_min(type + 2, 4);
+	sno_read_next_token(ts);
+	expect_token_and_skip(ts, sno_TK_LPAREN);
+	uint32_t num_values = parse_closed_expression_list(ts, sno_TK_RPAREN);
+	if (num_values > size) {
+		sno_throw_syntax_error_at(ts, at, "Too many values for this initializer");
+	}
+	sno_assert(num_values <= 16);
+	uint8_t arg = type;
+	arg |= num_values << 3;
+	emit_instruction_1_at(ts, sno_I_NEW_LINALG, arg, at);
+}
+
 static void parse_array_constructor(sno_Tokenizer* ts) {
 	uint32_t pos_open = ts->token.source_code_pos;
 	emit_instruction_at(ts, sno_I_NEW_ARRAY, pos_open);
@@ -621,6 +637,13 @@ static void parse_operand_primary(sno_Tokenizer* ts) {
 		parse_interpolated_string(ts);
 		return;
 	}
+	case sno_TK_VEC2:
+	case sno_TK_VEC3:
+	case sno_TK_VEC4:
+	case sno_TK_QUAT: {
+		parse_linalg_constructor(ts);
+		return;
+	}
 	case sno_TK_LPAREN: {
 		uint32_t open_paren = ts->token.source_code_pos;
 		skip_token(ts, sno_TK_LPAREN);
@@ -693,7 +716,7 @@ static void parse_operand(sno_Tokenizer* ts) {
 				emit_instruction_1_at(ts, sno_I_GET_METHOD , name_const_id, dot_at);
 				uint32_t lparen_at = ts->token.source_code_pos;
 				skip_token(ts, sno_TK_LPAREN);
-				int num_args = parse_closed_expression_list(ts, sno_TK_RPAREN);
+				uint32_t num_args = parse_closed_expression_list(ts, sno_TK_RPAREN);
 				sno_Instruction call = sno_I_CALL | (num_args << 8) | (1 << 12);
 				emit_instruction_at(ts, call, lparen_at);
 			} else {
@@ -705,7 +728,7 @@ static void parse_operand(sno_Tokenizer* ts) {
 			uint32_t lparen_at = ts->token.source_code_pos;
 			skip_token(ts, sno_TK_LPAREN);
 			emit_instruction(ts, sno_I_LOAD_NONE); // Self parameter = null
-			int num_args = parse_closed_expression_list(ts, sno_TK_RPAREN);
+			uint32_t num_args = parse_closed_expression_list(ts, sno_TK_RPAREN);
 			sno_Instruction call = sno_I_CALL | (num_args << 8) | (1 << 12);
 			emit_instruction_at(ts, call, lparen_at);
 			break;
@@ -789,7 +812,7 @@ static sno_BinOp parse_subexpression(
 		if (binary_op == sno_BINOP_LAND || binary_op == sno_BINOP_LOR) {
 			uint32_t jump_from = emit_instruction(
 				ts,
-				binary_op == sno_BINOP_LAND ? sno_I_LAND : sno_I_LOR
+				binary_op == sno_BINOP_LAND ? sno_I_AND : sno_I_OR
 			);
 			next_op = parse_subexpression(ts, operator_precedence[binary_op].right);
 			uint32_t jump_to = emit_instruction(ts, sno_I_TO_BOOL) + 1;

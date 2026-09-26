@@ -6,11 +6,11 @@
 #include "sno_state.h"
 
 typedef enum {
-	sno_BINOP_ADD,
-	sno_BINOP_SUB,
 	sno_BINOP_MUL,
 	sno_BINOP_DIV,
 	sno_BINOP_IDIV,
+	sno_BINOP_ADD,
+	sno_BINOP_SUB,
 	sno_BINOP_MOD,
 	sno_BINOP_POW,
 	sno_BINOP_BAND,
@@ -46,6 +46,7 @@ enum {
 	sno_I_LOAD_STRING,
 	sno_I_LOAD_FUNCTION,
 	sno_I_INTERPOLATE_STRING,
+	sno_I_NEW_LINALG,
 	sno_I_NEW_ARRAY,
 	sno_I_CONCAT_ARRAY,
 	sno_I_NEW_TABLE,
@@ -67,8 +68,8 @@ enum {
 	sno_I_UNOP,
 	sno_I_BINOP,
 	sno_I_TO_BOOL,
-	sno_I_LAND,
-	sno_I_LOR,
+	sno_I_AND,
+	sno_I_OR,
 	sno_I_JUMP,
 	sno_I_JUMP_IF_TRUE,
 	sno_I_JUMP_IF_FALSE,

@@ -204,6 +204,7 @@
   </ItemGroup>
   <ItemGroup>
     <Text Include="endline_syntax.txt" />
+    <Text Include="linalg.txt" />
     <Text Include="onesno.c" />
   </ItemGroup>
   <ItemGroup>

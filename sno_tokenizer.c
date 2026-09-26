@@ -25,6 +25,13 @@ const char* const sno_token_strings[sno_NUM_TOKENS] = {
 	"true",
 	"false",
 	"none",
+	"vec2",
+	"vec3",
+	"vec4",
+	"quat",
+	"mat2",
+	"mat3",
+	"mat4",
 	"+",
 	"-",
 	"*",
@@ -129,6 +136,13 @@ void sno_print_token(const sno_Token* token) {
 		case sno_TK_TRUE: printf(ANSI_CONST "true"); break;
 		case sno_TK_FALSE: printf(ANSI_CONST "false"); break;
 		case sno_TK_NONE: printf(ANSI_CONST "none"); break;
+		case sno_TK_VEC2: printf(ANSI_CONST "vec2"); break;
+		case sno_TK_VEC3: printf(ANSI_CONST "vec3"); break;
+		case sno_TK_VEC4: printf(ANSI_CONST "vec4"); break;
+		case sno_TK_QUAT: printf(ANSI_CONST "quat"); break;
+		case sno_TK_MAT2: printf(ANSI_CONST "mat2"); break;
+		case sno_TK_MAT3: printf(ANSI_CONST "mat3"); break;
+		case sno_TK_MAT4: printf(ANSI_CONST "mat4"); break;
 		case sno_TK_ADD: printf(ANSI_OPERATOR "+"); break;
 		case sno_TK_SUB: printf(ANSI_OPERATOR "-"); break;
 		case sno_TK_MUL: printf(ANSI_OPERATOR "*"); break;
@@ -703,6 +717,24 @@ static sno_TokenType lex_token(sno_Tokenizer* ts, sno_Token* token) {
 		}
 		goto identifier;
 	}
+	case 'm': {
+		ts->cur_char++;
+		if (!check_next(ts, 'a')) goto identifier;
+		if (!check_next(ts, 't')) goto identifier;
+		if (check_next(ts, '2')) {
+			if (check_next_alphanumeric(ts)) goto identifier;
+			return sno_TK_MAT2;
+		}
+		if (check_next(ts, '3')) {
+			if (check_next_alphanumeric(ts)) goto identifier;
+			return sno_TK_MAT3;
+		}
+		if (check_next(ts, '4')) {
+			if (check_next_alphanumeric(ts)) goto identifier;
+			return sno_TK_MAT4;
+		}
+		goto identifier;
+	}
 	case 'n': {
 		ts->cur_char++;
 		if (!check_next(ts, 'o')) goto identifier;
@@ -710,6 +742,14 @@ static sno_TokenType lex_token(sno_Tokenizer* ts, sno_Token* token) {
 		if (!check_next(ts, 'e')) goto identifier;
 		if (check_next_alphanumeric(ts)) goto identifier;
 		return sno_TK_NONE;
+	}
+	case 'q': {
+		ts->cur_char++;
+		if (!check_next(ts, 'u')) goto identifier;
+		if (!check_next(ts, 'a')) goto identifier;
+		if (!check_next(ts, 't')) goto identifier;
+		if (check_next_alphanumeric(ts)) goto identifier;
+		return sno_TK_QUAT;
 	}
 	case 'r': {
 		ts->cur_char++;
@@ -743,6 +783,20 @@ static sno_TokenType lex_token(sno_Tokenizer* ts, sno_Token* token) {
 			if (!check_next(ts, 'r')) goto identifier;
 			if (check_next_alphanumeric(ts)) goto identifier;
 			return sno_TK_VAR;
+		} else if (check_next(ts, 'e')) {
+			if (!check_next(ts, 'c')) goto identifier;
+			if (check_next(ts, '2')) {
+				if (check_next_alphanumeric(ts)) goto identifier;
+				return sno_TK_VEC2;
+			}
+			if (check_next(ts, '3')) {
+				if (check_next_alphanumeric(ts)) goto identifier;
+				return sno_TK_VEC3;
+			}
+			if (check_next(ts, '4')) {
+				if (check_next_alphanumeric(ts)) goto identifier;
+				return sno_TK_VEC4;
+			}
 		}
 		goto identifier;
 	}
@@ -758,7 +812,7 @@ static sno_TokenType lex_token(sno_Tokenizer* ts, sno_Token* token) {
 
 	case 'a':                     case 'd':
 	case 'g': case 'h': case 'j': case 'k': case 'l':
-	case 'm':           case 'o': case 'p': case 'q':
+	                    case 'o': case 'p':
 	case 'u':                     case 'x':
 	case 'y': case 'z':
 	case 'A': case 'B': case 'C': case 'D': case 'E': case 'F':
