@@ -45,6 +45,8 @@ typedef struct sno_State {
 	sno_Table* array_prototype;
 	sno_Table* table_prototype;
 
+	uint64_t random_seed;
+
 	sno_GCObject* gc_list_start;
 	size_t num_non_string_gc_objects;
 	size_t memory_allocated;
@@ -69,6 +71,8 @@ sno_API sno_Value* sno_get_arg_typed(
 	sno_ValueType expected_type,
 	int arg
 );
+sno_API sno_Bool sno_get_bool_arg(sno_State* state, int arg);
+sno_API sno_Number sno_get_number_arg(sno_State* state, int arg);
 
 sno_API void sno_set_ret_none(sno_State* state, int ret);
 sno_API void sno_set_ret_bool(sno_State* state, int ret, sno_Bool b);

@@ -2,6 +2,7 @@
 
 #include "sno_parser.h"
 #include "sno_gc.h"
+#include "sno_math.h"
 #include <stdarg.h>
 #include <string.h>
 #include <math.h>
@@ -328,8 +329,40 @@ static sno_LinAlg* new_linalg(
 	uint8_t num_values
 ) {
 	sno_LinAlg* linalg = sno_create_linalg(state, type);
-	size_t c = 0; // Current component index
 	const size_t size = sno_linalg_type_length[type];
+	if (num_values == 1 && values[0].type == sno_VT_NUMBER) {
+		sno_Number n = values[0].v.u_number;
+		switch (type) {
+		case sno_LAT_VEC2:
+		case sno_LAT_VEC3:
+		case sno_LAT_VEC4: {
+			for (size_t i = 0; i < size; i++) {
+				linalg->components[i] = n;
+			}
+		} break;
+		case sno_LAT_QUAT: {
+			linalg->components[3] = n;
+		} break;
+		case sno_LAT_MAT2: {
+			linalg->components[0] = n;
+			linalg->components[3] = n;
+		} break;
+		case sno_LAT_MAT3: {
+			linalg->components[0] = n;
+			linalg->components[4] = n;
+			linalg->components[8] = n;
+		} break;
+		case sno_LAT_MAT4: {
+			linalg->components[0] = n;
+			linalg->components[5] = n;
+			linalg->components[10] = n;
+			linalg->components[15] = n;
+		} break;
+		default: sno_unreachable;
+		}
+		return linalg;
+	}
+	size_t c = 0; // Current component index
 	for (size_t i = 0; i < num_values; i++) {
 		const sno_Value* value = &values[i];
 		switch (value->type) {
@@ -426,7 +459,186 @@ static void get_field(
 
 
 
-static void binop(
+static inline void number_binop_number(
+	sno_State* state,
+	sno_Bytecode* bytecode,
+	sno_Instruction* pc,
+	sno_BinOp op,
+	sno_Value* lhs,
+	sno_Value* rhs
+) {
+	sno_ValueType* result_type = &rhs->type;
+	*result_type = sno_VT_NUMBER;
+	sno_Number* lhs_n = &lhs->v.u_number;
+	sno_Number rhs_n = rhs->v.u_number;
+	switch (op) {
+	case sno_BINOP_ADD: *lhs_n += rhs_n; break;
+	case sno_BINOP_SUB: *lhs_n -= rhs_n; break;
+	case sno_BINOP_MUL: *lhs_n *= rhs_n; break;
+	case sno_BINOP_DIV: *lhs_n /= rhs_n; break;
+	case sno_BINOP_IDIV: *lhs_n = sno_idiv(*lhs_n, rhs_n); break;
+	case sno_BINOP_MOD: *lhs_n = sno_mod(*lhs_n, rhs_n); break;
+	case sno_BINOP_POW: *lhs_n = sno_pow(*lhs_n, rhs_n); break;
+	case sno_BINOP_BAND: *lhs_n = (sno_Number)(((sno_Int)*lhs_n) & ((sno_Int)rhs_n)); break;
+	case sno_BINOP_BOR: *lhs_n = (sno_Number)(((sno_Int)*lhs_n) | ((sno_Int)rhs_n)); break;
+	case sno_BINOP_BXOR: *lhs_n = (sno_Number)(((sno_Int)*lhs_n) ^ ((sno_Int)rhs_n)); break;
+	case sno_BINOP_SHL: *lhs_n = (sno_Number)(((sno_Int)*lhs_n) << ((sno_Int)rhs_n)); break;
+	case sno_BINOP_SHR: *lhs_n = (sno_Number)(((sno_Int)*lhs_n) >> ((sno_Int)rhs_n)); break;
+	case sno_BINOP_LT: *lhs_n = (sno_Number)(*lhs_n < rhs_n); *result_type = sno_VT_BOOL; break;
+	case sno_BINOP_GT: *lhs_n = (sno_Number)(*lhs_n > rhs_n); *result_type = sno_VT_BOOL; break;
+	case sno_BINOP_LE: *lhs_n = (sno_Number)(*lhs_n <= rhs_n); *result_type = sno_VT_BOOL; break;
+	case sno_BINOP_GE: *lhs_n = (sno_Number)(*lhs_n >= rhs_n); *result_type = sno_VT_BOOL; break;
+	case sno_BINOP_EQ: *lhs_n = (sno_Number)(*lhs_n == rhs_n); *result_type = sno_VT_BOOL; break;
+	case sno_BINOP_NEQ: *lhs_n = (sno_Number)(*lhs_n != rhs_n); *result_type = sno_VT_BOOL; break;
+	default: sno_unreachable;
+	}
+}
+
+static void check_bit_shift_size(
+	sno_State* state,
+	sno_Bytecode* bytecode,
+	sno_Instruction* pc,
+	sno_Int r
+) {
+	if (r < 0 || r > 31) {
+		throw_runtime_error_at_pc(state, bytecode, pc,
+			"Invalid bit shift (%i)",
+			r
+		);
+	}
+}
+
+static sno_Number number_arith(
+	sno_State* state,
+	sno_Bytecode* bytecode,
+	sno_Instruction* pc,
+	sno_BinOp op,
+	sno_Number lhs,
+	sno_Number rhs
+) {
+	switch (op) {
+	case sno_BINOP_ADD: return lhs + rhs;
+	case sno_BINOP_SUB: return lhs - rhs;
+	case sno_BINOP_MUL: return lhs * rhs;
+	case sno_BINOP_DIV: return lhs / rhs;
+	case sno_BINOP_IDIV:
+		if (rhs == 0) {
+			throw_runtime_error_at_pc(state, bytecode, pc,
+				"Integer division by 0"
+			);
+		}
+		return sno_idiv(lhs, rhs);
+	case sno_BINOP_MOD: return sno_mod(lhs, rhs);
+	case sno_BINOP_POW: return sno_pow(lhs, rhs);
+	case sno_BINOP_BAND: return (sno_Number)(((sno_Int)lhs) & ((sno_Int)rhs));
+	case sno_BINOP_BOR: return (sno_Number)(((sno_Int)lhs) | ((sno_Int)rhs));
+	case sno_BINOP_BXOR: return (sno_Number)(((sno_Int)lhs) ^ ((sno_Int)rhs));
+	case sno_BINOP_SHL: {
+		sno_Int r = (sno_Int)rhs;
+		check_bit_shift_size(state, bytecode, pc, r);
+		return (sno_Number)(((sno_Int)lhs) << r);
+	}
+	case sno_BINOP_SHR: {
+		sno_Int r = (sno_Int)rhs;
+		check_bit_shift_size(state, bytecode, pc, r);
+		return (sno_Number)(((sno_Int)lhs) >> ((sno_Int)rhs));
+	}
+	default: sno_unreachable;
+	}
+}
+
+static inline void linalg_binop_number(
+	sno_State* state,
+	sno_Bytecode* bytecode,
+	sno_Instruction* pc,
+	sno_BinOp op,
+	sno_Value* lhs,
+	sno_Value* rhs
+) {
+	sno_LinAlg* la;
+	if (lhs->type == sno_VT_LINALG) {
+		la = lhs->v.u_linalg;
+		sno_Number number = rhs->v.u_number;
+		const size_t length = sno_linalg_type_length[la->la_type];
+		for (size_t i = 0; i < length; i++) {
+			la->components[i] = number_arith(state, bytecode, pc,
+				op, la->components[i], number
+			);
+		}
+	} else {
+		la = rhs->v.u_linalg;
+		sno_Number number = lhs->v.u_number;
+		const size_t length = sno_linalg_type_length[la->la_type];
+		for (size_t i = 0; i < length; i++) {
+			la->components[i] = number_arith(state, bytecode, pc,
+				op, number, la->components[i]
+			);
+		}
+	}
+	lhs->type = sno_VT_LINALG;
+	lhs->v.u_linalg = la;
+}
+
+static inline sno_LinAlg* linalg_binop_linalg(
+	sno_State* state,
+	sno_Bytecode* bytecode,
+	sno_Instruction* pc,
+	sno_BinOp op,
+	sno_LinAlg* l,
+	sno_LinAlg* r
+) {
+	sno_LinAlgType lt = l->la_type;
+	sno_LinAlgType rt = r->la_type;
+	const size_t llength = sno_linalg_type_length[lt];
+	if (op == sno_BINOP_MUL) {
+		if (lt <= sno_LAT_VEC4) {
+			goto component_wise;
+		}
+		if (lt >= sno_LAT_MAT2 && lt <= sno_LAT_MAT4) {
+			if (rt != sno_LAT_QUAT) {
+				sno_Number result[16];
+				size_t mat_size = lt - sno_LAT_MAT2 + 2;
+				sno_matrix_multiply(
+					result,
+					l->components,
+					r->components,
+					mat_size,
+					mat_size,
+					sno_linalg_type_num_rows[rt],
+					sno_linalg_type_num_columns[rt]
+				);
+				memcpy(l->components, result, llength * sizeof(sno_Number));
+				return l;
+			} else {
+
+			}
+		}
+	} else if (op == sno_BINOP_DIV || op == sno_BINOP_IDIV) {
+		sno_not_implemented;
+	} else {
+	component_wise:
+		// Component-wise
+		if (lt != rt) {
+			goto invalid_types;
+		}
+		for (size_t i = 0; i < llength; i++) {
+			l->components[i] = number_arith(state, bytecode, pc,
+				op, l->components[i], r->components[i]
+			);
+		}
+		return l;
+	}
+invalid_types:
+	throw_runtime_error_at_pc(
+		state, bytecode, pc,
+		"Attempted to %s %s and %s",
+		sno_binop_fancy_names[op],
+		sno_linalg_type_strings_noun[lt],
+		sno_linalg_type_strings_noun[rt]
+	);
+}
+
+static inline void binop(
 	sno_State* state,
 	sno_Bytecode* bytecode,
 	sno_Instruction* pc,
@@ -437,67 +649,57 @@ static void binop(
 	sno_assert(op >= 0 && op <= sno_BINOP_LOR);
 	sno_ValueType type_l = lhs->type;
 	sno_ValueType type_r = rhs->type;
-	sno_Bool l_is_number = type_l == sno_VT_BOOL || type_l == sno_VT_NUMBER;
-	sno_Bool r_is_number = type_r == sno_VT_BOOL || type_r == sno_VT_NUMBER;
-	if (type_l == sno_VT_NONE || type_l >= sno_VT_ARRAY ||
-		type_l == sno_VT_NONE || type_l >= sno_VT_ARRAY
+	sno_Bool l_is_number = (type_l == sno_VT_BOOL || type_l == sno_VT_NUMBER);
+	sno_Bool r_is_number = (type_r == sno_VT_BOOL || type_r == sno_VT_NUMBER);
+	if (sno_likely(l_is_number && r_is_number)) {
+		number_binop_number(state, bytecode, pc, op, lhs, rhs);
+		return;
+	}
+	if (op == sno_BINOP_EQ || op == sno_BINOP_NEQ) {
+		lhs->v.u_number = (sno_value_equals(lhs, rhs) ==
+			(op == sno_BINOP_EQ)) ?
+			sno_NUMBER_TRUE :
+			sno_NUMBER_FALSE;
+		lhs->type = sno_VT_BOOL;
+		return;
+	}
+	if (op >= sno_BINOP_LT && op <= sno_BINOP_GE) {
+		throw_runtime_error_at_pc(
+			state, bytecode, pc,
+			"Relational operators only work on numbers, not %s and %s",
+			sno_get_type_string_noun(lhs),
+			sno_get_type_string_noun(rhs)
+		);
+	}
+	if (type_l == sno_VT_NONE || type_l >= sno_VT_STRING ||
+		type_l == sno_VT_NONE || type_l >= sno_VT_STRING
 	) {
 		goto invalid_types;
 	}
-	if ((type_l == sno_VT_BOOL || type_l == sno_VT_NUMBER) ||
-		(type_r == sno_VT_BOOL || type_r == sno_VT_NUMBER)
-	) {
-
+	sno_Bool l_is_linalg = (type_l == sno_VT_LINALG);
+	sno_Bool r_is_linalg = (type_r == sno_VT_LINALG);
+	if ((l_is_number && r_is_linalg) || (l_is_linalg && r_is_number)) {
+		// Number and linalg
+		linalg_binop_number(state, bytecode, pc, op, lhs, rhs);
+		sno_assert(lhs->type == sno_VT_LINALG);
+		return;
 	}
-	sno_Number* result = &sp[0].v.u_number;
-	sno_ValueType* result_type = &sp[0].type;
-	if (arg >= sno_BINOP_ADD && arg <= sno_BINOP_GE) {
-		sno_ValueType type_l = sp[0].type;
-		sno_ValueType type_r = sp[1].type;
-		if (!(type_l == sno_VT_BOOL || type_l == sno_VT_NUMBER) ||
-			!(type_r == sno_VT_BOOL || type_r == sno_VT_NUMBER)) {
-			goto invalid_types;
-		}
-		*result_type = sno_VT_NUMBER;
-		sno_Number rhs = sp[1].v.u_number;
-		switch (arg) {
-		case sno_BINOP_ADD: *result += rhs; break;
-		case sno_BINOP_SUB: *result -= rhs; break;
-		case sno_BINOP_MUL: *result *= rhs; break;
-		case sno_BINOP_DIV: *result /= rhs; break;
-		case sno_BINOP_IDIV: *result = sno_idiv(*result, rhs); break;
-		case sno_BINOP_MOD: *result = sno_mod(*result, rhs); break;
-		case sno_BINOP_POW: *result = sno_pow(*result, rhs); break;
-		case sno_BINOP_BAND: *result = (sno_Number)(((sno_Int)*result) & ((sno_Int)rhs)); break;
-		case sno_BINOP_BOR: *result = (sno_Number)(((sno_Int)*result) | ((sno_Int)rhs)); break;
-		case sno_BINOP_BXOR: *result = (sno_Number)(((sno_Int)*result) ^ ((sno_Int)rhs)); break;
-		case sno_BINOP_SHL: *result = (sno_Number)(((sno_Int)*result) << ((sno_Int)rhs)); break;
-		case sno_BINOP_SHR: *result = (sno_Number)(((sno_Int)*result) >> ((sno_Int)rhs)); break;
-		case sno_BINOP_LT: *result = (sno_Number)(*result < rhs); *result_type = sno_VT_BOOL; break;
-		case sno_BINOP_GT: *result = (sno_Number)(*result > rhs); *result_type = sno_VT_BOOL; break;
-		case sno_BINOP_LE: *result = (sno_Number)(*result <= rhs); *result_type = sno_VT_BOOL; break;
-		case sno_BINOP_GE: *result = (sno_Number)(*result >= rhs); *result_type = sno_VT_BOOL; break;
-		}
-	} else {
-		sno_assert(
-			arg == sno_BINOP_EQ ||
-			arg == sno_BINOP_NEQ
+	if (l_is_linalg && r_is_linalg) {
+		lhs->v.u_linalg = linalg_binop_linalg(
+			state, bytecode, pc,
+			op, lhs->v.u_linalg, rhs->v.u_linalg
 		);
-		*result = (sno_value_equals(&sp[0], &sp[1]) ==
-			(arg == sno_BINOP_EQ)) ?
-			sno_NUMBER_TRUE :
-			sno_NUMBER_FALSE;
-		*result_type = sno_VT_BOOL;
+		sno_assert(lhs->type == sno_VT_LINALG);
+		return;
 	}
-	return;
-
+	sno_unreachable;
 invalid_types:
 	throw_runtime_error_at_pc(
 		state, bytecode, pc,
 		"Attempted to %s %s and %s",
-		sno_binop_fancy_names[arg],
-		sno_get_type_string_noun(type_l),
-		sno_get_type_string_noun(type_r)
+		sno_binop_fancy_names[op],
+		sno_get_type_string_noun(lhs),
+		sno_get_type_string_noun(rhs)
 	);
 }
 

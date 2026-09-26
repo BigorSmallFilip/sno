@@ -100,7 +100,10 @@ enum {
 typedef uint8_t sno_LinAlgType;
 
 extern const char* const sno_linalg_type_strings[sno_NUM_LINEAR_ALGEBRA_TYPES];
+extern const char* const sno_linalg_type_strings_noun[sno_NUM_LINEAR_ALGEBRA_TYPES];
 extern const uint8_t sno_linalg_type_length[sno_NUM_LINEAR_ALGEBRA_TYPES];
+extern const uint8_t sno_linalg_type_num_rows[sno_NUM_LINEAR_ALGEBRA_TYPES];
+extern const uint8_t sno_linalg_type_num_columns[sno_NUM_LINEAR_ALGEBRA_TYPES];
 
 typedef struct sno_LinAlg {
 	sno_gc_header;

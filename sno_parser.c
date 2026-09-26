@@ -6,7 +6,7 @@
 
 
 
-#define DEBUG_PRINT_PARSER
+//#define DEBUG_PRINT_PARSER
 
 
 
@@ -640,7 +640,10 @@ static void parse_operand_primary(sno_Tokenizer* ts) {
 	case sno_TK_VEC2:
 	case sno_TK_VEC3:
 	case sno_TK_VEC4:
-	case sno_TK_QUAT: {
+	case sno_TK_QUAT:
+	case sno_TK_MAT2:
+	case sno_TK_MAT3:
+	case sno_TK_MAT4: {
 		parse_linalg_constructor(ts);
 		return;
 	}
@@ -1146,6 +1149,7 @@ static void parse_expression_statement(sno_Tokenizer* ts) {
 	);
 	if (sno_token_is_assignment(ts->token.type)) {
 		sno_TokenType assignment_token = ts->token.type;
+		uint32_t assignment_at = ts->token.source_code_pos;
 		sno_read_next_token(ts); // Skip assignment token
 		if (assignment_token == sno_TK_ASSIGN) {
 			ts->cs->instructions.count--; // Remove the final get-instruction, convert to set later
@@ -1160,7 +1164,7 @@ static void parse_expression_statement(sno_Tokenizer* ts) {
 		parse_expression(ts);
 		if (assignment_token != sno_TK_ASSIGN) {
 			// Binop assignment
-			emit_instruction_1(ts, sno_I_BINOP, assignment_token - sno_TK_ASSIGNADD);
+			emit_instruction_1_at(ts, sno_I_BINOP, assignment_token - sno_TK_ASSIGNADD, assignment_at);
 		}
 		emit_instruction(ts, last_instruction + 1);
 		return;

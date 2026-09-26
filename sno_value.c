@@ -53,13 +53,13 @@ const char* const sno_linalg_type_strings_noun[sno_NUM_LINEAR_ALGEBRA_TYPES] = {
 };
 
 const uint8_t sno_linalg_type_length[sno_NUM_LINEAR_ALGEBRA_TYPES] = {
-	2,
-	3,
-	4,
-	4,
-	4,
-	9,
-	16,
+	2, 3, 4, 4, 4, 9, 16,
+};
+const uint8_t sno_linalg_type_num_rows[sno_NUM_LINEAR_ALGEBRA_TYPES] = {
+	2, 3, 4, 4, 2, 3, 4,
+};
+const uint8_t sno_linalg_type_num_columns[sno_NUM_LINEAR_ALGEBRA_TYPES] = {
+	1, 1, 1, 1, 2, 3, 4,
 };
 
 
@@ -510,6 +510,43 @@ void sno_print_value(sno_State* state, const sno_Value* v) {
 
 
 
+static void number_to_string(
+	sno_State* state,
+	sno_DynArray* string,
+	sno_Number number
+) {
+	char buf[sno_STACK_BUFFER_LENGTH];
+	int len;
+	if (sno_number_is_valid_i64(number)) {
+		len = snprintf(buf, sno_STACK_BUFFER_LENGTH - 1, "%lli", (uint64_t)number);
+	} else {
+		len = snprintf(buf, sno_STACK_BUFFER_LENGTH - 1, "%g", number);
+	}
+	sno_dynarray_push_back_bytes(state, string, buf, len);
+}
+
+static void linalg_to_string(
+	sno_State* state,
+	sno_DynArray* string,
+	const sno_LinAlg* linalg
+) {
+	const sno_LinAlgType type = linalg->la_type;
+	sno_assert(strlen(sno_linalg_type_strings[type]) == 4);
+	sno_dynarray_push_back_bytes(state, string, sno_linalg_type_strings[type], 4);
+	sno_dynarray_push_back_bytes(state, string, sno_str_comma_len("("));
+	size_t i = 0;
+	while (1) {
+		number_to_string(state, string, linalg->components[i]);
+		i++;
+		if (i < sno_linalg_type_length[type]) {
+			sno_dynarray_push_back_bytes(state, string, sno_str_comma_len(", "));
+		} else {
+			sno_dynarray_push_back_bytes(state, string, sno_str_comma_len(")"));
+			break;
+		}
+	}
+}
+
 static void array_to_string(
 	sno_State* state,
 	sno_DynArray* string,
@@ -555,15 +592,10 @@ void sno_value_to_string(
 		}
 	} break;
 	case sno_VT_NUMBER: {
-		sno_Number n = v->v.u_number;
-		char buf[sno_STACK_BUFFER_LENGTH];
-		int len;
-		if (sno_number_is_valid_i64(n)) {
-			len = snprintf(buf, sno_STACK_BUFFER_LENGTH - 1, "%lli", (uint64_t)n);
-		} else {
-			len = snprintf(buf, sno_STACK_BUFFER_LENGTH - 1, "%g", n);
-		}
-		sno_dynarray_push_back_bytes(state, string, buf, len);
+		number_to_string(state, string, v->v.u_number);
+	} break;
+	case sno_VT_LINALG: {
+		linalg_to_string(state, string, v->v.u_linalg);
 	} break;
 	case sno_VT_STRING: {
 		sno_dynarray_push_back_bytes(state, string,
@@ -575,6 +607,7 @@ void sno_value_to_string(
 		array_to_string(state, string, v->v.u_array, recursion_limit - 1);
 	} break;
 	default:
+		sno_not_implemented;
 		break;
 	}
 }
@@ -603,11 +636,26 @@ const sno_IString* sno_interpolate_string(
 	return istring;
 }
 
+
+
+static sno_Bool linalg_eq(const sno_LinAlg* a, const sno_LinAlg* b) {
+	sno_assert(a->la_type < sno_NUM_LINEAR_ALGEBRA_TYPES);
+	if (a->la_type != b->la_type) return sno_FALSE;
+	const size_t length = sno_linalg_type_length[a->la_type];
+	for (size_t i = 0; i < length; i++) {
+		if (a->components[i] != b->components[i]) {
+			return sno_FALSE;
+		}
+	}
+	return sno_TRUE;
+}
+
 sno_Bool sno_value_equals(const sno_Value* a, const sno_Value* b) {
 	if (a->type != b->type) return sno_FALSE;
 	if (a->type == sno_VT_NONE) return sno_TRUE;
 	if (a->type == sno_VT_NUMBER) return a->v.u_number == b->v.u_number;
-	else return a->v.u_data == b->v.u_data;
+	if (a->type == sno_VT_LINALG) return linalg_eq(a->v.u_linalg, b->v.u_linalg);
+	return a->v.u_data == b->v.u_data;
 }
 
 sno_Bool sno_value_to_bool(const sno_Value* v) {

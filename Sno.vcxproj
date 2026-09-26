@@ -182,6 +182,7 @@
     <ClCompile Include="sno_lib_math.c" />
     <ClCompile Include="sno_lib_string.c" />
     <ClCompile Include="sno_lib_table.c" />
+    <ClCompile Include="sno_math.c" />
     <ClCompile Include="sno_mem.c" />
     <ClCompile Include="sno_parser.c" />
     <ClCompile Include="sno_state.c" />
@@ -194,6 +195,7 @@
   <ItemGroup>
     <ClInclude Include="sno_gc.h" />
     <ClInclude Include="sno_lib.h" />
+    <ClInclude Include="sno_math.h" />
     <ClInclude Include="sno_mem.h" />
     <ClInclude Include="sno_parser.h" />
     <ClInclude Include="sno_state.h" />

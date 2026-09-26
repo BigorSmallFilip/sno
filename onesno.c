@@ -5,6 +5,7 @@
 #include "sno_lib_math.c"
 #include "sno_lib_string.c"
 #include "sno_lib_table.c"
+#include "sno_math.c"
 #include "sno_mem.c"
 #include "sno_parser.c"
 #include "sno_state.c"

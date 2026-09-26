@@ -17,7 +17,7 @@ static void sno_load_core_libs(sno_State* state) {
 	state->table_prototype = sno_load_lib_into_table(state, sno_lib_table);
 }
 
-sno_API sno_State* sno_create_state() {
+sno_State* sno_create_state() {
 	sno_State* state = calloc(1, sizeof(sno_State));
 	if (!state) {
 		return NULL;
@@ -65,7 +65,7 @@ static void resize_stack(sno_State* state, uint32_t new_capacity) {
 	state->stack_capacity = new_capacity;
 }
 
-sno_API void sno_free_state(sno_State* state) {
+void sno_free_state(sno_State* state) {
 	if (!state) {
 		return;
 	}
@@ -75,7 +75,7 @@ sno_API void sno_free_state(sno_State* state) {
 
 
 
-sno_API sno_Value* sno_reserve_stack(sno_State* state, uint32_t slots) {
+sno_Value* sno_reserve_stack(sno_State* state, uint32_t slots) {
 	state->stack_top += slots;
 	if (state->stack_top > state->stack_capacity) {
 		resize_stack(state, state->stack_capacity << 1);
@@ -83,13 +83,13 @@ sno_API sno_Value* sno_reserve_stack(sno_State* state, uint32_t slots) {
 	return sno_stack_base(state);
 }
 
-sno_API sno_Value* sno_get_stack_ptr(sno_State* state, uint32_t slot) {
+sno_Value* sno_get_stack_ptr(sno_State* state, uint32_t slot) {
 	sno_assert_ptr(state);
 	sno_assert(state->stack_base + slot < state->stack_top);
 	return &state->stack[state->stack_base + slot];
 }
 
-sno_API void sno_check_arg_count(
+void sno_check_arg_count(
 	sno_State* state,
 	uint8_t num_args,
 	uint8_t num_args_expected
@@ -105,7 +105,7 @@ sno_API void sno_check_arg_count(
 	}
 }
 
-sno_API sno_Value* sno_get_arg(sno_State* state, int arg) {
+sno_Value* sno_get_arg(sno_State* state, int arg) {
 	return sno_get_stack_ptr(state, arg + 2);
 }
 
@@ -114,7 +114,7 @@ const char* const arg_names[] = {
 	"10", "11", "12", "13",
 };
 
-sno_API sno_Value* sno_get_arg_typed(
+sno_Value* sno_get_arg_typed(
 	sno_State* state,
 	sno_ValueType expected_type,
 	int arg
@@ -135,44 +135,52 @@ sno_API sno_Value* sno_get_arg_typed(
 	return value;
 }
 
+sno_Bool sno_get_bool_arg(sno_State* state, int arg) {
+	return sno_get_arg_typed(state, sno_VT_BOOL, arg)->v.u_number ? sno_TRUE : sno_FALSE;
+}
+
+sno_Number sno_get_number_arg(sno_State* state, int arg) {
+	return sno_get_arg_typed(state, sno_VT_BOOL, arg)->v.u_number;
+}
 
 
-sno_API void sno_set_ret_none(sno_State* state, int ret) {
+
+void sno_set_ret_none(sno_State* state, int ret) {
 	sno_assert_ptr(state);
 	sno_assert(ret >= 0 && ret < sno_MAX_STACK_ARGS);
 	sno_Value* value = sno_get_stack_ptr(state, ret);
 	sno_set_none(*value);
 }
 
-sno_API void sno_set_ret_bool(sno_State* state, int ret, sno_Bool b) {
+void sno_set_ret_bool(sno_State* state, int ret, sno_Bool b) {
 	sno_assert_ptr(state);
 	sno_assert(ret >= 0 && ret < sno_MAX_STACK_ARGS);
 	sno_Value* value = sno_get_stack_ptr(state, ret);
 	sno_set_bool(*value, b);
 }
 
-sno_API void sno_set_ret_number(sno_State* state, int ret, sno_Number number) {
+void sno_set_ret_number(sno_State* state, int ret, sno_Number number) {
 	sno_assert_ptr(state);
 	sno_assert(ret >= 0 && ret < sno_MAX_STACK_ARGS);
 	sno_Value* value = sno_get_stack_ptr(state, ret);
 	sno_set_number(*value, number);
 }
 
-sno_API void sno_set_ret_string(sno_State* state, int ret, const sno_IString* string) {
+void sno_set_ret_string(sno_State* state, int ret, const sno_IString* string) {
 	sno_assert_ptr(state);
 	sno_assert(ret >= 0 && ret < sno_MAX_STACK_ARGS);
 	sno_Value* value = sno_get_stack_ptr(state, ret);
 	sno_set_string(*value, string);
 }
 
-sno_API void sno_set_ret_array(sno_State* state, int ret, sno_Array* arr) {
+void sno_set_ret_array(sno_State* state, int ret, sno_Array* arr) {
 	sno_assert_ptr(state);
 	sno_assert(ret >= 0 && ret < sno_MAX_STACK_ARGS);
 	sno_Value* value = sno_get_stack_ptr(state, ret);
 	sno_set_array(*value, arr);
 }
 
-sno_API void sno_set_ret_table(sno_State* state, int ret, sno_Table* table) {
+void sno_set_ret_table(sno_State* state, int ret, sno_Table* table) {
 	sno_assert_ptr(state);
 	sno_assert(ret >= 0 && ret < sno_MAX_STACK_ARGS);
 	sno_Value* value = sno_get_stack_ptr(state, ret);
@@ -181,7 +189,7 @@ sno_API void sno_set_ret_table(sno_State* state, int ret, sno_Table* table) {
 
 
 
-sno_API void sno_s_array_push(sno_State* state, uint32_t i) {
+void sno_s_array_push(sno_State* state, uint32_t i) {
 	
 }
 
@@ -189,7 +197,7 @@ sno_API void sno_s_array_push(sno_State* state, uint32_t i) {
 
 
 
-sno_API void sno_create_new_global(sno_State* state, const sno_IString* name, const sno_Value* value) {
+void sno_create_new_global(sno_State* state, const sno_IString* name, const sno_Value* value) {
 	sno_Value key;
 	key.type = sno_VT_STRING;
 	key.v.u_string = name;
@@ -203,7 +211,7 @@ sno_API void sno_create_new_global(sno_State* state, const sno_IString* name, co
 	}
 }
 
-sno_API void sno_set_global(sno_State* state, const sno_IString* name, const sno_Value* value) {
+void sno_set_global(sno_State* state, const sno_IString* name, const sno_Value* value) {
 	sno_Value key;
 	key.type = sno_VT_STRING;
 	key.v.u_string = name;
@@ -217,7 +225,7 @@ sno_API void sno_set_global(sno_State* state, const sno_IString* name, const sno
 	}
 }
 
-sno_API void sno_get_global(sno_State* state, const sno_IString* name, const sno_Value* out_value) {
+void sno_get_global(sno_State* state, const sno_IString* name, const sno_Value* out_value) {
 	sno_Value key;
 	key.type = sno_VT_STRING;
 	key.v.u_string = name;
@@ -233,12 +241,12 @@ sno_API void sno_get_global(sno_State* state, const sno_IString* name, const sno
 
 
 
-sno_API void sno_print_globals(const sno_State* state) {
+void sno_print_globals(const sno_State* state) {
 	sno_assert_ptr(state);
 
 }
 
-sno_API void sno_print_exception_msg(const sno_State* state) {
+void sno_print_exception_msg(const sno_State* state) {
 	if (!state->exception_msg) { return; }
 	fprintf(
 		stderr,
@@ -248,7 +256,7 @@ sno_API void sno_print_exception_msg(const sno_State* state) {
 	);
 }
 
-sno_API sno_Bool sno_try_compile_source_code(
+sno_Bool sno_try_compile_source_code(
 	sno_State* state,
 	const sno_IString* name,
 	const sno_IString* source_code
@@ -268,7 +276,7 @@ sno_API sno_Bool sno_try_compile_source_code(
 	return sno_TRUE;
 }
 
-sno_API void sno_call(sno_State* state, uint8_t num_args, uint8_t num_returns) {
+void sno_call(sno_State* state, uint8_t num_args, uint8_t num_returns) {
 	sno_assert_ptr(state);
 	sno_assert(num_args < sno_MAX_STACK_ARGS);
 	sno_assert(num_returns < sno_MAX_STACK_ARGS);
@@ -308,7 +316,7 @@ sno_API void sno_call(sno_State* state, uint8_t num_args, uint8_t num_returns) {
 	//sno_dynarray_pop_back(state, &state->call_infos, sizeof(sno_CallInfo), &call_info);
 }
 
-sno_API sno_Bool sno_run_file(
+sno_Bool sno_run_file(
 	sno_State* state,
 	const char* const path,
 	size_t path_length
@@ -331,7 +339,7 @@ sno_API sno_Bool sno_run_file(
 
 
 
-sno_API sno_no_return void sno_throw(
+sno_no_return void sno_throw(
 	sno_State* state,
 	sno_ExceptionType exception_type,
 	const char* const exception_msg,
@@ -350,7 +358,7 @@ sno_API sno_no_return void sno_throw(
 	}
 }
 
-sno_API sno_no_return void sno_throw_runtime_error(
+sno_no_return void sno_throw_runtime_error(
 	sno_State* state,
 	const char* const format,
 	...
@@ -360,7 +368,7 @@ sno_API sno_no_return void sno_throw_runtime_error(
 	sno_throw_runtime_error_va(state, format, args);
 }
 
-sno_API sno_no_return void sno_throw_runtime_error_va(
+sno_no_return void sno_throw_runtime_error_va(
 	sno_State* state,
 	const char* const format,
 	va_list args
@@ -381,7 +389,7 @@ sno_API sno_no_return void sno_throw_runtime_error_va(
 	sno_throw(state, sno_EXCEPTION_RUNTIME_ERROR, buffer, length);
 }
 
-sno_API sno_no_return void sno_throw_at_source_code_pos(
+sno_no_return void sno_throw_at_source_code_pos(
 	sno_State* state,
 	sno_ExceptionType exception_type,
 	const sno_IString* source_code,
@@ -418,7 +426,7 @@ sno_API sno_no_return void sno_throw_at_source_code_pos(
 	sno_throw(state, exception_type, buffer, (size_t)length);
 }
 
-sno_API sno_no_return void sno_throw_at_source_code_pos_open_close(
+sno_no_return void sno_throw_at_source_code_pos_open_close(
 	sno_State* state,
 	sno_ExceptionType exception_type,
 	const sno_IString* source_code,

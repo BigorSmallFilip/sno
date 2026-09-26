@@ -1,7 +1,15 @@
 
-var p = vec3(true, 20, 30)
+var m = mat2(1, 3, 2, 4)
+var n = mat2(5, 7, 6, 8)
 
-p = vec2(1, 2)
-p = vec4(10, 20, p)
+print("m = \(m)")
+print("n = \(n)")
+print("m * n = \(m * n)")
 
-print(p)
+var avg = 0
+const iters = 1000000
+for i = 0, iters {
+	avg += random() / iters
+}
+
+print("Average output of \(iters) iterations of random() is \(avg)")

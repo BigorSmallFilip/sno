@@ -6,11 +6,11 @@
 #include "sno_state.h"
 
 typedef enum {
+	sno_BINOP_ADD,
+	sno_BINOP_SUB,
 	sno_BINOP_MUL,
 	sno_BINOP_DIV,
 	sno_BINOP_IDIV,
-	sno_BINOP_ADD,
-	sno_BINOP_SUB,
 	sno_BINOP_MOD,
 	sno_BINOP_POW,
 	sno_BINOP_BAND,

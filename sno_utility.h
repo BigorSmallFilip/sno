@@ -221,7 +221,7 @@ typedef int32_t sno_Int;
 #define sno_pow(l, r) powf
 #else
 typedef double sno_Number;
-typedef int64_t sno_Int;
+typedef int32_t sno_Int;
 #define sno_floor(n) floor((n))
 #define sno_ceil(n) ceil((n))
 #define sno_round(n) round((n))
