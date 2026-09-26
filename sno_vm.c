@@ -437,8 +437,11 @@ static void binop(
 	sno_assert(op >= 0 && op <= sno_BINOP_LOR);
 	sno_ValueType type_l = lhs->type;
 	sno_ValueType type_r = rhs->type;
+	sno_Bool l_is_number = type_l == sno_VT_BOOL || type_l == sno_VT_NUMBER;
+	sno_Bool r_is_number = type_r == sno_VT_BOOL || type_r == sno_VT_NUMBER;
 	if (type_l == sno_VT_NONE || type_l >= sno_VT_ARRAY ||
-		type_l == sno_VT_NONE || type_l >= sno_VT_ARRAY) {
+		type_l == sno_VT_NONE || type_l >= sno_VT_ARRAY
+	) {
 		goto invalid_types;
 	}
 	if ((type_l == sno_VT_BOOL || type_l == sno_VT_NUMBER) ||
