@@ -387,7 +387,8 @@ uint8_t sno_execute(sno_State* state, uint8_t num_args) {
 		);
 	}
 	sno_Function* function = base->v.u_function;
-	sno_Bytecode* bytecode = function->u.bytecode;
+	sno_assert(!function->is_c_function);
+	sno_Bytecode* bytecode = base->v.u_function->u.bytecode;
 	base = sno_reserve_stack(state, bytecode->max_stack_needed);
 	sno_Instruction* pc = bytecode->instructions;
 	// This stack pointer is bababa
