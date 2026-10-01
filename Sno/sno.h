@@ -153,6 +153,9 @@
 #define NULL ((void*)0)
 #endif
 
+// String buffers on the stack
+#define sno_STACK_BUFFER_LENGTH 4096
+
 #include <stdbool.h>
 #ifdef sno_MSVC
 typedef _Bool sno_Bool;

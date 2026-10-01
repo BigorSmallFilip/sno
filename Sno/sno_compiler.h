@@ -2,6 +2,7 @@
 #define sno_COMPILER_H
 
 #include "sno.h"
+#include "sno_state.h"
 
 enum {
 	TK_TERMINATOR,
@@ -147,5 +148,25 @@ typedef struct Compiler {
 
 	Tokenizer* ts;
 } Compiler;
+
+
+
+sno_no_return void throw_error_message_with_source_code_context(
+	sno_VMState* vm,
+	ExceptionType type,
+	const struct IString* function_name,
+	const struct IString* source_code_name,
+	const struct IString* source_code,
+	uint32_t pos,
+	const char* const message_format,
+	va_list args
+);
+
+sno_no_return void throw_syntax_error(
+	Tokenizer* ts,
+	uint32_t pos,
+	const char* const message_format,
+	...
+);
 
 #endif

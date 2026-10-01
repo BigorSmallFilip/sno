@@ -19,8 +19,6 @@ typedef struct ExceptionJump {
 	jmp_buf buf;
 } ExceptionJump;
 
-#define EXCEPTION_MESSAGE_MAX_LENGTH 512
-
 
 
 typedef struct sno_GlobalState {
@@ -33,13 +31,12 @@ typedef struct sno_VMState {
 	sno_GlobalState* state;
 	ExceptionType exception_type;
 	ExceptionJump* exception_jump;
-	char exception_message[EXCEPTION_MESSAGE_MAX_LENGTH];
-	size_t exception_message_length;
+	const IString* exception_message;
 } sno_VMState;
 
 
 
-sno_no_return void sno_throw(
+sno_no_return void vm_throw(
 	sno_VMState* vm,
 	ExceptionType type,
 	const char* const message,

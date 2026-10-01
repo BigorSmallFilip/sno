@@ -1,6 +1,7 @@
 #include "sno_compiler.h"
 
 #include <stdio.h>
+#include <stdarg.h>
 #include "sno_state.h"
 #include "sno_string.h"
 
@@ -210,6 +211,121 @@ void print_token(const Token* token) {
 
 
 
+static sno_inline sno_Bool check_next(Tokenizer* ts, char c) {
+	if (*ts->cur_char == c) {
+		ts->cur_char++;
+		return sno_TRUE;
+	} else {
+		return sno_FALSE;
+	}
+}
+
+
+
+
+
+static void read_comment(Tokenizer* ts) {
+	sno_assert_ptr(ts);
+	while (ts->cur_char < ts->source_code_end) {
+		ts->cur_char++;
+		if (*ts->cur_char == '\n' ||
+			*ts->cur_char == '\r' ||
+			*ts->cur_char == '\0') break;
+	}
+}
+
+static void read_multiline_comment(Tokenizer* ts) {
+	sno_assert_ptr(ts);
+	const char* start = ts->cur_char;
+	while (1) {
+		sno_assert(ts->cur_char <= ts->source_code_end);
+		if (ts->cur_char == ts->source_code_end) {
+			throw_syntax_error(
+				ts,
+				(uint32_t)(start - istring_chars(ts->source_code) - 2),
+				"This multi-line comment doesn't close"
+			);
+		}
+		if (check_next(ts, '*')) {
+			if (check_next(ts, '/')) {
+				break;
+			}
+			continue;
+		}
+		if (check_next(ts, '/')) {
+			if (check_next(ts, '*')) {
+				// Nested multi-line comments
+				read_multiline_comment(ts);
+				// The multi-line comment function returns at the token AFTER the '*/'.
+				// This means the next token shouldn't be skipped
+				continue;
+			}
+			continue;
+		}
+		ts->cur_char++;
+	}
+}
+
+static sno_Bool skip_whitespace_and_comments(
+	Tokenizer* ts,
+	sno_Bool insert_terminator_on_endline
+) {
+	int stmt_end = sno_FALSE;
+	while (ts->cur_char != ts->source_code_end) {
+		sno_assert(ts->cur_char < ts->source_code_end);
+		switch (*ts->cur_char) {
+		case '\n': {
+			stmt_end = stmt_end || insert_terminator_on_endline;
+			break;
+		}
+		case '\\': {
+			const char* backslash = ts->cur_char;
+			ts->cur_char++;
+			if (check_next(ts, '\n') || (check_next(ts, '\r') && check_next(ts, '\n'))) {
+				break;
+			}
+			throw_syntax_error(
+				ts,
+				(uint32_t)(backslash - istring_chars(ts->source_code)),
+				"Backslash characters must be the last character on a line, including spaces"
+			);
+			break;
+		}
+		case ' ': case '\t': {
+			break;
+		}
+		case ';': {
+			stmt_end = sno_TRUE;
+			break;
+		}
+		case '/': {
+			if (ts->cur_char + 1 == ts->source_code_end) {
+				return stmt_end;
+			}
+			char next = *(ts->cur_char + 1);
+			if (next == '/') {
+				ts->cur_char += 2;
+				read_comment(ts);
+				stmt_end = stmt_end || insert_terminator_on_endline;
+			} else if (next == '*') {
+				ts->cur_char += 2;
+				read_multiline_comment(ts);
+			} else {
+				return stmt_end;
+			}
+			continue;
+		}
+		default: {
+			return stmt_end;
+		}
+		}
+		ts->cur_char++;
+	}
+	return sno_TRUE;
+}
+
+
+
 void read_first_token(Tokenizer* ts) {
 	sno_assert_ptr(ts);
 
@@ -284,4 +400,59 @@ sno_Bool print_source_code_tokens(
 	}
 	vm->exception_jump = vm->exception_jump->prev;
 	return success;
+}
+
+
+
+
+
+sno_no_return void throw_error_message_with_source_code_context(
+	sno_VMState* vm,
+	ExceptionType type,
+	const struct IString* function_name,
+	const struct IString* source_code_name,
+	const struct IString* source_code,
+	uint32_t pos,
+	const char* const message_format,
+	va_list args
+) {
+	char buffer[sno_STACK_BUFFER_LENGTH];
+	int length = 0;
+	switch (type) {
+	case EXCEPTION_SYNTAX_ERROR: {
+		length += snprintf(
+			buffer,
+			sno_STACK_BUFFER_LENGTH - 1 - length,
+			"Syntax error!\n"
+		);
+	} break;
+	}
+	length += snprintf(
+		buffer,
+		sno_STACK_BUFFER_LENGTH - 1 - length,
+		"Some kind of error!\n"
+	);
+}
+
+sno_no_return void throw_syntax_error(
+	Tokenizer* ts,
+	uint32_t pos,
+	const char* const message_format,
+	...
+) {
+	sno_assert_ptr(ts);
+	sno_assert_ptr(pos < ts->source_code->length);
+
+	va_list args;
+	va_start(args, message_format);
+	sno_throw_at_source_code_pos(
+		ts->parent_vm,
+		EXCEPTION_SYNTAX_ERROR,
+		ts->source_code,
+		ts->source_code_name,
+		pos,
+		message_format,
+		args
+	);
+	va_end(args);
 }
