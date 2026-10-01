@@ -3,8 +3,8 @@
 #include <stdlib.h>
 #include <string.h>
 
-sno_API sno_State* sno_create_state(void) {
-	sno_State* state = malloc(sizeof(sno_State));
+sno_API sno_GlobalState* sno_create_state(void) {
+	sno_GlobalState* state = malloc(sizeof(sno_GlobalState));
 	if (!state) {
 		return NULL;
 	}
@@ -13,7 +13,7 @@ sno_API sno_State* sno_create_state(void) {
 	return state;
 }
 
-sno_API void sno_free_state(sno_State* state) {
+sno_API void sno_free_state(sno_GlobalState* state) {
 	sno_assert_ptr(state);
 	free(state);
 }

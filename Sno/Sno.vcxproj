@@ -96,7 +96,7 @@
       <EnforceTypeConversionRules>true</EnforceTypeConversionRules>
       <CompileAs>CompileAsC</CompileAs>
       <UseFullPaths>false</UseFullPaths>
-      <DisableSpecificWarnings>4710;4820;4324;</DisableSpecificWarnings>
+      <DisableSpecificWarnings>4710;4820;4324;5045;</DisableSpecificWarnings>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -119,7 +119,7 @@
       <EnforceTypeConversionRules>true</EnforceTypeConversionRules>
       <CompileAs>CompileAsC</CompileAs>
       <UseFullPaths>false</UseFullPaths>
-      <DisableSpecificWarnings>4710;4820;4324;</DisableSpecificWarnings>
+      <DisableSpecificWarnings>4710;4820;4324;5045;</DisableSpecificWarnings>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -140,7 +140,7 @@
       <EnforceTypeConversionRules>true</EnforceTypeConversionRules>
       <CompileAs>CompileAsC</CompileAs>
       <UseFullPaths>false</UseFullPaths>
-      <DisableSpecificWarnings>4710;4820;4324;</DisableSpecificWarnings>
+      <DisableSpecificWarnings>4710;4820;4324;5045;</DisableSpecificWarnings>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -163,7 +163,7 @@
       <EnforceTypeConversionRules>true</EnforceTypeConversionRules>
       <CompileAs>CompileAsC</CompileAs>
       <UseFullPaths>false</UseFullPaths>
-      <DisableSpecificWarnings>4710;4820;4324;</DisableSpecificWarnings>
+      <DisableSpecificWarnings>4710;4820;4324;5045;</DisableSpecificWarnings>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -173,12 +173,15 @@
   <ItemGroup>
     <ClCompile Include="sno_mem.c" />
     <ClCompile Include="sno_state.c" />
+    <ClCompile Include="sno_string.c" />
     <ClCompile Include="testmain.c" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="sno.h" />
     <ClInclude Include="sno_mem.h" />
     <ClInclude Include="sno_state.h" />
+    <ClInclude Include="sno_string.h" />
+    <ClInclude Include="sno_value.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

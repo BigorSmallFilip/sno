@@ -3,7 +3,7 @@
 #include "sno_state.h"
 #include <stdlib.h>
 
-void* state_alloc(sno_State* state, size_t size) {
+void* state_alloc(sno_GlobalState* state, size_t size) {
 	sno_assert_ptr(state);
 	state->mem_allocated += size;
 	state->num_allocations++;
@@ -14,7 +14,7 @@ void* state_alloc(sno_State* state, size_t size) {
 	return block;
 }
 
-void state_free(sno_State* state, size_t size, void* block) {
+void state_free(sno_GlobalState* state, size_t size, void* block) {
 	sno_assert_ptr(state);
 	sno_assert_ptr(block);
 	sno_assert(state->num_allocations > 0);

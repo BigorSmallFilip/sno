@@ -2,6 +2,7 @@
 #define sno_STATE_H
 
 #include "sno.h"
+#include "sno_string.h"
 #include <setjmp.h>
 
 
@@ -22,13 +23,14 @@ typedef struct ExceptionJump {
 
 
 
-typedef struct sno_State {
+typedef struct sno_GlobalState {
+	StringInterningTable string_table;
 	size_t mem_allocated;
 	size_t num_allocations;
-} sno_State;
+} sno_GlobalState;
 
 typedef struct sno_VM {
-	sno_State* state;
+	sno_GlobalState* state;
 	ExceptionType exception_type;
 	ExceptionJump* exception_jump;
 	char exception_message[EXCEPTION_MESSAGE_MAX_LENGTH];

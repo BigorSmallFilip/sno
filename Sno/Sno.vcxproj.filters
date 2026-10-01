@@ -24,6 +24,9 @@
     <ClCompile Include="sno_mem.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="sno_string.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="sno.h">
@@ -33,6 +36,12 @@
       <Filter>Source Files</Filter>
     </ClInclude>
     <ClInclude Include="sno_mem.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="sno_string.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="sno_value.h">
       <Filter>Source Files</Filter>
     </ClInclude>
   </ItemGroup>
