@@ -10,5 +10,9 @@ int main(int argc, char** argv) {
 		printf("Arg = \"%s\"\n", argv[1]);
 	}
 
+	sno_State* state = sno_create_state();
+
+	sno_free_state(state);
+
 	return 0;
 }

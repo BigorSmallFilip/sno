@@ -185,30 +185,37 @@ typedef int32_t sno_NumberInt;
 #define sno_pow powf
 #endif
 
-#define sno_number_is_valid_u8(num) \
-	((sno_floor(num) == (num)) && ((num) >= 0) && ((num) <= UINT8_MAX))
-#define sno_number_is_valid_i8(num) \
-	((sno_floor(num) == (num)) && ((num) >= INT8_MIN) && ((num) <= INT8_MAX))
-#define sno_number_is_valid_u16(num) \
-	((sno_floor(num) == (num)) && ((num) >= 0) && ((num) <= UINT16_MAX))
-#define sno_number_is_valid_i16(num) \
-	((sno_floor(num) == (num)) && ((num) >= INT16_MIN) && ((num) <= INT16_MAX))
-#define sno_number_is_valid_u32(num) \
-	((sno_floor(num) == (num)) && ((num) >= 0) && ((num) <= UINT32_MAX))
-#define sno_number_is_valid_i32(num) \
-	((sno_floor(num) == (num)) && ((num) >= INT32_MIN) && ((num) <= INT32_MAX))
-#define sno_number_is_valid_u64(num) \
-	((sno_floor(num) == (num)) && ((num) >= 0) && ((num) <= UINT64_MAX))
-#define sno_number_is_valid_i64(num) \
-	((sno_floor(num) == (num)) && ((num) >= INT64_MIN) && ((num) <= INT64_MAX))
-
-#define sno_is_power_of_2(num) (((num) & ((num) - 1)) == 0)
+#define sno_number_is_valid_u8(n) \
+	((sno_floor(n) == (n)) && ((n) >= 0) && ((n) <= UINT8_MAX))
+#define sno_number_is_valid_i8(n) \
+	((sno_floor(n) == (n)) && ((n) >= INT8_MIN) && ((n) <= INT8_MAX))
+#define sno_number_is_valid_u16(n) \
+	((sno_floor(n) == (n)) && ((n) >= 0) && ((n) <= UINT16_MAX))
+#define sno_number_is_valid_i16(n) \
+	((sno_floor(n) == (n)) && ((n) >= INT16_MIN) && ((n) <= INT16_MAX))
+#define sno_number_is_valid_u32(n) \
+	((sno_floor(n) == (n)) && ((n) >= 0) && ((n) <= UINT32_MAX))
+#define sno_number_is_valid_i32(n) \
+	((sno_floor(n) == (n)) && ((n) >= INT32_MIN) && ((n) <= INT32_MAX))
+#define sno_number_is_valid_u64(n) \
+	((sno_floor(n) == (n)) && ((n) >= 0) && ((n) <= UINT64_MAX))
+#define sno_number_is_valid_i64(n) \
+	((sno_floor(n) == (n)) && ((n) >= INT64_MIN) && ((n) <= INT64_MAX))
 
 
+
+#define sno_is_power_of_2(n) (((n) & ((n) - 1)) == 0)
 
 #define sno_min(a, b) ((a) < (b) ? (a) : (b))
 #define sno_max(a, b) ((a) > (b) ? (a) : (b))
 
 #define sno_string_comma_length(string) (string), (sizeof(string) - 1)
+
+
+
+typedef struct sno_State sno_State;
+
+sno_API sno_State* sno_create_state(void);
+sno_API void sno_free_state(sno_State* state);
 
 #endif

@@ -18,9 +18,15 @@
     <ClCompile Include="testmain.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="sno_state.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="sno.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="sno_state.h">
       <Filter>Source Files</Filter>
     </ClInclude>
   </ItemGroup>
