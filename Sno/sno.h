@@ -220,10 +220,13 @@ typedef struct sno_GlobalState sno_GlobalState;
 sno_API sno_GlobalState* sno_create_state(void);
 sno_API void sno_free_state(sno_GlobalState* state);
 
-typedef struct sno_VM sno_VM;
+typedef struct sno_VMState sno_VMState;
+
+sno_API sno_VMState* sno_create_vm(sno_GlobalState* state);
+sno_API void sno_free_vm(sno_VMState* vm);
 
 sno_API sno_no_return void sno_throw_runtime_error(
-	sno_VM* vm,
+	sno_VMState* vm,
 	const char* const message,
 	size_t message_length
 );

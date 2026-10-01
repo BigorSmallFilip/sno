@@ -1,0 +1,93 @@
+
+stmt_list ::= { stmt ';' }
+
+block ::= '{' stmt_list '}'
+
+stmt ::= if_stmt |
+         while_stmt |
+         for_stmt |
+         break_stmt |
+         continue_stmt |
+         return_stmt |
+         function_stmt |
+         declaration_stmt |
+         expr_stmt
+
+if_stmt ::= 'if' expr block [ 'else' ( if_stmt | block ) ]
+
+while_stmt ::= 'while' expr block
+
+for_stmt ::= 'for' identifier '=' expr ',' expr [ ',' expr ] block |
+             'for' identifier [ ',' identifier ] 'in' expr block
+
+break_stmt ::= 'break'
+
+continue_stmt ::= 'continue'
+
+return_stmt ::= 'return' expr_list_open
+
+function_stmt ::= 'function' identifier function_definition
+
+declaration_stmt ::= declarator identifier
+                     { ',' [ declarator ] identifier }
+                     assign expr_list_open
+declarator ::= ( 'var' | 'const' )
+
+expr_stmt ::= expr ( assign | assignop ) expr
+              expr_list_open assign expr_list_open
+              expr
+
+assignop ::= '+=' | '-=' | '*=' | '/=' | '/-=' | '%=' | '**=' |
+             '&=' | '|=' | '^=' | '<<=' | '>>=' |
+assign ::= '='
+
+expr ::= operand | unop expr | expr binop expr
+
+expr_list_multiline ::= [ expr { ( ',' | ';' ) expr_list_multiline } [ ',' | ';' ] ]
+expr_list_closed ::= [ expr { ',' expr_list_closed } [ ',' ] ]
+expr_list_open ::= expr { ',' expr_list_open }
+
+binop ::= '+' | '-' | '*' | '/' | '/-' | '%' | '**' |
+          '&' | '|' | '^' | '<<' | '>>' |
+          '<' | '>' | '<=' | '>=' |
+          '==' | '!=' | '&&' | '||'
+
+unop ::= '-' | '~' | '!'
+
+operand ::= prefix [ { postfix } ]
+
+prefix ::= none | true | false | number | string | constructor |
+           'function' function_definition |
+           identifier | self | '(' expr ')'
+
+postfix ::= '.' identifier | '[' expr ']' | arg_list
+
+arg_list ::= '(' expr_list_closed ')'
+
+function_definition ::= '(' parameter_list ')' block
+parameter_list ::= [ parameter { ',' parameter } [ ',' ] ]
+parameter ::= [ 'const' ] ( 'self' | identifier )
+
+constructor ::= linalg arg_list |
+                '[' expr_list_multiline ']' |
+                '{' keyval_pair_list '}'
+
+keyval_pair_list ::= [ keyval_pair { ( ',' | ';' ) keyval_pair } [ ',' | ';' ] ]
+keyval_pair ::= identifier | identifier ':' expr |
+                'function' identifier function_definition
+
+linalg ::= 'vec2' | 'vec3' | 'vec4' | 'quat' | 'mat2' | 'mat3' | 'mat4'
+
+identifier ::= letter { letter }
+
+string ::= '"' ... '"'
+
+number ::= nonzero_digit { digit } [ '.' { digit } ] |
+           '0.' digit { digit } |
+           '0b' ( '0' | '1' ) { '0' | '1' } |
+           '0x' hex_digit { hex_digit } |
+           '0'
+
+nonzero_digit ::= '1' - '9'
+digit ::= '0' - '9'
+hex_digit ::= '0' - '9' | 'a' - 'f' | 'A' - 'F'

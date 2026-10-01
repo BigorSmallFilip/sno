@@ -29,18 +29,18 @@ typedef struct sno_GlobalState {
 	size_t num_allocations;
 } sno_GlobalState;
 
-typedef struct sno_VM {
+typedef struct sno_VMState {
 	sno_GlobalState* state;
 	ExceptionType exception_type;
 	ExceptionJump* exception_jump;
 	char exception_message[EXCEPTION_MESSAGE_MAX_LENGTH];
 	size_t exception_message_length;
-} sno_VM;
+} sno_VMState;
 
 
 
 sno_no_return void sno_throw(
-	sno_VM* vm,
+	sno_VMState* vm,
 	ExceptionType type,
 	const char* const message,
 	size_t message_length

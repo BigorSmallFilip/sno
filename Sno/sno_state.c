@@ -1,5 +1,6 @@
 #include "sno_state.h"
 
+#include "sno_compiler.h"
 #include <stdlib.h>
 #include <string.h>
 
@@ -19,8 +20,26 @@ sno_API void sno_free_state(sno_GlobalState* state) {
 	free(state);
 }
 
+sno_API sno_VMState* sno_create_vm(sno_GlobalState* state) {
+	sno_assert_ptr(state);
+	sno_VMState* vm = state_alloc(state, sizeof(sno_VMState));
+	memset(vm, 0, sizeof(sno_VMState));
+	vm->state = state;
+	return vm;
+}
+
+sno_API void sno_free_vm(sno_VMState* vm) {
+	sno_assert_ptr(vm);
+	sno_GlobalState* state = vm->state;
+	sno_assert_ptr(state);
+
+	state_free(state, sizeof(sno_VMState), vm);
+}
+
+
+
 sno_no_return void sno_throw(
-	sno_VM* vm,
+	sno_VMState* vm,
 	ExceptionType type,
 	const char* const message,
 	size_t message_length
@@ -39,7 +58,7 @@ sno_no_return void sno_throw(
 }
 
 sno_API sno_no_return void sno_throw_runtime_error(
-	sno_VM* vm,
+	sno_VMState* vm,
 	const char* const message,
 	size_t message_length
 ) {
@@ -53,12 +72,20 @@ sno_API sno_no_return void sno_throw_runtime_error(
 sno_API void sno_run_test_thing(sno_GlobalState* state) {
 	sno_assert_ptr(state);
 
-	(void)create_string(state, sno_string_comma_length("What"));
-	(void)create_string(state, sno_string_comma_length("Is"));
-	(void)create_string(state, sno_string_comma_length("Even"));
-	(void)create_string(state, sno_string_comma_length("Going"));
-	(void)create_string(state, sno_string_comma_length("On?"));
-	(void)create_string(state, sno_string_comma_length("xyz"));
+	(void)create_istring(state, sno_string_comma_length("What"));
+	(void)create_istring(state, sno_string_comma_length("Is"));
+	(void)create_istring(state, sno_string_comma_length("Even"));
+	(void)create_istring(state, sno_string_comma_length("Going"));
+	(void)create_istring(state, sno_string_comma_length("On?"));
+	(void)create_istring(state, sno_string_comma_length("xyz"));
+
+	sno_VMState* vm = sno_create_vm(state);
+	const IString* path = create_istring(state, sno_string_comma_length("test.sno"));
+	(void)print_source_code_tokens(
+		vm,
+		path,
+		load_istring_from_file(state, istring_chars(path), path->length)
+	);
 
 	print_string_interning_table(state);
 }

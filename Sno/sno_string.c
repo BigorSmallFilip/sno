@@ -246,7 +246,7 @@ static IString* create_new_interned_string(
 	return string_obj;
 }
 
-const IString* create_string(
+const IString* create_istring(
 	sno_GlobalState* state,
 	const char* const string,
 	size_t length
@@ -273,4 +273,43 @@ const IString* create_string(
 		}
 	}
 	return create_new_interned_string(state, string, length, hash, iter);
+}
+
+const IString* load_istring_from_file(
+	sno_GlobalState* state,
+	const char* const path,
+	size_t path_length
+) {
+	sno_assert_ptr(state);
+	sno_assert_ptr(path);
+	char path_zero[2048];
+	(void)memcpy(path_zero, path, path_length);
+	path_zero[path_length] = '\0';
+	FILE* file = fopen(path_zero, "r");
+	if (!file) {
+		printf(
+			sno_ANSI_RED "Couldn't open file \"%.*s\"\n" sno_ANSI_NORMAL,
+			(unsigned int)path_length,
+			path
+		);
+		return NULL;
+	}
+	(void)fseek(file, 0L, SEEK_END);
+	long size = ftell(file);
+	sno_assert(size >= 0);
+	rewind(file);
+	sno_assert(size >= 0);
+	char* filebuffer = (char*)state_alloc(state, (size_t)size);
+	if (!filebuffer) {
+		(void)fclose(file);
+		return NULL;
+	}
+	size_t readsize = fread(filebuffer, sizeof(char), (size_t)size, file);
+	if (ferror(file) != 0) {
+		state_free(state, (size_t)size, filebuffer);
+		(void)fclose(file);
+		return NULL;
+	}
+	(void)fclose(file);
+	return create_istring(state, filebuffer, readsize);
 }

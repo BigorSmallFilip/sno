@@ -186,6 +186,12 @@
     <ClInclude Include="sno_string.h" />
     <ClInclude Include="sno_value.h" />
   </ItemGroup>
+  <ItemGroup>
+    <Text Include="formal_syntax.txt" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="test.sno" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>

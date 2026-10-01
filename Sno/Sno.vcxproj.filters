@@ -54,4 +54,14 @@
       <Filter>Source Files</Filter>
     </ClInclude>
   </ItemGroup>
+  <ItemGroup>
+    <Text Include="formal_syntax.txt">
+      <Filter>Source Files</Filter>
+    </Text>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="test.sno">
+      <Filter>Source Files</Filter>
+    </None>
+  </ItemGroup>
 </Project>

@@ -207,3 +207,81 @@ void print_token(const Token* token) {
 	}
 	printf(ANSI_NORMAL);
 }
+
+
+
+void read_first_token(Tokenizer* ts) {
+	sno_assert_ptr(ts);
+
+}
+
+void read_next_token(Tokenizer* ts) {
+	sno_assert_ptr(ts);
+
+}
+
+
+
+static void print_source_code_throws(
+	sno_VMState* vm,
+	const IString* source_code_name,
+	const IString* source_code
+) {
+	sno_assert_ptr(vm);
+	sno_assert_ptr(source_code_name);
+	sno_assert_ptr(source_code);
+
+	Tokenizer ts = { 0 };
+	ts.parent_vm = vm;
+	ts.source_code_name = source_code_name;
+	ts.source_code = source_code;
+	ts.source_code_end = istring_chars(source_code) + source_code->length;
+	ts.cur_char = istring_chars(source_code);
+	ts.token_start = istring_chars(source_code);
+	ts.cs = NULL;
+
+	read_first_token(&ts);
+	sno_Bool new_stmt = sno_TRUE;
+	while (1) {
+		if (new_stmt) {
+			printf("stmt | ");
+		}
+		print_token(&ts.token);
+		if (ts.token.type == TK_TERMINATOR) {
+			putchar('\n');
+		} else {
+			putchar(' ');
+		}
+		new_stmt = ts.token.type == TK_TERMINATOR;
+
+		read_next_token(&ts);
+		if (ts.token.type < 0) {
+			break;
+		}
+	}
+	putchar('\n');
+	putchar('\n');
+}
+
+sno_Bool print_source_code_tokens(
+	sno_VMState* vm,
+	const IString* source_code_name,
+	const IString* source_code
+) {
+	sno_assert_ptr(vm);
+	sno_assert_ptr(source_code_name);
+	sno_assert_ptr(source_code);
+
+	sno_Bool success = sno_TRUE;
+	ExceptionJump exception_jump;
+	exception_jump.prev = vm->exception_jump;
+	vm->exception_jump = &exception_jump;
+	if (setjmp(exception_jump.buf) == EXCEPTION_NONE) {
+		print_source_code_throws(vm, source_code_name, source_code);
+	} else {
+		fprintf(stderr, sno_ANSI_RED "Source code throws" sno_ANSI_NORMAL);
+		success = sno_FALSE;
+	}
+	vm->exception_jump = vm->exception_jump->prev;
+	return success;
+}

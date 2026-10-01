@@ -106,21 +106,45 @@ typedef struct Token {
 
 void print_token(const Token* token);
 
+#define MAX_SYNTAX_DEPTH 200
+
 typedef struct Tokenizer {
 	Token token;
 	Token prev_token;
 	sno_Bool insert_terminator;
-	struct sno_GlobalState* main_state;
+	struct sno_VMState* parent_vm;
 	const struct IString* source_code_name;
 	const struct IString* source_code;
 	const char* source_code_end;
 	const char* cur_char;
 	const char* token_start;
 	uint8_t string_interpolation_depth;
+	uint32_t syntax_depth;
 	struct Compiler* cs;
 } Tokenizer;
 
+void read_first_token(Tokenizer* ts);
+void read_next_token(Tokenizer* ts);
+
+sno_Bool print_source_code_tokens(
+	struct sno_VMState* vm,
+	const struct IString* source_code_name,
+	const struct IString* source_code
+);
+
+#define MAX_LOCAL_VARS_PER_FUNCTION 65000
+#define MAX_ACTIVE_LOCAL_VARS 200
+#define MAX_STACK_ARGS 14
+#if MAX_ACTIVE_LOCAL_VARS + MAX_STACK_ARGS > 254
+#error Too many local variables to store in one byte
+#endif
+#define MAX_NUMBER_CONSTANTS 65000
+#define MAX_STRING_CONSTANTS 65000
+#define MAX_FUNCTION_CONSTANTS 65000
+#define MAX_STACK_CONSTRUCTOR_ARGS 200
+
 typedef struct Compiler {
+
 	Tokenizer* ts;
 } Compiler;
 
