@@ -18,10 +18,6 @@ sno_API void sno_free_state(sno_State* state) {
 	free(state);
 }
 
-sno_API sno_no_return void sno_throw_runtime_error(sno_VM* vm) {
-	sno_assert_ptr(vm);
-}
-
 sno_no_return void sno_throw(
 	sno_VM* vm,
 	ExceptionType type,
@@ -39,4 +35,14 @@ sno_no_return void sno_throw(
 	vm->exception_message_length = message_length;
 	memcpy(vm->exception_message, message, message_length);
 	longjmp(vm->exception_jump->buf, type);
+}
+
+sno_API sno_no_return void sno_throw_runtime_error(
+	sno_VM* vm,
+	const char* const message,
+	size_t message_length
+) {
+	sno_assert_ptr(vm);
+	sno_assert_ptr(message);
+	sno_throw(vm, EXCEPTION_RUNTIME_ERROR, message, message_length);
 }

@@ -221,6 +221,10 @@ sno_API void sno_free_state(sno_State* state);
 
 
 
-sno_API sno_no_return void sno_throw_runtime_error(sno_VM* vm);
+sno_API sno_no_return void sno_throw_runtime_error(
+	sno_VM* vm,
+	const char* const message,
+	size_t message_length
+);
 
 #endif
