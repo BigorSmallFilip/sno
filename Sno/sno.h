@@ -214,8 +214,13 @@ typedef int32_t sno_NumberInt;
 
 
 typedef struct sno_State sno_State;
+typedef struct sno_VM sno_VM;
 
 sno_API sno_State* sno_create_state(void);
 sno_API void sno_free_state(sno_State* state);
+
+
+
+sno_API sno_no_return void sno_throw_runtime_error(sno_VM* vm);
 
 #endif
