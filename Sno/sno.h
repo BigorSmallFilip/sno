@@ -26,7 +26,7 @@
 // During development
 #ifdef sno_MSVC
 
-#define sno_BUILD_LIB
+//#define sno_BUILD_LIB
 
 #define sno_USE_DEBUG_BREAK
 #define sno_USE_ANSI_COLOR
@@ -140,7 +140,7 @@
 #define sno_API __declspec(dllexport)
 #endif
 #else
-#define sno_API __declspec(dllimport)
+#define sno_API extern
 #endif
 
 
