@@ -26,6 +26,8 @@
 // During development
 #ifdef sno_MSVC
 
+#define sno_BUILD_LIB
+
 #define sno_USE_DEBUG_BREAK
 #define sno_USE_ANSI_COLOR
 //#define sno_USE_32BIT_FLOAT_NUMBERS
@@ -138,7 +140,7 @@
 #define sno_API __declspec(dllexport)
 #endif
 #else
-#define sno_API extern
+#define sno_API __declspec(dllimport)
 #endif
 
 

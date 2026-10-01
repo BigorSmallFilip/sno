@@ -2,6 +2,8 @@
 
 #include "sno.h"
 
+#ifndef sno_BUILD_LIB
+
 int main(int argc, char** argv) {
 	sno_assert(argc <= 2);
 	if (argc == 1) {
@@ -18,3 +20,5 @@ int main(int argc, char** argv) {
 
 	return 0;
 }
+
+#endif
