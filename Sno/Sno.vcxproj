@@ -178,6 +178,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="sno.h" />
+    <ClInclude Include="sno_compiler.h" />
     <ClInclude Include="sno_mem.h" />
     <ClInclude Include="sno_state.h" />
     <ClInclude Include="sno_string.h" />

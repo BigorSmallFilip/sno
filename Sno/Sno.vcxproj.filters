@@ -44,5 +44,8 @@
     <ClInclude Include="sno_value.h">
       <Filter>Source Files</Filter>
     </ClInclude>
+    <ClInclude Include="sno_compiler.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>
