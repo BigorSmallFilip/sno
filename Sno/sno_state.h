@@ -4,7 +4,8 @@
 #include "sno.h"
 
 typedef struct sno_State {
-	int temp;
+	size_t mem_allocated;
+	size_t num_allocations;
 } sno_State;
 
 

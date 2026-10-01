@@ -171,11 +171,13 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="sno_mem.c" />
     <ClCompile Include="sno_state.c" />
     <ClCompile Include="testmain.c" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="sno.h" />
+    <ClInclude Include="sno_mem.h" />
     <ClInclude Include="sno_state.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

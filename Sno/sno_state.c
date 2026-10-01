@@ -7,7 +7,8 @@ sno_API sno_State* sno_create_state(void) {
 	if (!state) {
 		return NULL;
 	}
-	state->temp = 0;
+	state->mem_allocated = 0;
+	state->num_allocations = 0;
 	return state;
 }
 
