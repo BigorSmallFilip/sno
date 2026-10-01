@@ -171,9 +171,11 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="sno_compiler.c" />
     <ClCompile Include="sno_mem.c" />
     <ClCompile Include="sno_state.c" />
     <ClCompile Include="sno_string.c" />
+    <ClCompile Include="sno_tokenizer.c" />
     <ClCompile Include="testmain.c" />
   </ItemGroup>
   <ItemGroup>

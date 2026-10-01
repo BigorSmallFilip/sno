@@ -27,6 +27,12 @@
     <ClCompile Include="sno_string.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="sno_compiler.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="sno_tokenizer.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="sno.h">
