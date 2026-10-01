@@ -2,6 +2,7 @@
 
 #include "sno_state.h"
 #include <stdlib.h>
+#include <stdio.h>
 
 void* state_alloc(sno_GlobalState* state, size_t size) {
 	sno_assert_ptr(state);

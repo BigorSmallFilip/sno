@@ -8,7 +8,7 @@
 typedef struct IString {
 	gc_object_string_header;
 	uint8_t swizzle_max : 3;
-	uint8_t siwzzle_repeats : 1;
+	uint8_t swizzle_repeats : 1;
 	uint8_t swizzles;
 	Hash hash;
 	size_t length;
@@ -26,5 +26,11 @@ void init_string_interning_table(struct sno_GlobalState* state, size_t capacity)
 void resize_string_interning_table(struct sno_GlobalState* state, size_t new_capacity);
 void free_string_interning_table(struct sno_GlobalState* state);
 void print_string_interning_table(const struct sno_GlobalState* state);
+
+const IString* create_string(
+	sno_GlobalState* state,
+	const char* const string,
+	size_t length
+);
 
 #endif

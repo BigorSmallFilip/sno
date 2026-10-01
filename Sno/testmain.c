@@ -12,6 +12,8 @@ int main(int argc, char** argv) {
 
 	sno_GlobalState* state = sno_create_state();
 
+	sno_run_test_thing(state);
+
 	sno_free_state(state);
 
 	return 0;

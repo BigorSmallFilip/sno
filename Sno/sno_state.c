@@ -10,6 +10,7 @@ sno_API sno_GlobalState* sno_create_state(void) {
 	}
 	state->mem_allocated = 0;
 	state->num_allocations = 0;
+	init_string_interning_table(state, 64);
 	return state;
 }
 
@@ -45,4 +46,19 @@ sno_API sno_no_return void sno_throw_runtime_error(
 	sno_assert_ptr(vm);
 	sno_assert_ptr(message);
 	sno_throw(vm, EXCEPTION_RUNTIME_ERROR, message, message_length);
+}
+
+
+
+sno_API void sno_run_test_thing(sno_GlobalState* state) {
+	sno_assert_ptr(state);
+
+	(void)create_string(state, sno_string_comma_length("What"));
+	(void)create_string(state, sno_string_comma_length("Is"));
+	(void)create_string(state, sno_string_comma_length("Even"));
+	(void)create_string(state, sno_string_comma_length("Going"));
+	(void)create_string(state, sno_string_comma_length("On?"));
+	(void)create_string(state, sno_string_comma_length("xyz"));
+
+	print_string_interning_table(state);
 }
