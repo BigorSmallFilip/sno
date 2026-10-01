@@ -112,6 +112,7 @@ const char* const token_strings[NUM_TOKEN_TYPES] = {
 
 void print_token(const Token* token) {
 	sno_assert_ptr(token);
+	sno_assert(token->type < NUM_TOKEN_TYPES);
 	if (token->type < 0) {
 		printf(ANSI_EOF "(End of file)");
 	} else {
@@ -196,33 +197,11 @@ void print_token(const Token* token) {
 			(unsigned int)token->info.string->length,
 			istring_chars(token->info.string)
 		); break;
-		case TK_IDENTIFIER:
-		{
-			/*const char* const str = string_chars(token->info.u_string);
-			const size_t len = token->info.u_string->length;
-			if (next_token && next_token->type == TK_LPAREN) {
-				printf(ANSI_FUNCTION);
-				goto print_the_thing;
-			}
-			if (((str[0] >= 'A' && str[0] <= 'Z') || str[0] == '_')) {
-				printf(ANSI_TYPE);
-				for (size_t i = 1; i < len; i++) {
-					if (!((str[i] >= 'A' && str[i] <= 'Z') || str[i] == '_')) {
-						goto print_the_thing;
-					}
-				}
-				printf(ANSI_CONST);
-			} else {
-				printf(ANSI_VARIABLE);
-			}
-		print_the_thing:*/
-			printf(
-				ANSI_VARIABLE "%.*s",
-				(unsigned int)token->info.string->length,
-				istring_chars(token->info.string)
-			);
-			break;
-		}
+		case TK_IDENTIFIER: printf(
+			ANSI_VARIABLE "%.*s",
+			(unsigned int)token->info.string->length,
+			istring_chars(token->info.string)
+		); break;
 		default: sno_unreachable; break;
 		}
 	}
