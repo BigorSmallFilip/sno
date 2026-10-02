@@ -1,0 +1,7 @@
+
+Syntax error in "test.sno" on line 5
+       | 
+    2  |  print("Hello)
+       |        ^~~~~~~^ - String is missing closing quotes
+
+Runtime exception thrown in ""

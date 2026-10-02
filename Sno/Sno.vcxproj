@@ -187,7 +187,9 @@
     <ClInclude Include="sno_value.h" />
   </ItemGroup>
   <ItemGroup>
+    <Text Include="error_messages.txt" />
     <Text Include="formal_syntax.txt" />
+    <Text Include="sno_one.c" />
   </ItemGroup>
   <ItemGroup>
     <None Include="test.sno" />

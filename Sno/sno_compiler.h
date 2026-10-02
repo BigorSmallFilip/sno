@@ -151,6 +151,8 @@ typedef struct Compiler {
 
 
 
+void 
+
 sno_no_return void throw_error_message_with_source_code_context(
 	sno_VMState* vm,
 	ExceptionType type,

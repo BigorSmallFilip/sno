@@ -1,0 +1,6 @@
+#include "sno_compiler.c"
+#include "sno_mem.c"
+#include "sno_state.c"
+#include "sno_string.c"
+#include "sno_tokenizer.c"
+#include "testmain.c"

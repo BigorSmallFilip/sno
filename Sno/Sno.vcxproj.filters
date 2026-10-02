@@ -58,6 +58,12 @@
     <Text Include="formal_syntax.txt">
       <Filter>Source Files</Filter>
     </Text>
+    <Text Include="error_messages.txt">
+      <Filter>Source Files</Filter>
+    </Text>
+    <Text Include="sno_one.c">
+      <Filter>Source Files</Filter>
+    </Text>
   </ItemGroup>
   <ItemGroup>
     <None Include="test.sno">
