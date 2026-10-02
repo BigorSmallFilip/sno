@@ -3,6 +3,7 @@
 
 #include "sno.h"
 #include "sno_state.h"
+#include <stdarg.h>
 
 enum {
 	TK_TERMINATOR,
@@ -151,7 +152,6 @@ typedef struct Compiler {
 
 
 
-void 
 
 sno_no_return void throw_error_message_with_source_code_context(
 	sno_VMState* vm,

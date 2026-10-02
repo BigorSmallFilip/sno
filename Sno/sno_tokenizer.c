@@ -1,8 +1,6 @@
 #include "sno_compiler.h"
 
 #include <stdio.h>
-#include <stdarg.h>
-#include "sno_state.h"
 #include "sno_string.h"
 
 const char* const token_strings[NUM_TOKEN_TYPES] = {
