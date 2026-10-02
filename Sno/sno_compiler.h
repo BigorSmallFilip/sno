@@ -162,9 +162,12 @@ typedef union CompilerInstruction {
 
 DECLARE_GENERIC_DYN_ARRAY(CompilerInstruction, Instruction, instruction);
 DECLARE_GENERIC_DYN_ARRAY(Bytecode, Bytecode, bytecode);
+DECLARE_GENERIC_DYN_ARRAY(LocalVar, LocalVar, local_var);
+
+#define MAX_BLOCK_DEPTH 3
 
 typedef struct Block {
-	struct sno_Block* prev;
+	struct Block* prev;
 	uint8_t num_active_local_vars;
 	sno_Bool is_loop;
 	sno_Bool is_global;
@@ -177,6 +180,12 @@ typedef struct Compiler {
 	NumberDynArray number_constants;
 	IStringDynArray string_constants;
 	BytecodeDynArray bytecode_constants;
+	LocalVarDynArray local_vars;
+	Block* current_block;
+	size_t current_block_depth;
+	LocalSlot num_active_local_slots;
+	LocalSlot max_active_local_slots;
+	LocalID active_local_vars[MAX_ACTIVE_LOCAL_VARS]; // Indexes into the local_vars dynarray
 } Compiler;
 
 Bytecode* compile_source_code(
