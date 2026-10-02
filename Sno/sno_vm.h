@@ -50,8 +50,12 @@ enum {
 	OP_UNOP,
 	OP_BINOP,
 	OP_RETURN,
+	NUM_OPCODES,
 };
 typedef uint8_t OpCode;
+
+extern const char* const opcode_names[];
+
 typedef uint16_t Instruction;
 typedef uint16_t ConstID;
 typedef uint8_t LocalSlot;
@@ -70,5 +74,7 @@ typedef struct LocalVar {
 typedef struct Bytecode {
 	struct IString* name;
 } Bytecode;
+
+void print_bytecode(const Bytecode* bytecode);
 
 #endif

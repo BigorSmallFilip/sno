@@ -44,7 +44,11 @@ static void init_function_compiler(Tokenizer* ts, Compiler* cs) {
 
 static Bytecode* free_function_compiler(Tokenizer* ts, Compiler* cs) {
 	Bytecode* bytecode = create_bytecode(ts->parent_vm);
-	
+	bytecode->name = create_istring(
+		ts->parent_vm->state,
+		sno_string_comma_length("Wonk")
+	);
+
 	ts->cs = cs->parent_function;
 	return bytecode;
 }
@@ -169,7 +173,7 @@ static LocalSlot try_declare_local_variable(Tokenizer* ts, Token token) {
 }
 
 static void deactivate_local_variables(Compiler* cs, LocalSlot to_id) {
-	sno_assert(to_id >= 1 && to_id <= MAX_ACTIVE_LOCAL_VARS);
+	sno_assert(to_id >= 0 && to_id <= MAX_ACTIVE_LOCAL_VARS);
 	for (int i = cs->num_active_local_slots - 1; i >= (int)to_id; i--) {
 		cs->local_vars.buffer[i].end_pc = (PC)cs->instructions.count;
 	}
@@ -259,53 +263,23 @@ static void exit_block(Compiler* cs) {
 
 
 static void operand_primary(Tokenizer* ts) {
-
+	switch (ts->token.type) {
+	case TK_NUMBER: {
+		emit(
+			ts,
+			OP_NUMBER,
+			add_number_constant(ts->cs, ts->token.info.number),
+			ts->token.pos
+		);
+	} break;
+	default:
+		break;
+	}
+	read_next_token(ts);
 }
 
 static void operand(Tokenizer* ts) {
 	operand_primary(ts);
-	while (1) { // For repeated application such as list[1][2].field[3]
-		switch (ts->token.type) {
-		case TK_LBRACKET: { // Index
-			SourceCodePos lbracket_at = ts->token.pos;
-			read_next_token(ts);
-			expression(ts);
-			expect_token_and_skip(ts, TK_RBRACKET);
-			emit_instruction_at(ts, I_GET_INDEX, lbracket_at);
-			break;
-		}
-		case sno_TK_DOT: { // Field or method call
-			uint32_t dot_at = ts->token.source_code_pos;
-			skip_token(ts, sno_TK_DOT);
-			expect_token(ts, sno_TK_IDENTIFIER);
-			uint8_t name_const_id = add_string_constant(ts->cs, ts->token.info.u_string);
-			sno_read_next_token(ts);
-			if (ts->token.type == sno_TK_LPAREN) {
-				emit_instruction_1_at(ts, sno_I_GET_METHOD , name_const_id, dot_at);
-				uint32_t lparen_at = ts->token.source_code_pos;
-				skip_token(ts, sno_TK_LPAREN);
-				uint32_t num_args = parse_closed_expression_list(ts, sno_TK_RPAREN);
-				sno_Instruction call = sno_I_CALL | (num_args << 8) | (1 << 12);
-				emit_instruction_at(ts, call, lparen_at);
-			} else {
-				emit_instruction_1_at(ts, sno_I_GET_FIELD, name_const_id, dot_at);
-			}
-			break;
-		}
-		case sno_TK_LPAREN: { // Function call
-			uint32_t lparen_at = ts->token.source_code_pos;
-			skip_token(ts, sno_TK_LPAREN);
-			emit_instruction(ts, sno_I_LOAD_NONE); // Self parameter = null
-			uint32_t num_args = parse_closed_expression_list(ts, sno_TK_RPAREN);
-			sno_Instruction call = sno_I_CALL | (num_args << 8) | (1 << 12);
-			emit_instruction_at(ts, call, lparen_at);
-			break;
-		}
-		default: {
-			return;
-		}
-		}
-	}
 }
 
 
@@ -479,7 +453,7 @@ static void declaration_statement(Tokenizer* ts) {
 	} else {
 		sno_assert(num_declarations >= 1);
 		sno_assert(ts->prev_token.type == TK_ASSIGN);
-		size_t i = 1;
+		size_t i = 0;
 		while (1) {
 			expression(ts);
 			if (ts->token.type == TK_TERMINATOR) {
@@ -555,10 +529,14 @@ static void block(Tokenizer* ts, sno_Bool is_loop, sno_Bool is_global) {
 	Block block;
 	enter_block(ts->cs, &block, is_loop, is_global);
 	while (1) {
+		if (ts->token.type == TK_EOF) {
+			break;
+		}
 		statement(ts);
 		if (ts->token.type != TK_TERMINATOR) {
 			syntax_error_at_cur_token(ts, "Statement didn't end properly lol");
 		}
+		read_next_token(ts);
 	}
 	exit_block(ts->cs);
 }
@@ -601,10 +579,6 @@ static Bytecode* parse_global_scope(Tokenizer* ts) {
 	emit(ts, OP_RETURN, 0, NO_POS);
 	Bytecode* bytecode = free_function_compiler(ts, &cs);
 
-#ifdef DEBUG_PRINT_PARSER
-	//sno_print_bytecode(cs.bytecode);
-#endif
-
 	return bytecode;
 }
 
@@ -638,5 +612,10 @@ Bytecode* compile_source_code(
 	}
 
 	vm->exception_jump = vm->exception_jump->prev;
+
+#ifdef DEBUG_PRINT_PARSER
+	print_bytecode(bytecode);
+#endif
+
 	return bytecode;
 }
