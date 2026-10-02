@@ -78,19 +78,24 @@
 #define sno_stringify2(x) #x
 #define sno_location_macro " | " __FILE__ " | " __FUNCTION__ "() | Line " sno_stringify(__LINE__)
 
-#define sno_assert(expr) if (!(expr)) \
+#define sno_assert(expr) if (!(expr)) { \
 	fputs(sno_ANSI_RED "Assertion failed!" sno_location_macro "\n" \
-	"Expression: " #expr sno_ANSI_NORMAL "\n", stderr), sno_DEBUG_BREAK
-#define sno_assert_ptr(ptr) if (!(ptr)) \
+	"Expression: " #expr sno_ANSI_NORMAL "\n", stderr); sno_DEBUG_BREAK; \
+}
+#define sno_assert_ptr(ptr) if (!(ptr)) { \
 	fputs(sno_ANSI_RED "Assertion failed!" sno_location_macro "\n" \
-	"Pointer \"" #ptr "\" was null" sno_ANSI_NORMAL "\n", stderr), sno_DEBUG_BREAK
-#define sno_assert_msg(expr, msg) if (!(expr)) \
+	"Pointer \"" #ptr "\" was null" sno_ANSI_NORMAL "\n", stderr); sno_DEBUG_BREAK; \
+}
+#define sno_assert_msg(expr, msg) if (!(expr)) { \
 	fputs(sno_ANSI_RED "Assertion failed!" sno_location_macro "\n" \
-	"Expression: " #expr " | " msg sno_ANSI_NORMAL "\n", stderr), sno_DEBUG_BREAK
-#define sno_unreachable \
-	fputs(sno_ANSI_RED "Unreachable code!" sno_location_macro sno_ANSI_NORMAL "\n", stderr), sno_DEBUG_BREAK
-#define sno_not_implemented \
-	fputs(sno_ANSI_RED "Not implemented!" sno_location_macro sno_ANSI_NORMAL "\n", stderr), sno_DEBUG_BREAK
+	"Expression: " #expr " | " msg sno_ANSI_NORMAL "\n", stderr); sno_DEBUG_BREAK; \
+}
+#define sno_unreachable { \
+	fputs(sno_ANSI_RED "Unreachable code!" sno_location_macro sno_ANSI_NORMAL "\n", stderr); sno_DEBUG_BREAK; \
+}
+#define sno_not_implemented { \
+	fputs(sno_ANSI_RED "Not implemented!" sno_location_macro sno_ANSI_NORMAL "\n", stderr); sno_DEBUG_BREAK; \
+}
 
 #else
 #ifdef sno_USE_ASSUME

@@ -1,7 +1,5 @@
 #include "sno_compiler.h"
 
-#include "sno_vm.h"
-
 static Bytecode* parse_source_code(Tokenizer* ts) {
 	sno_assert_ptr(ts);
 	return NULL;

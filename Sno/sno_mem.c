@@ -1,7 +1,6 @@
 #include "sno_mem.h"
 
 #include "sno_state.h"
-#include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
 
@@ -41,3 +40,7 @@ void state_free(sno_GlobalState* state, size_t size, void* block) {
 	state->num_allocations--;
 	free(block);
 }
+
+
+
+DEFINE_GENERIC_DYN_ARRAY(uint8_t, Byte, byte);

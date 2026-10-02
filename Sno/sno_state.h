@@ -7,6 +7,9 @@
 
 
 
+// Simple index of a character in some source code string
+typedef uint32_t SourceCodePos;
+
 typedef enum ExceptionType {
 	EXCEPTION_NONE,
 	EXCEPTION_SYNTAX_ERROR,

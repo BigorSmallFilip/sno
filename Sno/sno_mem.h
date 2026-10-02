@@ -3,6 +3,8 @@
 
 #include "sno.h"
 
+#include <string.h>
+
 
 
 void* state_alloc(sno_GlobalState* state, size_t size);
@@ -33,9 +35,9 @@ void snake_case##_dyn_array_clear(			              \
 void snake_case##_dyn_array_push_n(			              \
 	sno_VMState* vm,									  \
 	name##DynArray* dyn_array,							  \
-	const type* item									  \
+	const type* item,									  \
 	size_t num_items									  \
-)														  \
+);														  \
 void snake_case##_dyn_array_push(			              \
 	sno_VMState* vm,									  \
 	name##DynArray* dyn_array,							  \
@@ -60,7 +62,11 @@ void snake_case##_dyn_array_clear(										 \
 	sno_assert_ptr(vm);													 \
 	sno_assert_ptr(dyn_array);											 \
 	sno_assert_ptr(dyn_array->buffer);									 \
-	state_free(dyn_array->buffer);										 \
+	state_free(															 \
+        vm->state,														 \
+		sizeof(type) * dyn_array->capacity,								 \
+		dyn_array->buffer												 \
+	);										 							 \
 	snake_case##_dyn_array_init(dyn_array);								 \
 }																		 \
 																		 \

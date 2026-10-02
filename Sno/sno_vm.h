@@ -2,6 +2,13 @@
 #define sno_VM_H
 
 #include "sno.h"
+#include "sno_state.h"
+
+enum {
+	OP_NONE,
+};
+typedef uint8_t OpCode;
+typedef uint16_t Instruction;
 
 typedef struct Bytecode {
 	struct IString* name;

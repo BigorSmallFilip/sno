@@ -3,6 +3,7 @@
 
 #include "sno.h"
 #include "sno_state.h"
+#include "sno_vm.h"
 #include <stdarg.h>
 
 enum {
@@ -145,12 +146,18 @@ sno_Bool print_source_code_tokens(
 #define MAX_FUNCTION_CONSTANTS 65000
 #define MAX_STACK_CONSTRUCTOR_ARGS 200
 
+typedef struct CompilerInstruction {
+	OpCode opcode;
+	uint16_t arg;
+	SourceCodePos pos;
+} CompilerInstruction;
+
 typedef struct Compiler {
-	struct Bytecode* bytecode;
+	Bytecode* bytecode;
 	Tokenizer* ts;
 } Compiler;
 
-struct Bytecode* compile_source_code(
+Bytecode* compile_source_code(
 	sno_VMState* vm,
 	const struct IString* source_code,
 	const struct IString* source_code_name
