@@ -2,6 +2,7 @@
 #define sno_COMPILER_H
 
 #include "sno.h"
+#include "sno_mem.h"
 #include "sno_state.h"
 #include "sno_vm.h"
 #include <stdarg.h>
@@ -135,6 +136,8 @@ sno_Bool print_source_code_tokens(
 	const struct IString* source_code
 );
 
+
+
 #define MAX_LOCAL_VARS_PER_FUNCTION 65000
 #define MAX_ACTIVE_LOCAL_VARS 200
 #define MAX_STACK_ARGS 14
@@ -146,15 +149,21 @@ sno_Bool print_source_code_tokens(
 #define MAX_FUNCTION_CONSTANTS 65000
 #define MAX_STACK_CONSTRUCTOR_ARGS 200
 
-typedef struct CompilerInstruction {
-	OpCode opcode;
-	uint16_t arg;
-	SourceCodePos pos;
+typedef union CompilerInstruction {
+	uint64_t i;
+	struct {
+		OpCode opcode;
+		uint16_t arg;
+		SourceCodePos pos;
+	} d;
 } CompilerInstruction;
 
+DECLARE_GENERIC_DYN_ARRAY(CompilerInstruction, Instruction, instruction);
+
 typedef struct Compiler {
-	Bytecode* bytecode;
 	Tokenizer* ts;
+	struct Compiler* parent_function;
+
 } Compiler;
 
 Bytecode* compile_source_code(
