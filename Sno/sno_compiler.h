@@ -159,7 +159,7 @@ size_t sprint_source_code_context(
 	uint32_t pos
 );
 
-sno_no_return void throw_syntax_error(
+sno_no_return void syntax_error(
 	Tokenizer* ts,
 	uint32_t pos,
 	const char* const message_format,

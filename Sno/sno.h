@@ -233,6 +233,9 @@ sno_API sno_no_return void sno_throw_runtime_error(
 	const char* const message,
 	size_t message_length
 );
+sno_API void sno_print_error_message(
+	const sno_VMState* vm
+);
 
 sno_API void sno_run_test_thing(sno_GlobalState* state);
 

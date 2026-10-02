@@ -222,6 +222,16 @@ static sno_inline sno_Bool check_next(Tokenizer* ts, char c) {
 	}
 }
 
+static sno_inline sno_Bool check_next_alphanumeric(Tokenizer* ts) {
+	char c = *ts->cur_char;
+	if (is_alpha(c) || is_digit(c)) {
+		ts->cur_char++;
+		return sno_TRUE;
+	} else {
+		return sno_FALSE;
+	}
+}
+
 
 
 
@@ -242,7 +252,7 @@ static void read_multiline_comment(Tokenizer* ts) {
 	while (1) {
 		sno_assert(ts->cur_char <= ts->source_code_end);
 		if (ts->cur_char == ts->source_code_end) {
-			throw_syntax_error(
+			syntax_error(
 				ts,
 				(uint32_t)(start - istring_chars(ts->source_code) - 2),
 				"This multi-line comment doesn't close"
@@ -286,7 +296,7 @@ static sno_Bool skip_whitespace_and_comments(
 			if (check_next(ts, '\n') || (check_next(ts, '\r') && check_next(ts, '\n'))) {
 				break;
 			}
-			throw_syntax_error(
+			syntax_error(
 				ts,
 				(uint32_t)(backslash - istring_chars(ts->source_code)),
 				"Backslash characters must be the last character on a line, including spaces"
@@ -328,14 +338,392 @@ static sno_Bool skip_whitespace_and_comments(
 
 
 
+static TokenType lex_token(Tokenizer* ts, Token* token) {
+	sno_assert_ptr(ts);
+	sno_assert_ptr(token);
+
+	ts->token_start = ts->cur_char;
+	token->pos = (uint32_t)(ts->token_start - istring_chars(ts->source_code));
+
+	sno_assert(ts->cur_char <= ts->source_code_end);
+	if (ts->cur_char == ts->source_code_end) {
+		return TK_EOF;
+	}
+
+	switch (*ts->cur_char) {
+	case '+': {
+		ts->cur_char++;
+		if (check_next(ts, '=')) return TK_ASSIGNADD;
+		else if (check_next(ts, '+')) return TK_INC;
+		else return TK_ADD;
+	}
+	case '-': {
+		ts->cur_char++;
+		if (check_next(ts, '=')) return TK_ASSIGNSUB;
+		else if (check_next(ts, '-')) return TK_DEC;
+		else return TK_SUB;
+	}
+	case '*': {
+		ts->cur_char++;
+		if (check_next(ts, '=')) return TK_ASSIGNMUL;
+		else if (check_next(ts, '*')) {
+			if (check_next(ts, '=')) return TK_ASSIGNPOW;
+			else return TK_POW;
+		} else return TK_MUL;
+	}
+	case '/': {
+		ts->cur_char++;
+		sno_assert(!check_next(ts, '/'));
+		sno_assert(!check_next(ts, '*'));
+		if (check_next(ts, '=')) return TK_ASSIGNDIV;
+		else if (check_next(ts, '-')) {
+			if (check_next(ts, '=')) return TK_ASSIGNIDIV;
+			else return TK_IDIV;
+		} else return TK_DIV;
+	}
+	case '%': {
+		ts->cur_char++;
+		if (check_next(ts, '=')) return TK_ASSIGNMOD;
+		else return TK_MOD;
+	}
+	case '&': {
+		ts->cur_char++;
+		if (check_next(ts, '=')) return TK_ASSIGNBAND;
+		else if (check_next(ts, '&')) return TK_LAND;
+		else return TK_BAND;
+	}
+	case '|': {
+		ts->cur_char++;
+		if (check_next(ts, '=')) return TK_ASSIGNBOR;
+		else if (check_next(ts, '|')) return TK_LOR;
+		else return TK_BOR;
+	}
+	case '^': {
+		ts->cur_char++;
+		if (check_next(ts, '=')) return TK_ASSIGNBXOR;
+		else return TK_BXOR;
+	}
+	case '<': {
+		ts->cur_char++;
+		if (check_next(ts, '=')) return TK_LE;
+		else if (check_next(ts, '<')) {
+			if (check_next(ts, '=')) return TK_ASSIGNSHL;
+			else return TK_SHL;
+		} else return TK_LT;
+	}
+	case '>': {
+		ts->cur_char++;
+		if (check_next(ts, '=')) return TK_GE;
+		else if (check_next(ts, '>')) {
+			if (check_next(ts, '=')) return TK_ASSIGNSHR;
+			else return TK_SHR;
+		} else return TK_GT;
+	}
+	case '=': {
+		ts->cur_char++;
+		if (check_next(ts, '=')) return TK_EQ;
+		else return TK_ASSIGN;
+	}
+	case '~': {
+		ts->cur_char++;
+		return TK_BITFLIP;
+	}
+	case '!': {
+		ts->cur_char++;
+		if (check_next(ts, '=')) return TK_NEQ;
+		else return TK_LNOT;
+	}
+	case '(': {
+		ts->cur_char++;
+		return TK_LPAREN;
+	}
+	case ')': {
+		ts->cur_char++;
+		return TK_RPAREN;
+	}
+	case '[': {
+		ts->cur_char++;
+		return TK_LBRACKET;
+	}
+	case ']': {
+		ts->cur_char++;
+		return TK_RBRACKET;
+	}
+	case '{': {
+		ts->cur_char++;
+		return TK_LBRACE;
+	}
+	case '}': {
+		ts->cur_char++;
+		return TK_RBRACE;
+	}
+	case '.': {
+		ts->cur_char++;
+		return TK_DOT;
+	}
+	case ',': {
+		ts->cur_char++;
+		return TK_COMMA;
+	}
+	case ':': {
+		ts->cur_char++;
+		return TK_COLON;
+	}
+	case '\"': {
+		sno_Bool interpolated = sno_FALSE;
+		//read_string_literal(ts, token, &interpolated);
+		sno_not_implemented;
+		return TK_STRING + interpolated;
+	}
+
+	case '0': case '1': case '2': case '3': case '4':
+	case '5': case '6': case '7': case '8': case '9': {
+		//read_number(ts, token);
+		sno_not_implemented;
+		return TK_NUMBER;
+	}
+
+	case 'b': {
+		ts->cur_char++;
+		if (!check_next(ts, 'r')) goto identifier;
+		if (!check_next(ts, 'e')) goto identifier;
+		if (!check_next(ts, 'a')) goto identifier;
+		if (!check_next(ts, 'k')) goto identifier;
+		if (check_next_alphanumeric(ts)) goto identifier;
+		return TK_BREAK;
+	}
+	case 'c': {
+		ts->cur_char++;
+		if (!check_next(ts, 'o')) goto identifier;
+		if (!check_next(ts, 'n')) goto identifier;
+		if (check_next(ts, 's')) {
+			if (!check_next(ts, 't')) goto identifier;
+			if (check_next_alphanumeric(ts)) goto identifier;
+			return TK_CONST;
+		} else if (check_next(ts, 't')) {
+			if (!check_next(ts, 'i')) goto identifier;
+			if (!check_next(ts, 'n')) goto identifier;
+			if (!check_next(ts, 'u')) goto identifier;
+			if (!check_next(ts, 'e')) goto identifier;
+			if (check_next_alphanumeric(ts)) goto identifier;
+			return TK_CONTINUE;
+		}
+		goto identifier;
+	}
+	case 'e': {
+		ts->cur_char++;
+		if (!check_next(ts, 'l')) goto identifier;
+		if (!check_next(ts, 's')) goto identifier;
+		if (!check_next(ts, 'e')) goto identifier;
+		if (check_next_alphanumeric(ts)) goto identifier;
+		return TK_ELSE;
+	}
+	case 'f': {
+		ts->cur_char++;
+		if (check_next(ts, 'a')) {
+			if (!check_next(ts, 'l')) goto identifier;
+			if (!check_next(ts, 's')) goto identifier;
+			if (!check_next(ts, 'e')) goto identifier;
+			if (check_next_alphanumeric(ts)) goto identifier;
+			return TK_FALSE;
+		} else if (check_next(ts, 'o')) {
+			if (!check_next(ts, 'r')) goto identifier;
+			if (check_next_alphanumeric(ts)) goto identifier;
+			return TK_FOR;
+		} else if (check_next(ts, 'u')) {
+			if (!check_next(ts, 'n')) goto identifier;
+			if (!check_next(ts, 'c')) goto identifier;
+			if (!check_next(ts, 't')) goto identifier;
+			if (!check_next(ts, 'i')) goto identifier;
+			if (!check_next(ts, 'o')) goto identifier;
+			if (!check_next(ts, 'n')) goto identifier;
+			if (check_next_alphanumeric(ts)) goto identifier;
+			return TK_FUNCTION;
+		}
+		goto identifier;
+	}
+	case 'i': {
+		ts->cur_char++;
+		if (check_next(ts, 'f')) {
+			if (check_next_alphanumeric(ts)) goto identifier;
+			return TK_IF;
+		} else if (check_next(ts, 'n')) {
+			if (check_next_alphanumeric(ts)) goto identifier;
+			return TK_IN;
+		}
+		goto identifier;
+	}
+	case 'm': {
+		ts->cur_char++;
+		if (!check_next(ts, 'a')) goto identifier;
+		if (!check_next(ts, 't')) goto identifier;
+		if (check_next(ts, '2')) {
+			if (check_next_alphanumeric(ts)) goto identifier;
+			return TK_MAT2;
+		}
+		if (check_next(ts, '3')) {
+			if (check_next_alphanumeric(ts)) goto identifier;
+			return TK_MAT3;
+		}
+		if (check_next(ts, '4')) {
+			if (check_next_alphanumeric(ts)) goto identifier;
+			return TK_MAT4;
+		}
+		goto identifier;
+	}
+	case 'n': {
+		ts->cur_char++;
+		if (!check_next(ts, 'o')) goto identifier;
+		if (!check_next(ts, 'n')) goto identifier;
+		if (!check_next(ts, 'e')) goto identifier;
+		if (check_next_alphanumeric(ts)) goto identifier;
+		return TK_NONE;
+	}
+	case 'q': {
+		ts->cur_char++;
+		if (!check_next(ts, 'u')) goto identifier;
+		if (!check_next(ts, 'a')) goto identifier;
+		if (!check_next(ts, 't')) goto identifier;
+		if (check_next_alphanumeric(ts)) goto identifier;
+		return TK_QUAT;
+	}
+	case 'r': {
+		ts->cur_char++;
+		if (!check_next(ts, 'e')) goto identifier;
+		if (!check_next(ts, 't')) goto identifier;
+		if (!check_next(ts, 'u')) goto identifier;
+		if (!check_next(ts, 'r')) goto identifier;
+		if (!check_next(ts, 'n')) goto identifier;
+		if (check_next_alphanumeric(ts)) goto identifier;
+		return TK_RETURN;
+	}
+	case 's': {
+		ts->cur_char++;
+		if (!check_next(ts, 'e')) goto identifier;
+		if (!check_next(ts, 'l')) goto identifier;
+		if (!check_next(ts, 'f')) goto identifier;
+		if (check_next_alphanumeric(ts)) goto identifier;
+		return TK_SELF;
+	}
+	case 't': {
+		ts->cur_char++;
+		if (!check_next(ts, 'r')) goto identifier;
+		if (!check_next(ts, 'u')) goto identifier;
+		if (!check_next(ts, 'e')) goto identifier;
+		if (check_next_alphanumeric(ts)) goto identifier;
+		return TK_TRUE;
+	}
+	case 'v': {
+		ts->cur_char++;
+		if (check_next(ts, 'a')) {
+			if (!check_next(ts, 'r')) goto identifier;
+			if (check_next_alphanumeric(ts)) goto identifier;
+			return TK_VAR;
+		} else if (check_next(ts, 'e')) {
+			if (!check_next(ts, 'c')) goto identifier;
+			if (check_next(ts, '2')) {
+				if (check_next_alphanumeric(ts)) goto identifier;
+				return TK_VEC2;
+			}
+			if (check_next(ts, '3')) {
+				if (check_next_alphanumeric(ts)) goto identifier;
+				return TK_VEC3;
+			}
+			if (check_next(ts, '4')) {
+				if (check_next_alphanumeric(ts)) goto identifier;
+				return TK_VEC4;
+			}
+		}
+		goto identifier;
+	}
+	case 'w': {
+		ts->cur_char++;
+		if (!check_next(ts, 'h')) goto identifier;
+		if (!check_next(ts, 'i')) goto identifier;
+		if (!check_next(ts, 'l')) goto identifier;
+		if (!check_next(ts, 'e')) goto identifier;
+		if (check_next_alphanumeric(ts)) goto identifier;
+		return TK_WHILE;
+	}
+
+	case 'a':                     case 'd':
+	case 'g': case 'h': case 'j': case 'k': case 'l':
+	                    case 'o': case 'p':
+	case 'u':                     case 'x':
+	case 'y': case 'z':
+	case 'A': case 'B': case 'C': case 'D': case 'E': case 'F':
+	case 'G': case 'H': case 'I': case 'J': case 'K': case 'L':
+	case 'M': case 'N': case 'O': case 'P': case 'Q': case 'R':
+	case 'S': case 'T': case 'U': case 'V': case 'W': case 'X':
+	case 'Y': case 'Z': case '_':
+	identifier:
+	{
+		if (is_alpha(*ts->cur_char) || is_digit(*ts->cur_char)) {
+			ts->cur_char++;
+			goto identifier;
+		}
+		size_t length = ts->cur_char - ts->token_start;
+		sno_assert(length < UINT32_MAX);
+		token->info.string = create_istring(
+			ts->parent_vm->state,
+			ts->token_start,
+			length
+		);
+		return TK_IDENTIFIER;
+	}
+
+	default: {
+		// All other characters are invalid
+		syntax_error(
+			ts,
+			(uint32_t)(ts->token_start - istring_chars(ts->source_code)),
+			"There is an invalid character here"
+		);
+	}
+	}
+	//sno_unreachable; // Gives a warning about unreachable code
+}
+
+
+
 void read_first_token(Tokenizer* ts) {
 	sno_assert_ptr(ts);
-
+	(void)skip_whitespace_and_comments(ts, sno_FALSE);
+	ts->token.type = TK_EOF; // Will become prev_token
+	ts->insert_terminator = sno_FALSE;
+	read_next_token(ts);
 }
 
 void read_next_token(Tokenizer* ts) {
 	sno_assert_ptr(ts);
-
+	ts->prev_token = ts->token;
+	if (ts->insert_terminator) {
+		ts->insert_terminator = sno_FALSE;
+		ts->token.type = TK_TERMINATOR;
+	} else {
+		ts->token.type = lex_token(ts, &ts->token);
+		sno_Bool insert_terminator_on_endline = sno_FALSE;
+		switch (ts->token.type) {
+		case TK_IDENTIFIER:
+		case TK_FALSE:
+		case TK_TRUE:
+		case TK_NONE:
+		case TK_NUMBER:
+		case TK_STRING:
+		case TK_BREAK:
+		case TK_CONTINUE:
+		case TK_RETURN:
+		case TK_RPAREN:
+		case TK_RBRACKET:
+		case TK_RBRACE:
+			insert_terminator_on_endline = sno_TRUE;
+		default: break;
+		}
+		ts->insert_terminator = skip_whitespace_and_comments(
+			ts,
+			insert_terminator_on_endline
+		);
+	}
 }
 
 
@@ -397,7 +785,8 @@ sno_Bool print_source_code_tokens(
 	if (setjmp(exception_jump.buf) == EXCEPTION_NONE) {
 		print_source_code_throws(vm, source_code_name, source_code);
 	} else {
-		fprintf(stderr, sno_ANSI_RED "Source code throws" sno_ANSI_NORMAL);
+		fprintf(stderr, "\n");
+		sno_print_error_message(vm);
 		success = sno_FALSE;
 	}
 	vm->exception_jump = vm->exception_jump->prev;
@@ -407,6 +796,22 @@ sno_Bool print_source_code_tokens(
 
 
 
+
+static size_t sprint_syntax_error_header(
+	char* buffer,
+	size_t buffer_length,
+	const IString* source_code_name
+) {
+	sno_assert_ptr(buffer);
+	sno_assert_ptr(source_code_name);
+	return (size_t)snprintf(
+		buffer,
+		buffer_length,
+		sno_ANSI_RED "Syntax error in %.*s" ANSI_NORMAL "\n",
+		(unsigned int)source_code_name->length,
+		istring_chars(source_code_name)
+	);
+}
 
 static const char* find_line_start(const char* string, const char* view) {
 	const char* p = view;
@@ -493,7 +898,7 @@ size_t sprint_source_code_context(
 
 
 
-sno_no_return void throw_syntax_error(
+sno_no_return void syntax_error(
 	Tokenizer* ts,
 	uint32_t pos,
 	const char* const message_format,
@@ -504,8 +909,13 @@ sno_no_return void throw_syntax_error(
 
 	char buffer[sno_STACK_BUFFER_LENGTH];
 	size_t length = 0;
+	length += sprint_syntax_error_header(
+		buffer + length,
+		sno_STACK_BUFFER_LENGTH - 1 - length,
+		ts->source_code_name
+	);
 	length += sprint_source_code_context(
-		buffer,
+		buffer + length,
 		sno_STACK_BUFFER_LENGTH - 1 - length,
 		ts->source_code,
 		pos
@@ -513,11 +923,16 @@ sno_no_return void throw_syntax_error(
 	va_list args;
 	va_start(args, message_format);
 	length += (size_t)vsnprintf(
-		buffer,
+		buffer + length,
 		sno_STACK_BUFFER_LENGTH - 1 - length,
 		message_format,
 		args
 	);
 	va_end(args);
+	length += (size_t)snprintf(
+		buffer + length,
+		sno_STACK_BUFFER_LENGTH - 1 - length,
+		ANSI_NORMAL "\n"
+	);
 	vm_throw(ts->parent_vm, EXCEPTION_SYNTAX_ERROR, buffer, length);
 }

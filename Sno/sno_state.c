@@ -64,6 +64,20 @@ sno_API sno_no_return void sno_throw_runtime_error(
 	vm_throw(vm, EXCEPTION_RUNTIME_ERROR, message, message_length);
 }
 
+sno_API void sno_print_error_message(const sno_VMState* vm) {
+	sno_assert_ptr(vm);
+	if (vm->exception_type == EXCEPTION_NONE) {
+		fprintf(stderr, "No exception\n");
+	} else {
+		fprintf(
+			stderr,
+			"%.*s\n",
+			(unsigned int)vm->exception_message->length,
+			istring_chars(vm->exception_message)
+		);
+	}
+}
+
 
 
 sno_API void sno_run_test_thing(sno_GlobalState* state) {
