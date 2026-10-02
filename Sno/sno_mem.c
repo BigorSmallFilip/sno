@@ -1,6 +1,7 @@
 #include "sno_mem.h"
 
 #include "sno_state.h"
+#include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
 
@@ -13,6 +14,22 @@ void* state_alloc(sno_GlobalState* state, size_t size) {
 		fputs("Allocation failed", stderr);
 	}
 	return block;
+}
+
+void* state_realloc(
+	sno_GlobalState* state,
+	size_t old_size,
+	void* block,
+	size_t new_size
+) {
+	sno_assert_ptr(state);
+	state->mem_allocated -= old_size;
+	state->mem_allocated += new_size;
+	void* new_block = realloc(block, new_size);
+	if (!new_block) {
+		fputs("Allocation failed", stderr);
+	}
+	return new_block;
 }
 
 void state_free(sno_GlobalState* state, size_t size, void* block) {

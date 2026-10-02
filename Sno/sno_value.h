@@ -2,6 +2,7 @@
 #define sno_VALUE_H
 
 #include "sno.h"
+#include "sno_mem.h"
 
 enum {
 	VT_NONE,
