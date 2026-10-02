@@ -209,7 +209,9 @@ void print_token(const Token* token) {
 		default: sno_unreachable; break;
 		}
 	}
+#ifdef sno_USE_ANSI_COLOR
 	printf(ANSI_NORMAL);
+#endif
 }
 
 
