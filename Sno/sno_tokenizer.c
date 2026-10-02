@@ -1,6 +1,7 @@
 #include "sno_compiler.h"
 
 #include <stdio.h>
+#include <stdlib.h>
 #include "sno_string.h"
 
 #define is_whitespace(c) ((c) == ' ' || (c) == '\t')
@@ -214,6 +215,11 @@ void print_token(const Token* token) {
 
 
 static sno_inline sno_Bool check_next(Tokenizer* ts, char c) {
+	sno_assert(ts->cur_char <= ts->source_code_end);
+	if (ts->cur_char == ts->source_code_end) {
+		sno_assert(0);
+		return sno_FALSE;
+	}
 	if (*ts->cur_char == c) {
 		ts->cur_char++;
 		return sno_TRUE;
@@ -234,6 +240,66 @@ static sno_inline sno_Bool check_next_alphanumeric(Tokenizer* ts) {
 
 
 
+static void read_base10_number(Tokenizer* ts, Token* token) {
+	sno_assert_ptr(ts);
+	sno_assert_ptr(token);
+	sno_Bool has_decimal = sno_FALSE;
+	if (ts->cur_char[0] == '0') {
+		sno_assert(ts->cur_char[1] == '.');
+	} else {
+		sno_assert(is_digit(ts->cur_char[0]));
+	}
+	const char* start = ts->cur_char;
+	while (1) {
+		char c = *ts->cur_char;
+		if (c == '.') {
+			if (has_decimal) {
+				syntax_error(
+					ts,
+					(uint32_t)(ts->cur_char - istring_chars(ts->source_code)),
+					"There are multiple decimal points in this number"
+				);
+			}
+			has_decimal = sno_TRUE;
+			ts->cur_char++;
+			sno_assert(ts->cur_char <= ts->source_code_end);
+			if (
+				ts->cur_char == ts->source_code_end ||
+				!is_digit(*ts->cur_char)
+			) {
+				syntax_error(
+					ts,
+					(uint32_t)(ts->cur_char - 1 - istring_chars(ts->source_code)),
+					"Numbers can't end with a decimal point"
+				);
+			}
+		} else if (is_alpha(c)) {
+			syntax_error(
+				ts,
+				(uint32_t)(ts->cur_char - istring_chars(ts->source_code)),
+				"There is a letter character in this number"
+			);
+		} else if (!is_digit(c)) {
+			break;
+		}
+		ts->cur_char++;
+		sno_assert(ts->cur_char <= ts->source_code_end);
+		if (ts->cur_char == ts->source_code_end) {
+			break;
+		}
+	}
+
+	uint32_t length = (uint32_t)(ts->cur_char - start);
+	if (length >= 255) {
+		syntax_error(
+			ts,
+			(uint32_t)(ts->token_start - istring_chars(ts->source_code)),
+			"This number is way too long"
+		);
+	}
+	token->info.number = strtod(start, NULL);
+}
+
 
 
 static void read_comment(Tokenizer* ts) {
@@ -241,8 +307,7 @@ static void read_comment(Tokenizer* ts) {
 	while (ts->cur_char < ts->source_code_end) {
 		ts->cur_char++;
 		if (*ts->cur_char == '\n' ||
-			*ts->cur_char == '\r' ||
-			*ts->cur_char == '\0') break;
+			*ts->cur_char == '\r') break;
 	}
 }
 
@@ -476,10 +541,16 @@ static TokenType lex_token(Tokenizer* ts, Token* token) {
 		return TK_STRING + interpolated;
 	}
 
-	case '0': case '1': case '2': case '3': case '4':
+	case '0': {
+		ts->cur_char++;
+		if (check_next(ts, '.')) {
+			read_base10_number(ts, token);
+			return TK_NUMBER;
+		}
+	}
+	case '1': case '2': case '3': case '4':
 	case '5': case '6': case '7': case '8': case '9': {
-		//read_number(ts, token);
-		sno_not_implemented;
+		read_base10_number(ts, token);
 		return TK_NUMBER;
 	}
 
@@ -848,6 +919,25 @@ static size_t find_line_number(const char* string, const char* view) {
 	return linenum;
 }
 
+static size_t underline_token(
+	char* buffer,
+	size_t buffer_size,
+	const IString* source_code,
+	uint32_t pos
+) {
+	sno_assert_ptr(buffer);
+	sno_assert_ptr(source_code);
+	sno_assert(pos < source_code->length);
+
+	size_t length = 0;
+	length += snprintf(
+		buffer + length,
+		buffer_size - length,
+		sno_ANSI_RED "^ - "
+	);
+	return length;
+}
+
 size_t sprint_source_code_context(
 	char* buffer,
 	size_t buffer_size,
@@ -889,10 +979,11 @@ size_t sprint_source_code_context(
 		}
 		buffer[length++] = *(p++);
 	}
-	length += snprintf(buffer + length, buffer_size - length, "\n" sno_ANSI_CYAN "        |  " sno_ANSI_RED);
+	length += snprintf(buffer + length, buffer_size - length, "\n" sno_ANSI_CYAN "        |  ");
 	for (size_t i = 0; i < spaces_before_pos; i++) {
 		buffer[length++] = ' ';
 	}
+	length += underline_token(buffer + length, buffer_size - length, source_code, pos);
 	return length;
 }
 

@@ -98,5 +98,5 @@ sno_API void sno_run_test_thing(sno_GlobalState* state) {
 		load_istring_from_file(state, istring_chars(path), path->length)
 	);
 
-	print_string_interning_table(state);
+	//print_string_interning_table(state);
 }
