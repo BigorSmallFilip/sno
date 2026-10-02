@@ -33,6 +33,9 @@
     <ClCompile Include="sno_tokenizer.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="sno_vm.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="sno.h">
@@ -51,6 +54,9 @@
       <Filter>Source Files</Filter>
     </ClInclude>
     <ClInclude Include="sno_compiler.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="sno_vm.h">
       <Filter>Source Files</Filter>
     </ClInclude>
   </ItemGroup>
