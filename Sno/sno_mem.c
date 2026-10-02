@@ -26,7 +26,7 @@ void* state_realloc(
 	state->mem_allocated += new_size;
 	void* new_block = realloc(block, new_size);
 	if (!new_block) {
-		fputs("Allocation failed", stderr);
+		fputs(sno_ANSI_RED "Reallocation failed\n" sno_ANSI_NORMAL, stderr);
 	}
 	return new_block;
 }

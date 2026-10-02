@@ -73,6 +73,11 @@ typedef struct LocalVar {
 
 typedef struct Bytecode {
 	struct IString* name;
+	struct IString* source_code_name;
+	struct IString* source_code;
+	Instruction* instructions;
+	SourceCodePos* instruction_positions;
+	PC num_instructions;
 } Bytecode;
 
 void print_bytecode(const Bytecode* bytecode);

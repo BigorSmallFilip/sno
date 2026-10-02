@@ -30,7 +30,7 @@ static Bytecode* create_bytecode(sno_VMState* vm) {
 	return bytecode;
 }
 
-static void init_function_compiler(Tokenizer* ts, Compiler* cs) {
+static void init_function_compiler(Tokenizer* ts, Compiler* cs, IString* name) {
 	sno_assert(ts);
 	//sno_VMState* vm = ts->parent_vm;
 	instruction_dyn_array_init(&cs->instructions);
@@ -40,14 +40,61 @@ static void init_function_compiler(Tokenizer* ts, Compiler* cs) {
 
 	ts->cs = cs;
 	cs->ts = ts;
+	cs->name = name;
+}
+
+static void compact_instructions(Compiler* cs, Bytecode* bytecode) {
+	sno_assert_ptr(cs);
+	sno_assert_ptr(bytecode);
+	sno_assert(cs->instructions.count > 0);
+	sno_GlobalState* state = cs->ts->parent_vm->state;
+	PC pc = 0;
+	Instruction* instructions = state_alloc(
+		state,
+		cs->instructions.count * 2 * sizeof(Instruction)
+	);
+	SourceCodePos* instruction_positions = state_alloc(
+		state,
+		cs->instructions.count * sizeof(SourceCodePos)
+	);
+	for (size_t i = 0; i < cs->instructions.count; i++) {
+		OpCode opcode = cs->instructions.buffer[i].d.opcode;
+		uint16_t arg = cs->instructions.buffer[i].d.arg;
+		SourceCodePos pos = cs->instructions.buffer[i].d.pos;
+		if (arg < 0xFF) {
+			instruction_positions[pc] = pos;
+			instructions[pc++] = opcode | (arg << 8);
+		} else {
+			instruction_positions[pc] = pos;
+			instructions[pc++] = opcode | 0xFF;
+			instruction_positions[pc] = pos;
+			instructions[pc++] = arg;
+		}
+	}
+	instructions = state_realloc(
+		state,
+		cs->instructions.count * 2 * sizeof(SourceCodePos),
+		instructions,
+		pc * sizeof(SourceCodePos)
+	);
+	state_realloc(
+		state,
+		cs->instructions.count * 2 * sizeof(Instruction),
+		instruction_positions,
+		pc * sizeof(Instruction)
+	);
+	bytecode->num_instructions = pc;
+	bytecode->instructions = instructions;
+	bytecode->instruction_positions = instruction_positions;
 }
 
 static Bytecode* free_function_compiler(Tokenizer* ts, Compiler* cs) {
 	Bytecode* bytecode = create_bytecode(ts->parent_vm);
-	bytecode->name = create_istring(
-		ts->parent_vm->state,
-		sno_string_comma_length("Wonk")
-	);
+	bytecode->name = cs->name;
+	bytecode->source_code_name = ts->source_code_name;
+	bytecode->source_code = ts->source_code;
+	compact_instructions(cs, bytecode);
+
 
 	ts->cs = cs->parent_function;
 	return bytecode;
@@ -278,8 +325,13 @@ static void operand_primary(Tokenizer* ts) {
 	read_next_token(ts);
 }
 
+static void operand_postfix(Tokenizer* ts) {
+	sno_assert_ptr(ts);
+}
+
 static void operand(Tokenizer* ts) {
 	operand_primary(ts);
+	operand_postfix(ts);
 }
 
 
@@ -569,7 +621,7 @@ static Bytecode* parse_global_scope(Tokenizer* ts) {
 	read_first_token(ts);
 
 	Compiler cs = { 0 };
-	init_function_compiler(ts, &cs);
+	init_function_compiler(ts, &cs, ts->source_code_name);
 	
 	block(ts, sno_FALSE, sno_TRUE);
 	if (ts->token.type != TK_EOF) {

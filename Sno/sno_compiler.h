@@ -181,6 +181,7 @@ typedef struct Block {
 
 typedef struct Compiler {
 	Tokenizer* ts;
+	IString* name;
 	struct Compiler* parent_function;
 	InstructionDynArray instructions;
 	NumberDynArray number_constants;
