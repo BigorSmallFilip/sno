@@ -4,6 +4,39 @@
 #include "sno.h"
 #include "sno_state.h"
 
+typedef enum {
+	BINOP_ADD,
+	BINOP_SUB,
+	BINOP_MUL,
+	BINOP_DIV,
+	BINOP_IDIV,
+	BINOP_MOD,
+	BINOP_POW,
+	BINOP_BAND,
+	BINOP_BOR,
+	BINOP_BXOR,
+	BINOP_SHL,
+	BINOP_SHR,
+	BINOP_LT,
+	BINOP_GT,
+	BINOP_LE,
+	BINOP_GE,
+	BINOP_EQ,
+	BINOP_NEQ,
+	BINOP_LAND,
+	BINOP_LOR,
+	NOT_BINOP = -1,
+} BinOp;
+
+typedef enum {
+	UNOP_NEG,
+	UNOP_INC,
+	UNOP_DEC,
+	UNOP_BITFLIP,
+	UNOP_LNOT,
+	NOT_UNOP = -1,
+} UnOp;
+
 enum {
 	OP_NONE,
 	OP_NUMBER,
@@ -13,6 +46,9 @@ enum {
 	OP_SET_LOCAL,
 	OP_GET_GLOBAL,
 	OP_SET_GLOBAL,
+	OP_SET_NEW_GLOBAL,
+	OP_UNOP,
+	OP_BINOP,
 	OP_RETURN,
 };
 typedef uint8_t OpCode;

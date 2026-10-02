@@ -29,8 +29,9 @@ return_stmt ::= 'return' expr_list_open
 function_stmt ::= 'function' identifier function_definition
 
 declaration_stmt ::= declarator identifier
-                     { ',' [ declarator ] identifier }
-                     assign expr_list_open
+                     { ',' [declarator] identifier }
+                     ( ( '=' expr_list_open ) | ';' )
+
 declarator ::= ( 'var' | 'const' )
 
 expr_stmt ::= expr ( assign | assignop ) expr

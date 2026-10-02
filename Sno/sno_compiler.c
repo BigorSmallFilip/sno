@@ -38,6 +38,7 @@ static void init_function_compiler(Tokenizer* ts, Compiler* cs) {
 	istring_dyn_array_init(&cs->string_constants);
 	bytecode_dyn_array_init(&cs->bytecode_constants);
 
+	ts->cs = cs;
 	cs->ts = ts;
 }
 
@@ -51,7 +52,7 @@ static Bytecode* free_function_compiler(Tokenizer* ts, Compiler* cs) {
 
 
 static void expression(Tokenizer* ts);
-static void block(Tokenizer* ts);
+static void block(Tokenizer* ts, sno_Bool is_loop, sno_Bool is_global);
 
 
 
@@ -226,7 +227,12 @@ static void identifier(Tokenizer* ts, Token name) {
 
 
 
-static void enter_block(Compiler* cs, Block* block, sno_Bool is_loop, sno_Bool is_global) {
+static void enter_block(
+	Compiler* cs,
+	Block* block,
+	sno_Bool is_loop,
+	sno_Bool is_global
+) {
 	sno_assert(!(is_loop && is_global));
 	block->is_loop = is_loop;
 	block->is_global = is_global;
@@ -252,12 +258,147 @@ static void exit_block(Compiler* cs) {
 
 
 
+static void operand_primary(Tokenizer* ts) {
+
+}
+
+static void operand(Tokenizer* ts) {
+	operand_primary(ts);
+	while (1) { // For repeated application such as list[1][2].field[3]
+		switch (ts->token.type) {
+		case TK_LBRACKET: { // Index
+			SourceCodePos lbracket_at = ts->token.pos;
+			read_next_token(ts);
+			expression(ts);
+			expect_token_and_skip(ts, TK_RBRACKET);
+			emit_instruction_at(ts, I_GET_INDEX, lbracket_at);
+			break;
+		}
+		case sno_TK_DOT: { // Field or method call
+			uint32_t dot_at = ts->token.source_code_pos;
+			skip_token(ts, sno_TK_DOT);
+			expect_token(ts, sno_TK_IDENTIFIER);
+			uint8_t name_const_id = add_string_constant(ts->cs, ts->token.info.u_string);
+			sno_read_next_token(ts);
+			if (ts->token.type == sno_TK_LPAREN) {
+				emit_instruction_1_at(ts, sno_I_GET_METHOD , name_const_id, dot_at);
+				uint32_t lparen_at = ts->token.source_code_pos;
+				skip_token(ts, sno_TK_LPAREN);
+				uint32_t num_args = parse_closed_expression_list(ts, sno_TK_RPAREN);
+				sno_Instruction call = sno_I_CALL | (num_args << 8) | (1 << 12);
+				emit_instruction_at(ts, call, lparen_at);
+			} else {
+				emit_instruction_1_at(ts, sno_I_GET_FIELD, name_const_id, dot_at);
+			}
+			break;
+		}
+		case sno_TK_LPAREN: { // Function call
+			uint32_t lparen_at = ts->token.source_code_pos;
+			skip_token(ts, sno_TK_LPAREN);
+			emit_instruction(ts, sno_I_LOAD_NONE); // Self parameter = null
+			uint32_t num_args = parse_closed_expression_list(ts, sno_TK_RPAREN);
+			sno_Instruction call = sno_I_CALL | (num_args << 8) | (1 << 12);
+			emit_instruction_at(ts, call, lparen_at);
+			break;
+		}
+		default: {
+			return;
+		}
+		}
+	}
+}
+
+
+
+static UnOp get_unop(TokenType tokentype) {
+	switch (tokentype) {
+	case TK_SUB: return UNOP_NEG;
+	case TK_BITFLIP: return UNOP_BITFLIP;
+	case TK_LNOT: return UNOP_LNOT;
+	default: return NOT_UNOP;
+	}
+}
+
+static BinOp get_binop(TokenType tokentype) {
+	switch (tokentype) {
+	case TK_ADD: return BINOP_ADD;
+	case TK_SUB: return BINOP_SUB;
+	case TK_MUL: return BINOP_MUL;
+	case TK_DIV: return BINOP_DIV;
+	case TK_IDIV: return BINOP_IDIV;
+	case TK_MOD: return BINOP_MOD;
+	case TK_POW: return BINOP_POW;
+	case TK_BAND: return BINOP_BAND;
+	case TK_BOR: return BINOP_BOR;
+	case TK_BXOR: return BINOP_BXOR;
+	case TK_SHL: return BINOP_SHL;
+	case TK_SHR: return BINOP_SHR;
+	case TK_EQ: return BINOP_EQ;
+	case TK_NEQ: return BINOP_NEQ;
+	case TK_LT: return BINOP_LT;
+	case TK_GT: return BINOP_GT;
+	case TK_LE: return BINOP_LE;
+	case TK_GE: return BINOP_GE;
+	case TK_LAND: return BINOP_LAND;
+	case TK_LOR: return BINOP_LOR;
+	default: return NOT_BINOP;
+	}
+}
+
+static const struct {
+	uint8_t left;  // Left precedence for each binary operator
+	uint8_t right; // Right precedence
+} operator_precedence[] = {
+	{6, 6}, {6, 6}, {7, 7}, {7, 7}, {7, 7}, {7, 7},  // '+' '-' '*' '/' '//' '%'
+	{10, 9}, // '**' (right associative)
+	{3, 3}, {3, 3}, {3, 3}, // '&' '|' '^'
+	{5, 5}, {5, 5}, // '<<' '>>'
+	{4, 4}, {4, 4}, // '==' '!='
+	{4, 4}, {4, 4}, {4, 4}, {4, 4}, // '<' '>' '<=' '>='
+	{2, 2}, {1, 1}, // '&&' '||'
+};
+#define UNOP_PRECEDENCE 8 // priority for unary operators
+
+static BinOp subexpression(
+	Tokenizer* ts,
+	unsigned int precedence
+) {
+	UnOp unary_op = get_unop(ts->token.type);
+	if (unary_op != NOT_UNOP) {
+		// Unary op
+		SourceCodePos unop_pos = ts->token.pos;
+		read_next_token(ts);
+		subexpression(ts, UNOP_PRECEDENCE);
+		emit(ts, OP_UNOP, (uint16_t)unary_op, unop_pos);
+	} else {
+		operand(ts);
+	}
+	BinOp binop = get_binop(ts->token.type);
+	while (binop != NOT_BINOP && operator_precedence[binop].left > precedence) {
+		BinOp next_binop;
+		SourceCodePos binop_pos = ts->token.pos;
+		read_next_token(ts);
+		if (binop == BINOP_LAND || binop == BINOP_LOR) {
+			/*uint32_t jump_from = emit_instruction(
+				ts,
+				binop == BINOP_LAND ? OP_AND : OP_OR
+			);
+			next_binop = subexpression(ts, operator_precedence[binop].right);
+			uint32_t jump_to = emit_instruction(ts, OP_TO_BOOL) + 1;
+			set_jump_dst(ts, jump_from, jump_to);*/
+			next_binop = NOT_BINOP;
+		} else {
+			next_binop = subexpression(ts, operator_precedence[binop].right);
+			emit(ts, OP_BINOP, (uint16_t)binop, binop_pos);
+		}
+		binop = next_binop;
+	}
+	return binop;
+}
 
 static void expression(Tokenizer* ts) {
 	sno_assert_ptr(ts);
-	read_next_token(ts);
-	read_next_token(ts);
-	read_next_token(ts);
+	subexpression(ts, 0);
 }
 
 static void open_expression_list(Tokenizer* ts) {
@@ -276,20 +417,105 @@ static void if_statement(Tokenizer* ts) {
 
 // declaration_stmt ::= declarator identifier
 //                      { ',' [declarator] identifier }
-//                      assign expr_list_open
+//                      ( ( '=' expr_list_open ) | ';' )
 static void declaration_statement(Tokenizer* ts) {
-	//sno_Bool is_const = ts->token.type == TK_CONST;
+	sno_assert_ptr(ts);
+	sno_Bool is_const = ts->token.type == TK_CONST;
 	read_next_token(ts);
-	if (ts->token.type != TK_IDENTIFIER) {
-		syntax_error_at_cur_token(
-			ts,
-			"Expected a variable name"
-		);
-	}
-	//IString* name = ts->token.info.string;
+	sno_Bool no_assignment = sno_FALSE;
+	Token name_tokens[MAX_EXPR_PER_STMT];
+	sno_Bool is_consts[MAX_EXPR_PER_STMT];
+	size_t num_declarations = 0;
+	SourceCodePos assignment_token_pos = ts->token.pos;
 	while (1) {
-
+		if (ts->token.type != TK_IDENTIFIER) {
+			syntax_error_at_cur_token(
+				ts,
+				"Expected a variable name"
+			);
+		}
+		is_consts[num_declarations] = is_const;
+		name_tokens[num_declarations] = ts->token;
+		num_declarations++;
+		if (num_declarations > MAX_EXPR_PER_STMT) {
+			syntax_error_at_cur_token(
+				ts,
+				"Expected a variable name " sno_stringify(MAX_EXPR_PER_STMT)
+			);
+		}
+		read_next_token(ts);
+		if (ts->token.type == TK_TERMINATOR) {
+			// Don't skip this token
+			no_assignment = sno_TRUE;
+			break;
+		}
+		if (ts->token.type == TK_ASSIGN) {
+			assignment_token_pos = ts->token.pos;
+			read_next_token(ts);
+			no_assignment = sno_FALSE;
+			break;
+		}
+		if (ts->token.type != TK_COMMA) {
+			syntax_error_at_cur_token(
+				ts,
+				"The only valid tokens here are ',' '=' or a line end"
+			);
+		}
+		// It's a comma
+		read_next_token(ts);
+		if (ts->token.type == TK_VAR) {
+			is_const = sno_FALSE;
+			read_next_token(ts);
+		} else if (ts->token.type == TK_CONST) {
+			is_const = sno_TRUE;
+			read_next_token(ts);
+		}
 	}
+
+	if (no_assignment) {
+		for (size_t i = 0; i < num_declarations; i++) {
+			emit(ts, OP_NONE, 0, NO_POS);
+		}
+	} else {
+		sno_assert(num_declarations >= 1);
+		sno_assert(ts->prev_token.type == TK_ASSIGN);
+		size_t i = 1;
+		while (1) {
+			expression(ts);
+			if (ts->token.type == TK_TERMINATOR) {
+				// Fix calls
+				break;
+			}
+			i++;
+			if (i > num_declarations) {
+				syntax_error(
+					ts,
+					assignment_token_pos,
+					"There %s %i item%s on the left but %i items on the right",
+					num_declarations == 1 ? "is" : "are",
+					(int)num_declarations,
+					num_declarations == 1 ? "" : "s",
+					(int)i
+				);
+			}
+		}
+	}
+	sno_assert(num_declarations >= 1 && num_declarations <= MAX_EXPR_PER_STMT);
+	for (int i = (int)num_declarations - 1; i >= 0; i--) {
+		Token name_token = name_tokens[i];
+		if (ts->cs->current_block->is_global) {
+			emit(
+				ts,
+				OP_SET_NEW_GLOBAL,
+				add_string_constant(ts->cs, name_token.info.string),
+				name_token.pos
+			);
+		} else {
+			LocalSlot local_slot = try_declare_local_variable(ts, name_token);
+			emit(ts, OP_SET_LOCAL, local_slot, NO_POS);
+		}
+	}
+
 }
 
 // return_stmt ::= 'return' expr_list_open
@@ -323,15 +549,21 @@ static sno_Bool statement(Tokenizer* ts) {
 
 
 
-static void statement_list(Tokenizer* ts) {
+static void block(Tokenizer* ts, sno_Bool is_loop, sno_Bool is_global) {
 	sno_assert_ptr(ts);
-
+	sno_assert(!(is_loop && is_global));
+	Block block;
+	enter_block(ts->cs, &block, is_loop, is_global);
 	while (1) {
 		statement(ts);
+		if (ts->token.type != TK_TERMINATOR) {
+			syntax_error_at_cur_token(ts, "Statement didn't end properly lol");
+		}
 	}
+	exit_block(ts->cs);
 }
 
-static void block(Tokenizer* ts) {
+static void brace_block(Tokenizer* ts, sno_Bool is_loop) {
 	sno_assert_ptr(ts);
 	SourceCodePos opening_brace_pos = ts->token.pos;
 	if (ts->token.type != TK_LBRACE) {
@@ -342,8 +574,7 @@ static void block(Tokenizer* ts) {
 		);
 	}
 	read_next_token(ts); // Skip '{'
-	//enter_block(ts);
-	statement_list(ts);
+	block(ts, is_loop, sno_FALSE);
 	if (ts->token.type != TK_RBRACE) {
 		syntax_error(
 			ts,
@@ -362,7 +593,7 @@ static Bytecode* parse_global_scope(Tokenizer* ts) {
 	Compiler cs = { 0 };
 	init_function_compiler(ts, &cs);
 	
-	statement_list(ts);
+	block(ts, sno_FALSE, sno_TRUE);
 	if (ts->token.type != TK_EOF) {
 		sno_unreachable;
 		syntax_error(ts, 0, "Global scope ended early here");

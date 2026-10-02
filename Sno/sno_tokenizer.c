@@ -219,7 +219,6 @@ void print_token(const Token* token) {
 static sno_inline sno_Bool check_next(Tokenizer* ts, char c) {
 	sno_assert(ts->cur_char <= ts->source_code_end);
 	if (ts->cur_char == ts->source_code_end) {
-		sno_assert(0);
 		return sno_FALSE;
 	}
 	if (*ts->cur_char == c) {

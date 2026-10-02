@@ -7,7 +7,7 @@
 #include "sno_vm.h"
 #include <stdarg.h>
 
-enum {
+typedef enum TokenType {
 	TK_TERMINATOR,
 
 	TK_IF,
@@ -91,8 +91,8 @@ enum {
 
 	NUM_TOKEN_TYPES,
 	TK_EOF = -1,
-};
-typedef int8_t TokenType;
+} TokenType;
+//typedef int8_t TokenType;
 
 extern const char* const token_strings[NUM_TOKEN_TYPES];
 
@@ -142,8 +142,14 @@ sno_Bool print_source_code_tokens(
 
 #define MAX_LOCAL_VARS_PER_FUNCTION 65000
 #define MAX_ACTIVE_LOCAL_VARS 200
-#define MAX_STACK_ARGS 14
-#if MAX_ACTIVE_LOCAL_VARS + MAX_STACK_ARGS > 254
+
+// 14 because when calling functions, there are 4 bits storing the number of args
+// and 4 bits storing the number of returns used. This means you could have 15
+// args and returns, however that would be binary 0b11111111, which is interpreted
+// as an extended instruction. Max 14 means that call instructions will never
+// accidentally become extended.
+#define MAX_EXPR_PER_STMT 14
+#if MAX_ACTIVE_LOCAL_VARS + MAX_EXPR_PER_STMT + 1 > 254
 #error Too many local variables to store in one byte
 #endif
 #define MAX_NUMBER_CONSTANTS 65000
