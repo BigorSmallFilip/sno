@@ -23,6 +23,10 @@ typedef struct IString {
 
 #define istring_chars(istring) ((const char* const)(istring + 1))
 
+DECLARE_GENERIC_DYN_ARRAY(IString*, IString, istring);
+
+
+
 typedef struct StringInterningTable {
 	IString** strings;
 	size_t num_strings;

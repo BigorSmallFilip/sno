@@ -120,6 +120,7 @@ void snake_case##_dyn_array_push(										 \
 }
 
 DECLARE_GENERIC_DYN_ARRAY(uint8_t, Byte, byte);
+DECLARE_GENERIC_DYN_ARRAY(sno_Number, Number, number);
 
 
 

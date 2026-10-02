@@ -991,11 +991,11 @@ size_t sprint_source_code_context(
 
 
 
-sno_no_return void syntax_error(
+sno_no_return void syntax_error_args(
 	Tokenizer* ts,
-	uint32_t pos,
+	SourceCodePos pos,
 	const char* const message_format,
-	...
+	va_list args
 ) {
 	sno_assert_ptr(ts);
 	sno_assert_ptr(pos < ts->source_code->length);
@@ -1013,8 +1013,6 @@ sno_no_return void syntax_error(
 		ts->source_code,
 		pos
 	);
-	va_list args;
-	va_start(args, message_format);
 	length += (size_t)vsnprintf(
 		buffer + length,
 		sno_STACK_BUFFER_LENGTH - 1 - length,
@@ -1028,4 +1026,24 @@ sno_no_return void syntax_error(
 		ANSI_NORMAL "\n"
 	);
 	vm_throw(ts->parent_vm, EXCEPTION_SYNTAX_ERROR, buffer, length);
+}
+
+sno_no_return void syntax_error(
+	Tokenizer* ts,
+	uint32_t pos,
+	const char* const message_format,
+	...
+) {
+	va_list args;
+	va_start(args, message_format);
+	syntax_error_args(ts, pos, message_format, args);
+}
+
+sno_no_return void vsyntax_error(
+	Tokenizer* ts,
+	uint32_t pos,
+	const char* const message_format,
+	va_list args
+) {
+	syntax_error_args(ts, pos, message_format, args);
 }

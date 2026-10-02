@@ -3,6 +3,24 @@
 #define DEBUG_PRINT_PARSER
 
 DEFINE_GENERIC_DYN_ARRAY(CompilerInstruction, Instruction, instruction);
+DEFINE_GENERIC_DYN_ARRAY(Bytecode, Bytecode, bytecode);
+
+
+
+static sno_no_return void syntax_error_at_cur_token(
+	Tokenizer* ts,
+	const char* const format,
+	...
+) {
+	sno_assert_ptr(ts);
+	sno_assert_ptr(format);
+	va_list args;
+	va_start(args, format);
+	vsyntax_error(ts, ts->token.pos, format, args);
+	va_end(args);
+}
+
+
 
 static Bytecode* create_bytecode(sno_VMState* vm) {
 	Bytecode* bytecode = state_alloc(vm->state, sizeof(Bytecode));
@@ -13,22 +31,91 @@ static Bytecode* create_bytecode(sno_VMState* vm) {
 static void init_function_compiler(Tokenizer* ts, Compiler* cs) {
 	sno_assert(ts);
 	//sno_VMState* vm = ts->parent_vm;
-	
+	instruction_dyn_array_init(&cs->instructions);
+	number_dyn_array_init(&cs->number_constants);
+	istring_dyn_array_init(&cs->string_constants);
+	bytecode_dyn_array_init(&cs->bytecode_constants);
 
 	cs->ts = ts;
-	
 }
 
 static Bytecode* free_function_compiler(Tokenizer* ts, Compiler* cs) {
+	Bytecode* bytecode = create_bytecode(ts->parent_vm);
 	
 	ts->cs = cs->parent_function;
-	return create_bytecode(ts->parent_vm);
+	return bytecode;
 }
 
 
 
+static ConstID add_number_constant(Compiler* cs, sno_Number number) {
+	sno_assert_ptr(cs);
+	sno_VMState* vm = cs->ts->parent_vm;
+	if (cs->number_constants.count > MAX_NUMBER_CONSTANTS) {
+		syntax_error_at_cur_token(
+			cs->ts,
+			"There are too many numbers in this function"
+		);
+	}
+	for (size_t i = 0; i < cs->number_constants.count; i++) {
+		if (number == cs->number_constants.buffer[i]) {
+			return (ConstID)i;
+		}
+	}
+	// Add new number constant
+	number_dyn_array_push(vm, &cs->number_constants, &number);
+	return (ConstID)(cs->number_constants.count - 1);
+}
+
+static ConstID add_string_constant(Compiler* cs, const IString* string) {
+	sno_assert_ptr(cs);
+	sno_assert_ptr(string);
+	sno_VMState* vm = cs->ts->parent_vm;
+	if (cs->string_constants.count > MAX_STRING_CONSTANTS) {
+		syntax_error_at_cur_token(
+			cs->ts,
+			"There are too many strings in this function"
+		);
+	}
+	for (size_t i = 0; i < cs->string_constants.count; i++) {
+		if (string == cs->string_constants.buffer[i]) {
+			return (ConstID)i;
+		}
+	}
+	// Add new number constant
+	istring_dyn_array_push(vm, &cs->string_constants, &string);
+	return (ConstID)(cs->string_constants.count - 1);
+}
+
+
+
+static void if_statement(Tokenizer* ts) {
+	sno_assert_ptr(ts);
+
+}
+
+static void statement(Tokenizer* ts) {
+	sno_assert_ptr(ts);
+
+	switch (ts->token.type) {
+	case TK_IF: {
+
+	} break;
+	default:
+		break;
+	}
+}
+
+static void block(Tokenizer* ts) {
+	sno_assert_ptr(ts);
+}
+
 static void statement_list(Tokenizer* ts) {
 	sno_assert_ptr(ts);
+
+	while (1) {
+		statement(ts);
+	}
 }
 
 

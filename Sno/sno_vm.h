@@ -9,6 +9,7 @@ enum {
 };
 typedef uint8_t OpCode;
 typedef uint16_t Instruction;
+typedef uint16_t ConstID;
 
 typedef struct Bytecode {
 	struct IString* name;

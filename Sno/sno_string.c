@@ -4,6 +4,8 @@
 #include <string.h>
 #include <stdio.h>
 
+DEFINE_GENERIC_DYN_ARRAY(IString*, IString, istring);
+
 static Hash hash_string(const char* string, size_t length) {
 	sno_assert_ptr(string);
 	// I stole Lua's string hashing algorithm

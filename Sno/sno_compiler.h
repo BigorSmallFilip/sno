@@ -159,11 +159,15 @@ typedef union CompilerInstruction {
 } CompilerInstruction;
 
 DECLARE_GENERIC_DYN_ARRAY(CompilerInstruction, Instruction, instruction);
+DECLARE_GENERIC_DYN_ARRAY(Bytecode, Bytecode, bytecode);
 
 typedef struct Compiler {
 	Tokenizer* ts;
 	struct Compiler* parent_function;
-
+	InstructionDynArray instructions;
+	NumberDynArray number_constants;
+	IStringDynArray string_constants;
+	BytecodeDynArray bytecode_constants;
 } Compiler;
 
 Bytecode* compile_source_code(
@@ -186,6 +190,13 @@ sno_no_return void syntax_error(
 	uint32_t pos,
 	const char* const message_format,
 	...
+);
+
+sno_no_return void vsyntax_error(
+	Tokenizer* ts,
+	uint32_t pos,
+	const char* const message_format,
+	va_list args
 );
 
 #endif

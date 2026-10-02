@@ -44,3 +44,4 @@ void state_free(sno_GlobalState* state, size_t size, void* block) {
 
 
 DEFINE_GENERIC_DYN_ARRAY(uint8_t, Byte, byte);
+DEFINE_GENERIC_DYN_ARRAY(sno_Number, Number, number);
