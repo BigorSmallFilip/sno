@@ -152,16 +152,11 @@ typedef struct Compiler {
 
 
 
-
-sno_no_return void throw_error_message_with_source_code_context(
-	sno_VMState* vm,
-	ExceptionType type,
-	const struct IString* function_name,
-	const struct IString* source_code_name,
+size_t sprint_source_code_context(
+	char* buffer,
+	size_t buffer_size,
 	const struct IString* source_code,
-	uint32_t pos,
-	const char* const message_format,
-	va_list args
+	uint32_t pos
 );
 
 sno_no_return void throw_syntax_error(

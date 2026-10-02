@@ -3,6 +3,10 @@
 #include <stdio.h>
 #include "sno_string.h"
 
+#define is_whitespace(c) ((c) == ' ' || (c) == '\t')
+#define is_alpha(c) (((c) >= 'a' && (c) <= 'z') || ((c) >= 'A' && c <= 'Z') || (c) == '_')
+#define is_digit(c) ((c) >= '0' && (c) <= '9')
+
 const char* const token_strings[NUM_TOKEN_TYPES] = {
 	";",
 	"if",
@@ -404,33 +408,90 @@ sno_Bool print_source_code_tokens(
 
 
 
-sno_no_return void throw_error_message_with_source_code_context(
-	sno_VMState* vm,
-	ExceptionType type,
-	const struct IString* function_name,
-	const struct IString* source_code_name,
-	const struct IString* source_code,
-	uint32_t pos,
-	const char* const message_format,
-	va_list args
-) {
-	char buffer[sno_STACK_BUFFER_LENGTH];
-	int length = 0;
-	switch (type) {
-	case EXCEPTION_SYNTAX_ERROR: {
-		length += snprintf(
-			buffer,
-			sno_STACK_BUFFER_LENGTH - 1 - length,
-			"Syntax error!\n"
-		);
-	} break;
+static const char* find_line_start(const char* string, const char* view) {
+	const char* p = view;
+	while (p >= string) {
+		if (*p == '\n') {
+			return p + 1;
+		}
+		p--;
 	}
-	length += snprintf(
-		buffer,
-		sno_STACK_BUFFER_LENGTH - 1 - length,
-		"Some kind of error!\n"
-	);
+	return string;
 }
+
+static const char* find_first_non_whitespace_char_on_line(
+	const char* line_start,
+	const char* string_end
+) {
+	const char* p = line_start;
+	while (p < string_end) {
+		if (!is_whitespace(*p)) {
+			break;
+		}
+		p++;
+	}
+	return p;
+}
+
+static size_t find_line_number(const char* string, const char* view) {
+	size_t linenum = 1;
+	for (const char* i = string; i < view; i++) {
+		if (*i == '\n') {
+			linenum++;
+		}
+	}
+	return linenum;
+}
+
+size_t sprint_source_code_context(
+	char* buffer,
+	size_t buffer_size,
+	const IString* source_code,
+	uint32_t pos
+) {
+	const char* string = istring_chars(source_code);
+	size_t string_length = source_code->length;
+	const char* string_end = string + string_length;
+	sno_assert(pos <= string_length);
+	const char* string_pos = string + pos;
+
+	const char* line_start = find_line_start(string, string_pos);
+	size_t line = find_line_number(string, line_start);
+	const char* p = find_first_non_whitespace_char_on_line(line_start, string_end);
+
+	size_t length = 0;
+	size_t spaces_before_pos = 0;
+	length += snprintf(buffer + length, buffer_size - length, sno_ANSI_CYAN "        |  \n");
+	length += snprintf(buffer + length, buffer_size - length, " %5u  |  " sno_ANSI_NORMAL, (unsigned int)line);
+	while (p < string_pos) {
+		if (*p == '\t') {
+			spaces_before_pos &= ~(3);
+			spaces_before_pos += 4;
+			length &= ~(3); // TODO: This will remove already printed text??
+			buffer[length++] = ' ';
+			buffer[length++] = ' ';
+			buffer[length++] = ' ';
+			buffer[length++] = ' ';
+		} else {
+			spaces_before_pos++;
+			buffer[length++] = *p;
+		}
+		p++;
+	}
+	while (p < string_end) {
+		if (*p == '\n') {
+			break;
+		}
+		buffer[length++] = *(p++);
+	}
+	length += snprintf(buffer + length, buffer_size - length, "\n" sno_ANSI_CYAN "        |  " sno_ANSI_RED);
+	for (size_t i = 0; i < spaces_before_pos; i++) {
+		buffer[length++] = ' ';
+	}
+	return length;
+}
+
+
 
 sno_no_return void throw_syntax_error(
 	Tokenizer* ts,
@@ -441,16 +502,22 @@ sno_no_return void throw_syntax_error(
 	sno_assert_ptr(ts);
 	sno_assert_ptr(pos < ts->source_code->length);
 
+	char buffer[sno_STACK_BUFFER_LENGTH];
+	size_t length = 0;
+	length += sprint_source_code_context(
+		buffer,
+		sno_STACK_BUFFER_LENGTH - 1 - length,
+		ts->source_code,
+		pos
+	);
 	va_list args;
 	va_start(args, message_format);
-	sno_throw_at_source_code_pos(
-		ts->parent_vm,
-		EXCEPTION_SYNTAX_ERROR,
-		ts->source_code,
-		ts->source_code_name,
-		pos,
+	length += (size_t)vsnprintf(
+		buffer,
+		sno_STACK_BUFFER_LENGTH - 1 - length,
 		message_format,
 		args
 	);
 	va_end(args);
+	vm_throw(ts->parent_vm, EXCEPTION_SYNTAX_ERROR, buffer, length);
 }
