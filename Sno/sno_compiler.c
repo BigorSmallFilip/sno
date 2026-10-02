@@ -47,6 +47,11 @@ static Bytecode* free_function_compiler(Tokenizer* ts, Compiler* cs) {
 
 
 
+static void expression(Tokenizer* ts);
+static void block(Tokenizer* ts);
+
+
+
 static ConstID add_number_constant(Compiler* cs, sno_Number number) {
 	sno_assert_ptr(cs);
 	sno_VMState* vm = cs->ts->parent_vm;
@@ -104,6 +109,7 @@ static size_t emit(
 		&ts->cs->instructions,
 		&instruction
 	);
+	return ts->cs->instructions.count - 1;
 }
 
 
@@ -122,6 +128,24 @@ static void if_statement(Tokenizer* ts) {
 	read_next_token(ts);
 	expression(ts);
 
+}
+
+// declaration_stmt ::= declarator identifier
+//                      { ',' [declarator] identifier }
+//                      assign expr_list_open
+static void declaration_statement(Tokenizer* ts) {
+	//sno_Bool is_const = ts->token.type == TK_CONST;
+	read_next_token(ts);
+	if (ts->token.type != TK_IDENTIFIER) {
+		syntax_error_at_cur_token(
+			ts,
+			"Expected a variable name"
+		);
+	}
+	//IString* name = ts->token.info.string;
+	while (1) {
+
+	}
 }
 
 // Returns true if it's a break, continue or return statement
@@ -189,8 +213,7 @@ static Bytecode* parse_global_scope(Tokenizer* ts) {
 		sno_unreachable;
 		syntax_error(ts, 0, "Global scope ended early here");
 	}
-	//emit_instruction_1(ts, sno_I_RETURN, 0);
-
+	emit(ts, OP_RETURN, 0, NO_POS);
 	Bytecode* bytecode = free_function_compiler(ts, &cs);
 
 #ifdef DEBUG_PRINT_PARSER
@@ -202,8 +225,8 @@ static Bytecode* parse_global_scope(Tokenizer* ts) {
 
 Bytecode* compile_source_code(
 	sno_VMState* vm,
-	const IString* source_code_name,
-	const IString* source_code
+	IString* source_code_name,
+	IString* source_code
 ) {
 	sno_assert_ptr(vm);
 	sno_assert_ptr(source_code_name);

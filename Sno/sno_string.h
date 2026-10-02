@@ -38,13 +38,13 @@ void resize_string_interning_table(struct sno_GlobalState* state, size_t new_cap
 void free_string_interning_table(struct sno_GlobalState* state);
 void print_string_interning_table(const struct sno_GlobalState* state);
 
-const IString* create_istring(
+IString* create_istring(
 	sno_GlobalState* state,
 	const char* const string,
 	size_t length
 );
 
-const IString* load_istring_from_file(
+IString* load_istring_from_file(
 	struct sno_GlobalState* state,
 	const char* const path,
 	size_t path_length

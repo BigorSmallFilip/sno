@@ -248,7 +248,7 @@ static IString* create_new_interned_string(
 	return string_obj;
 }
 
-const IString* create_istring(
+IString* create_istring(
 	sno_GlobalState* state,
 	const char* const string,
 	size_t length
@@ -277,7 +277,7 @@ const IString* create_istring(
 	return create_new_interned_string(state, string, length, hash, iter);
 }
 
-const IString* load_istring_from_file(
+IString* load_istring_from_file(
 	sno_GlobalState* state,
 	const char* const path,
 	size_t path_length

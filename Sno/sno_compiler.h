@@ -104,12 +104,14 @@ typedef struct Token {
 	uint32_t pos; // Offset in the source code string
 	union {
 		sno_Number number;
-		const struct IString* string;
+		struct IString* string;
 	} info;
 } Token;
 
 void print_token(const Token* token);
 
+#define MAX_SOURCE_CODE_LENGTH (UINT32_MAX - 69)
+#define NO_POS (UINT32_MAX)
 #define MAX_SYNTAX_DEPTH 200
 
 typedef struct Tokenizer {
@@ -117,8 +119,8 @@ typedef struct Tokenizer {
 	Token prev_token;
 	sno_Bool insert_terminator;
 	struct sno_VMState* parent_vm;
-	const struct IString* source_code_name;
-	const struct IString* source_code;
+	struct IString* source_code_name;
+	struct IString* source_code;
 	const char* source_code_end;
 	const char* cur_char;
 	const char* token_start;
@@ -132,8 +134,8 @@ void read_next_token(Tokenizer* ts);
 
 sno_Bool print_source_code_tokens(
 	struct sno_VMState* vm,
-	const struct IString* source_code_name,
-	const struct IString* source_code
+	struct IString* source_code_name,
+	struct IString* source_code
 );
 
 
@@ -179,8 +181,8 @@ typedef struct Compiler {
 
 Bytecode* compile_source_code(
 	sno_VMState* vm,
-	const struct IString* source_code_name,
-	const struct IString* source_code
+	struct IString* source_code_name,
+	struct IString* source_code
 );
 
 
@@ -188,7 +190,7 @@ Bytecode* compile_source_code(
 size_t sprint_source_code_context(
 	char* buffer,
 	size_t buffer_size,
-	const struct IString* source_code,
+	struct IString* source_code,
 	uint32_t pos
 );
 

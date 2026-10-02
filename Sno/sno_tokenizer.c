@@ -803,8 +803,8 @@ void read_next_token(Tokenizer* ts) {
 
 static void print_source_code_throws(
 	sno_VMState* vm,
-	const IString* source_code_name,
-	const IString* source_code
+	IString* source_code_name,
+	IString* source_code
 ) {
 	sno_assert_ptr(vm);
 	sno_assert_ptr(source_code_name);
@@ -844,8 +844,8 @@ static void print_source_code_throws(
 
 sno_Bool print_source_code_tokens(
 	sno_VMState* vm,
-	const IString* source_code_name,
-	const IString* source_code
+	IString* source_code_name,
+	IString* source_code
 ) {
 	sno_assert_ptr(vm);
 	sno_assert_ptr(source_code_name);
@@ -966,7 +966,7 @@ static size_t underline_token(
 size_t sprint_source_code_context(
 	char* buffer,
 	size_t buffer_size,
-	const IString* source_code,
+	IString* source_code,
 	uint32_t pos
 ) {
 	const char* string = istring_chars(source_code);

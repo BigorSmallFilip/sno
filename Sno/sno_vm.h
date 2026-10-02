@@ -6,6 +6,10 @@
 
 enum {
 	OP_NONE,
+	OP_NUMBER,
+	OP_STRING,
+	OP_BYTECODE,
+	OP_RETURN,
 };
 typedef uint8_t OpCode;
 typedef uint16_t Instruction;

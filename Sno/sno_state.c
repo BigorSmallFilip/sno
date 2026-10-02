@@ -97,7 +97,7 @@ sno_API void sno_run_test_thing(sno_GlobalState* state) {
 	(void)create_istring(state, sno_string_comma_length("xyz"));
 
 	sno_VMState* vm = sno_create_vm(state);
-	const IString* path = create_istring(state, sno_string_comma_length("test.sno"));
+	IString* path = create_istring(state, sno_string_comma_length("test.sno"));
 
 	Bytecode* bytecode = compile_source_code(
 		vm,
