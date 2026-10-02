@@ -161,6 +161,13 @@ typedef union CompilerInstruction {
 DECLARE_GENERIC_DYN_ARRAY(CompilerInstruction, Instruction, instruction);
 DECLARE_GENERIC_DYN_ARRAY(Bytecode, Bytecode, bytecode);
 
+typedef struct Block {
+	struct sno_Block* prev;
+	uint8_t num_active_local_vars;
+	sno_Bool is_loop;
+	sno_Bool is_global;
+} Block;
+
 typedef struct Compiler {
 	Tokenizer* ts;
 	struct Compiler* parent_function;
@@ -172,8 +179,8 @@ typedef struct Compiler {
 
 Bytecode* compile_source_code(
 	sno_VMState* vm,
-	const struct IString* source_code,
-	const struct IString* source_code_name
+	const struct IString* source_code_name,
+	const struct IString* source_code
 );
 
 

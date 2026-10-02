@@ -931,12 +931,35 @@ static size_t underline_token(
 	sno_assert_ptr(source_code);
 	sno_assert(pos < source_code->length);
 
+	uint32_t underline_length = 1;
+	const char* p = istring_chars(source_code) + pos;
+	const char* source_code_end =
+		istring_chars(source_code) + source_code->length;
+	if (is_alpha(*p)) {
+		p++;
+		for (; p < source_code_end; p++) {
+			if (is_alpha(*p) || is_digit(*p)) {
+				underline_length++;
+			} else {
+				break;
+			}
+		}
+	}
+
 	size_t length = 0;
-	length += snprintf(
-		buffer + length,
-		buffer_size - length,
-		sno_ANSI_RED "^ - "
-	);
+	if (underline_length == 1) {
+		length += snprintf(
+			buffer + length,
+			buffer_size - length,
+			"^ "
+		);
+	} else {
+		for (size_t i = 0; i < underline_length; i++) {
+			buffer[length++] = '~';
+		}
+		buffer[length++] = ' ';
+	}
+	
 	return length;
 }
 
@@ -981,7 +1004,7 @@ size_t sprint_source_code_context(
 		}
 		buffer[length++] = *(p++);
 	}
-	length += snprintf(buffer + length, buffer_size - length, "\n" sno_ANSI_CYAN "        |  ");
+	length += snprintf(buffer + length, buffer_size - length, "\n" sno_ANSI_CYAN "        |  " sno_ANSI_RED);
 	for (size_t i = 0; i < spaces_before_pos; i++) {
 		buffer[length++] = ' ';
 	}

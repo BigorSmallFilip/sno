@@ -78,6 +78,12 @@ sno_API void sno_print_error_message(const sno_VMState* vm) {
 	}
 }
 
+sno_API void sno_clear_error(sno_VMState* vm) {
+	sno_assert(vm->exception_type != EXCEPTION_NONE);
+	vm->exception_message = NULL;
+	vm->exception_type = EXCEPTION_NONE;
+}
+
 
 
 sno_API void sno_run_test_thing(sno_GlobalState* state) {
@@ -92,6 +98,17 @@ sno_API void sno_run_test_thing(sno_GlobalState* state) {
 
 	sno_VMState* vm = sno_create_vm(state);
 	const IString* path = create_istring(state, sno_string_comma_length("test.sno"));
+
+	Bytecode* bytecode = compile_source_code(
+		vm,
+		path,
+		load_istring_from_file(state, istring_chars(path), path->length)
+	);
+	if (!bytecode) {
+		sno_print_error_message(vm);
+		sno_clear_error(vm);
+	}
+
 	(void)print_source_code_tokens(
 		vm,
 		path,

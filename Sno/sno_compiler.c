@@ -17,7 +17,6 @@ static sno_no_return void syntax_error_at_cur_token(
 	va_list args;
 	va_start(args, format);
 	vsyntax_error(ts, ts->token.pos, format, args);
-	va_end(args);
 }
 
 
@@ -89,32 +88,90 @@ static ConstID add_string_constant(Compiler* cs, const IString* string) {
 
 
 
+static size_t emit(
+	Tokenizer* ts,
+	OpCode opcode,
+	uint16_t arg,
+	SourceCodePos pos
+) {
+	sno_assert_ptr(ts);
+	CompilerInstruction instruction;
+	instruction.d.opcode = opcode;
+	instruction.d.arg = arg;
+	instruction.d.pos = pos;
+	instruction_dyn_array_push(
+		ts->parent_vm,
+		&ts->cs->instructions,
+		&instruction
+	);
+}
+
+
+
+static void expression(Tokenizer* ts) {
+	sno_assert_ptr(ts);
+	read_next_token(ts);
+	read_next_token(ts);
+	read_next_token(ts);
+}
+
+
+
 static void if_statement(Tokenizer* ts) {
 	sno_assert_ptr(ts);
+	read_next_token(ts);
+	expression(ts);
 
 }
 
-static void statement(Tokenizer* ts) {
+// Returns true if it's a break, continue or return statement
+// These make all following statements unreachable
+static sno_Bool statement(Tokenizer* ts) {
 	sno_assert_ptr(ts);
 
 	switch (ts->token.type) {
-	case TK_IF: {
+	case TK_IF:
+		if_statement(ts);
+		return sno_FALSE;
 
-	} break;
 	default:
+		syntax_error_at_cur_token(
+			ts,
+			"Unexpected token"
+		);
 		break;
 	}
 }
 
-static void block(Tokenizer* ts) {
-	sno_assert_ptr(ts);
-}
+
 
 static void statement_list(Tokenizer* ts) {
 	sno_assert_ptr(ts);
 
 	while (1) {
 		statement(ts);
+	}
+}
+
+static void block(Tokenizer* ts) {
+	sno_assert_ptr(ts);
+	SourceCodePos opening_brace_pos = ts->token.pos;
+	if (ts->token.type != TK_LBRACE) {
+		syntax_error(
+			ts,
+			ts->prev_token.pos,
+			"Expected the opening brace '{' of a block here"
+		);
+	}
+	read_next_token(ts); // Skip '{'
+	//enter_block(ts);
+	statement_list(ts);
+	if (ts->token.type != TK_RBRACE) {
+		syntax_error(
+			ts,
+			opening_brace_pos,
+			"This block is missing its closing brace '}'"
+		);
 	}
 }
 
@@ -145,12 +202,12 @@ static Bytecode* parse_global_scope(Tokenizer* ts) {
 
 Bytecode* compile_source_code(
 	sno_VMState* vm,
-	const IString* source_code,
-	const IString* source_code_name
+	const IString* source_code_name,
+	const IString* source_code
 ) {
 	sno_assert_ptr(vm);
-	sno_assert_ptr(source_code);
 	sno_assert_ptr(source_code_name);
+	sno_assert_ptr(source_code);
 
 	sno_Bool success = sno_TRUE;
 	Bytecode* bytecode = NULL;
