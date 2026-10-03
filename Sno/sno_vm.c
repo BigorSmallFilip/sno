@@ -1,5 +1,9 @@
 #include "sno_vm.h"
 
+#include "sno_compiler.h"
+
+
+
 const char* const opcode_names[NUM_OPCODES] = {
 	"NONE",
 	"NUMBER",
@@ -27,11 +31,27 @@ static sno_Bool print_instruction(const Bytecode* bytecode, PC pc) {
 		arg = (uint16_t)bytecode->instructions[pc + 1];
 		is_extended = sno_TRUE;
 	}
-	printf("%4u %4u > %s ",
-		(unsigned int)(pc),
-		(unsigned int)bytecode->instruction_positions[pc],
-		opcode_names[opcode]
-	);
+	if (bytecode->instruction_positions[pc] != NO_POS) {
+		printf("%5u %5u >   %-16s %5i   ",
+			(unsigned int)(pc),
+			(unsigned int)bytecode->instruction_positions[pc],
+			opcode_names[opcode],
+			(int)arg
+		);
+	} else {
+		printf("%5u       >   %-16s %5i   ",
+			(unsigned int)(pc),
+			opcode_names[opcode],
+			(int)arg
+		);
+	}
+	switch (opcode) {
+	case OP_NUMBER: {
+		sno_assert(arg < bytecode->num_number_constants);
+		printf("%g", bytecode->number_constants[arg]);
+	} break;
+	}
+	putchar('\n');
 	return is_extended;
 }
 

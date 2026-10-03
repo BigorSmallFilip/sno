@@ -62,7 +62,7 @@ typedef uint8_t LocalSlot;
 typedef uint16_t LocalID;
 typedef uint32_t PC; // Program counter
 
-#define MAX_BYTECODE_INSTRUCTIONS UINT32_MAX
+#define MAX_BYTECODE_INSTRUCTIONS (UINT32_MAX - 1)
 
 typedef struct LocalVar {
 	struct IString* name;
@@ -75,9 +75,15 @@ typedef struct Bytecode {
 	struct IString* name;
 	struct IString* source_code_name;
 	struct IString* source_code;
+	PC num_instructions;
+	ConstID num_number_constants;
+	ConstID num_string_constants;
+	ConstID num_bytecode_constants;
 	Instruction* instructions;
 	SourceCodePos* instruction_positions;
-	PC num_instructions;
+	sno_Number* number_constants;
+	IString** string_constants;
+	struct Bytecode** bytecode_constants;
 } Bytecode;
 
 void print_bytecode(const Bytecode* bytecode);

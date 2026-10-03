@@ -96,12 +96,12 @@ void snake_case##_dyn_array_push_n(										 \
 		);																 \
 		dyn_array->capacity = new_capacity;								 \
 	}																	 \
-	dyn_array->count += num_items;                                       \
 	memcpy(																 \
 		dyn_array->buffer + dyn_array->count,							 \
 		items,															 \
 		sizeof(type) * num_items										 \
 	);																	 \
+	dyn_array->count += num_items;                                       \
 }																		 \
 																		 \
 void snake_case##_dyn_array_push(										 \

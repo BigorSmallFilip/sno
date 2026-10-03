@@ -73,15 +73,15 @@ static void compact_instructions(Compiler* cs, Bytecode* bytecode) {
 	}
 	instructions = state_realloc(
 		state,
-		cs->instructions.count * 2 * sizeof(SourceCodePos),
-		instructions,
-		pc * sizeof(SourceCodePos)
-	);
-	state_realloc(
-		state,
 		cs->instructions.count * 2 * sizeof(Instruction),
-		instruction_positions,
+		instructions,
 		pc * sizeof(Instruction)
+	);
+	instruction_positions = state_realloc(
+		state,
+		cs->instructions.count * 2 * sizeof(SourceCodePos),
+		instruction_positions,
+		pc * sizeof(SourceCodePos)
 	);
 	bytecode->num_instructions = pc;
 	bytecode->instructions = instructions;
@@ -89,12 +89,27 @@ static void compact_instructions(Compiler* cs, Bytecode* bytecode) {
 }
 
 static Bytecode* free_function_compiler(Tokenizer* ts, Compiler* cs) {
+	sno_GlobalState* state = ts->parent_vm->state;
+
 	Bytecode* bytecode = create_bytecode(ts->parent_vm);
 	bytecode->name = cs->name;
 	bytecode->source_code_name = ts->source_code_name;
 	bytecode->source_code = ts->source_code;
-	compact_instructions(cs, bytecode);
 
+	sno_assert(cs->instructions.count < MAX_BYTECODE_INSTRUCTIONS);
+	compact_instructions(cs, bytecode);
+	
+	sno_assert(cs->number_constants.count < MAX_NUMBER_CONSTANTS);
+	bytecode->number_constants = state_alloc(
+		state,
+		cs->number_constants.count * sizeof(sno_Number)
+	);
+	bytecode->num_number_constants = (ConstID)cs->number_constants.count;
+	memcpy(
+		bytecode->number_constants,
+		cs->number_constants.buffer,
+		cs->number_constants.count * sizeof(sno_Number)
+	);
 
 	ts->cs = cs->parent_function;
 	return bytecode;
