@@ -381,13 +381,14 @@ static void operand_primary(Tokenizer* ts) {
 			syntax_error(
 				ts,
 				lparen_pos,
-				"Missing closing parenthesis"
+				"Missing closing parenthesis ')'"
 			);
 		}
 		read_next_token(ts);
 		return;
 	} break;
 	default:
+		sno_unreachable;
 		break;
 	}
 	read_next_token(ts);
@@ -573,23 +574,30 @@ static void declaration_statement(Tokenizer* ts) {
 	} else {
 		sno_assert(num_declarations >= 1);
 		sno_assert(ts->prev_token.type == TK_ASSIGN);
-		size_t i = 0;
+		size_t i = 1;
 		while (1) {
 			expression(ts);
 			if (ts->token.type == TK_TERMINATOR) {
 				// Fix calls
 				break;
-			}
-			i++;
-			if (i > num_declarations) {
-				syntax_error(
+			} else if (ts->token.type == TK_COMMA) {
+				i++;
+				if (i > num_declarations) {
+					syntax_error(
+						ts,
+						assignment_token_pos,
+						"There %s %i item%s on the left but %i items on the right",
+						num_declarations == 1 ? "is" : "are",
+						(int)num_declarations,
+						num_declarations == 1 ? "" : "s",
+						(int)i
+					);
+				}
+				read_next_token(ts); // Skip ','
+			} else {
+				syntax_error_at_cur_token(
 					ts,
-					assignment_token_pos,
-					"There %s %i item%s on the left but %i items on the right",
-					num_declarations == 1 ? "is" : "are",
-					(int)num_declarations,
-					num_declarations == 1 ? "" : "s",
-					(int)i
+					"Expected either a comma ',' or statement end"
 				);
 			}
 		}
