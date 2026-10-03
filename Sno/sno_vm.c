@@ -86,6 +86,13 @@ static sno_Bool print_instruction(const Bytecode* bytecode, PC pc) {
 		sno_assert(arg < bytecode->num_number_constants);
 		printf("%g", bytecode->number_constants[arg]);
 	} break;
+	case OP_STRING: {
+		sno_assert(arg < bytecode->num_string_constants);
+		IString* string = bytecode->string_constants[arg];
+		printf("\"%.*s\"", (unsigned int)string->length, istring_chars(string));
+	} break;
+	case OP_SET_GLOBAL:
+	case OP_GET_GLOBAL:
 	case OP_SET_NEW_GLOBAL: {
 		sno_assert(arg < bytecode->num_string_constants);
 		IString* name = bytecode->string_constants[arg];
@@ -122,5 +129,20 @@ void print_bytecode(const Bytecode* bytecode) {
 	);
 	for (PC i = 0; i < bytecode->num_instructions; i++) {
 		i += print_instruction(bytecode, i);
+#if 0
+		SourceCodePos pos = bytecode->instruction_positions[i];
+		if (pos != NO_POS) {
+			char buffer[sno_STACK_BUFFER_LENGTH];
+			size_t length = sprint_source_code_context(
+				buffer,
+				sno_STACK_BUFFER_LENGTH - 1,
+				bytecode->source_code,
+				pos
+			);
+			printf("%.*s\n\n\n" sno_ANSI_NORMAL, (unsigned int)length, buffer);
+		} else {
+			printf("\n\n");
+		}
+#endif
 	}
 }

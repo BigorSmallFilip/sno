@@ -132,6 +132,7 @@ static Bytecode* free_function_compiler(Tokenizer* ts, Compiler* cs) {
 
 
 static void expression(Tokenizer* ts);
+static int open_expression_list(Tokenizer* ts);
 static void block(Tokenizer* ts, sno_Bool is_loop, sno_Bool is_global);
 
 
@@ -209,6 +210,15 @@ static PC emit_number(
 ) {
 	sno_assert_ptr(ts);
 	return emit(ts, pos, OP_NUMBER, add_number_constant(ts->cs, number));
+}
+
+static PC emit_string(
+	Tokenizer* ts,
+	SourceCodePos pos,
+	IString* string
+) {
+	sno_assert_ptr(ts);
+	return emit(ts, pos, OP_STRING, add_string_constant(ts->cs, string));
 }
 
 
@@ -358,12 +368,7 @@ static void operand_primary(Tokenizer* ts) {
 		emit(ts, ts->token.pos, OP_BOOL, 0);
 	} break;
 	case TK_NUMBER: {
-		emit(
-			ts,
-			ts->token.pos,
-			OP_NUMBER,
-			add_number_constant(ts->cs, ts->token.info.number)
-		);
+		emit_number(ts, ts->token.pos, ts->token.info.number);
 	} break;
 	case TK_STRING: {
 		emit(
@@ -372,6 +377,12 @@ static void operand_primary(Tokenizer* ts) {
 			OP_STRING,
 			add_string_constant(ts->cs, ts->token.info.string)
 		);
+	} break;
+	case TK_IDENTIFIER: {
+		identifier(ts, ts->token);
+	} break;
+	case TK_SELF: {
+		sno_not_implemented;
 	} break;
 	case TK_LPAREN: {
 		SourceCodePos lparen_pos = ts->token.pos;
@@ -495,9 +506,28 @@ static void expression(Tokenizer* ts) {
 	subexpression(ts, 0);
 }
 
-static void open_expression_list(Tokenizer* ts) {
+static int open_expression_list(Tokenizer* ts) {
 	sno_assert_ptr(ts);
+	int num_expressions = 1;
 	expression(ts);
+	while (1) {
+		if (ts->token.type == TK_TERMINATOR) {
+			// Fix calls
+			break;
+		}
+		i++;
+		if (i > num_declarations) {
+			syntax_error(
+				ts,
+				assignment_token_pos,
+				"There %s %i item%s on the left but %i items on the right",
+				num_declarations == 1 ? "is" : "are",
+				(int)num_declarations,
+				num_declarations == 1 ? "" : "s",
+				(int)i
+			);
+		}
+	}
 }
 
 
