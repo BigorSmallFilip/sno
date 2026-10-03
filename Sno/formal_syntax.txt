@@ -55,7 +55,7 @@ binop ::= '+' | '-' | '*' | '/' | '/-' | '%' | '**' |
 
 unop ::= '-' | '~' | '!'
 
-operand ::= prefix [ { postfix } ]
+operand ::= prefix { postfix }
 
 prefix ::= none | true | false | number | string | constructor |
            'function' function_definition |
