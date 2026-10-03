@@ -25,8 +25,11 @@ typedef enum {
 	BINOP_NEQ,
 	BINOP_LAND,
 	BINOP_LOR,
+	NUM_BINOPS,
 	NOT_BINOP = -1,
 } BinOp;
+
+extern const char* const binop_names[];
 
 typedef enum {
 	UNOP_NEG,
@@ -34,11 +37,15 @@ typedef enum {
 	UNOP_DEC,
 	UNOP_BITFLIP,
 	UNOP_LNOT,
+	NUM_UNOPS,
 	NOT_UNOP = -1,
 } UnOp;
 
+extern const char* const unop_names[];
+
 enum {
 	OP_NONE,
+	OP_BOOL,
 	OP_NUMBER,
 	OP_STRING,
 	OP_BYTECODE,

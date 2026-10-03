@@ -110,6 +110,20 @@ static Bytecode* free_function_compiler(Tokenizer* ts, Compiler* cs) {
 		cs->number_constants.buffer,
 		cs->number_constants.count * sizeof(sno_Number)
 	);
+	number_dyn_array_clear(ts->parent_vm, &cs->number_constants);
+
+	sno_assert(cs->string_constants.count < MAX_STRING_CONSTANTS);
+	bytecode->string_constants = state_alloc(
+		state,
+		cs->string_constants.count * sizeof(sno_Number)
+	);
+	bytecode->num_string_constants = (ConstID)cs->string_constants.count;
+	memcpy(
+		bytecode->string_constants,
+		cs->string_constants.buffer,
+		cs->string_constants.count * sizeof(sno_Number)
+	);
+	istring_dyn_array_clear(ts->parent_vm, &cs->string_constants);
 
 	ts->cs = cs->parent_function;
 	return bytecode;
@@ -165,9 +179,9 @@ static ConstID add_string_constant(Compiler* cs, const IString* string) {
 
 static PC emit(
 	Tokenizer* ts,
+	SourceCodePos pos,
 	OpCode opcode,
-	uint16_t arg,
-	SourceCodePos pos
+	uint16_t arg
 ) {
 	sno_assert_ptr(ts);
 	CompilerInstruction instruction;
@@ -186,6 +200,15 @@ static PC emit(
 		);
 	}
 	return (PC)(ts->cs->instructions.count - 1);
+}
+
+static PC emit_number(
+	Tokenizer* ts,
+	SourceCodePos pos,
+	sno_Number number
+) {
+	sno_assert_ptr(ts);
+	return emit(ts, pos, OP_NUMBER, add_number_constant(ts->cs, number));
 }
 
 
@@ -262,7 +285,7 @@ static sno_Bool recursive_search_local_variable(Compiler* cs, IString* name) {
 	if (id >= 0) {
 		// Id 0 should always be the 'self' argument
 		sno_assert(id >= 1 && id < MAX_ACTIVE_LOCAL_VARS);
-		emit(cs->ts, OP_GET_LOCAL, (LocalSlot)id, NO_POS);
+		emit(cs->ts, NO_POS, OP_GET_LOCAL, (LocalSlot)id);
 		return sno_TRUE;
 	} else {
 		if (
@@ -284,9 +307,9 @@ static void identifier(Tokenizer* ts, Token name) {
 		// Nothing found so treat it like a global
 		emit(
 			ts,
+			name.pos,
 			OP_GET_GLOBAL,
-			add_string_constant(ts->cs, name.info.string),
-			name.pos
+			add_string_constant(ts->cs, name.info.string)
 		);
 	}
 }
@@ -323,16 +346,46 @@ static void exit_block(Compiler* cs) {
 
 
 
-
 static void operand_primary(Tokenizer* ts) {
 	switch (ts->token.type) {
+	case TK_NONE: {
+		emit(ts, ts->token.pos, OP_NONE, 0);
+	} break;
+	case TK_TRUE: {
+		emit(ts, ts->token.pos, OP_BOOL, 1);
+	} break;
+	case TK_FALSE: {
+		emit(ts, ts->token.pos, OP_BOOL, 0);
+	} break;
 	case TK_NUMBER: {
 		emit(
 			ts,
+			ts->token.pos,
 			OP_NUMBER,
-			add_number_constant(ts->cs, ts->token.info.number),
-			ts->token.pos
+			add_number_constant(ts->cs, ts->token.info.number)
 		);
+	} break;
+	case TK_STRING: {
+		emit(
+			ts,
+			ts->token.pos,
+			OP_STRING,
+			add_string_constant(ts->cs, ts->token.info.string)
+		);
+	} break;
+	case TK_LPAREN: {
+		SourceCodePos lparen_pos = ts->token.pos;
+		read_next_token(ts);
+		expression(ts);
+		if (ts->token.type != TK_RPAREN) {
+			syntax_error(
+				ts,
+				lparen_pos,
+				"Missing closing parenthesis"
+			);
+		}
+		read_next_token(ts);
+		return;
 	} break;
 	default:
 		break;
@@ -410,7 +463,7 @@ static BinOp subexpression(
 		SourceCodePos unop_pos = ts->token.pos;
 		read_next_token(ts);
 		subexpression(ts, UNOP_PRECEDENCE);
-		emit(ts, OP_UNOP, (uint16_t)unary_op, unop_pos);
+		emit(ts, unop_pos, OP_UNOP, (uint16_t)unary_op);
 	} else {
 		operand(ts);
 	}
@@ -430,7 +483,7 @@ static BinOp subexpression(
 			next_binop = NOT_BINOP;
 		} else {
 			next_binop = subexpression(ts, operator_precedence[binop].right);
-			emit(ts, OP_BINOP, (uint16_t)binop, binop_pos);
+			emit(ts, binop_pos, OP_BINOP, (uint16_t)binop);
 		}
 		binop = next_binop;
 	}
@@ -515,7 +568,7 @@ static void declaration_statement(Tokenizer* ts) {
 
 	if (no_assignment) {
 		for (size_t i = 0; i < num_declarations; i++) {
-			emit(ts, OP_NONE, 0, NO_POS);
+			emit(ts, NO_POS, OP_NONE, 0);
 		}
 	} else {
 		sno_assert(num_declarations >= 1);
@@ -547,13 +600,13 @@ static void declaration_statement(Tokenizer* ts) {
 		if (ts->cs->current_block->is_global) {
 			emit(
 				ts,
+				name_token.pos,
 				OP_SET_NEW_GLOBAL,
-				add_string_constant(ts->cs, name_token.info.string),
-				name_token.pos
+				add_string_constant(ts->cs, name_token.info.string)
 			);
 		} else {
 			LocalSlot local_slot = try_declare_local_variable(ts, name_token);
-			emit(ts, OP_SET_LOCAL, local_slot, NO_POS);
+			emit(ts, NO_POS, OP_SET_LOCAL, local_slot);
 		}
 	}
 
@@ -643,7 +696,7 @@ static Bytecode* parse_global_scope(Tokenizer* ts) {
 		sno_unreachable;
 		syntax_error(ts, 0, "Global scope ended early here");
 	}
-	emit(ts, OP_RETURN, 0, NO_POS);
+	emit(ts, NO_POS, OP_RETURN, 0);
 	Bytecode* bytecode = free_function_compiler(ts, &cs);
 
 	return bytecode;

@@ -250,7 +250,6 @@ static void read_base10_number(Tokenizer* ts, Token* token) {
 	} else {
 		sno_assert(is_digit(ts->cur_char[0]));
 	}
-	const char* start = ts->cur_char;
 	while (1) {
 		char c = *ts->cur_char;
 		if (c == '.') {
@@ -290,7 +289,7 @@ static void read_base10_number(Tokenizer* ts, Token* token) {
 		}
 	}
 
-	uint32_t length = (uint32_t)(ts->cur_char - start);
+	uint32_t length = (uint32_t)(ts->cur_char - ts->token_start);
 	if (length >= 255) {
 		syntax_error(
 			ts,
@@ -298,7 +297,7 @@ static void read_base10_number(Tokenizer* ts, Token* token) {
 			"This number is way too long"
 		);
 	}
-	token->info.number = strtod(start, NULL);
+	token->info.number = strtod(ts->token_start, NULL);
 }
 
 
@@ -547,6 +546,16 @@ static TokenType lex_token(Tokenizer* ts, Token* token) {
 		if (check_next(ts, '.')) {
 			read_base10_number(ts, token);
 			return TK_NUMBER;
+		} else if (check_next(ts, 'x')) {
+			sno_not_implemented;
+		} else if (check_next(ts, 'b')) {
+			sno_not_implemented;
+		} else {
+			syntax_error(
+				ts,
+				(uint32_t)(ts->token_start - istring_chars(ts->source_code)),
+				"Numbers starting with 0 must be followed by '.', 'x' or 'b'"
+			);
 		}
 	}
 	case '1': case '2': case '3': case '4':
@@ -555,6 +564,13 @@ static TokenType lex_token(Tokenizer* ts, Token* token) {
 		return TK_NUMBER;
 	}
 
+	case 'a': {
+		ts->cur_char++;
+		if (!check_next(ts, 'n')) goto identifier;
+		if (!check_next(ts, 'd')) goto identifier;
+		if (check_next_alphanumeric(ts)) goto identifier;
+		return TK_LAND;
+	}
 	case 'b': {
 		ts->cur_char++;
 		if (!check_next(ts, 'r')) goto identifier;
@@ -645,11 +661,21 @@ static TokenType lex_token(Tokenizer* ts, Token* token) {
 	}
 	case 'n': {
 		ts->cur_char++;
-		if (!check_next(ts, 'o')) goto identifier;
-		if (!check_next(ts, 'n')) goto identifier;
-		if (!check_next(ts, 'e')) goto identifier;
+		if (check_next(ts, 'o')) {
+			if (!check_next(ts, 'n')) goto identifier;
+			if (!check_next(ts, 'e')) goto identifier;
+			if (check_next_alphanumeric(ts)) goto identifier;
+			return TK_NONE;
+		} else if (check_next(ts, 't')) {
+			if (check_next_alphanumeric(ts)) goto identifier;
+			return TK_LNOT;
+		}
+	}
+	case 'o': {
+		ts->cur_char++;
+		if (!check_next(ts, 'r')) goto identifier;
 		if (check_next_alphanumeric(ts)) goto identifier;
-		return TK_NONE;
+		return TK_LOR;
 	}
 	case 'q': {
 		ts->cur_char++;
@@ -718,9 +744,9 @@ static TokenType lex_token(Tokenizer* ts, Token* token) {
 		return TK_WHILE;
 	}
 
-	case 'a':                     case 'd':
+	                              case 'd':
 	case 'g': case 'h': case 'j': case 'k': case 'l':
-	                    case 'o': case 'p':
+	                              case 'p':
 	case 'u':                     case 'x':
 	case 'y': case 'z':
 	case 'A': case 'B': case 'C': case 'D': case 'E': case 'F':

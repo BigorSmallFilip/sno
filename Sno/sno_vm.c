@@ -4,8 +4,40 @@
 
 
 
+const char* const binop_names[NUM_BINOPS] = {
+	"+",
+	"-",
+	"*",
+	"/",
+	"/-",
+	"%",
+	"**",
+	"&",
+	"|",
+	"^",
+	"<<",
+	">>",
+	"<",
+	">",
+	"<=",
+	">=",
+	"==",
+	"!=",
+	"and",
+	"or",
+};
+
+const char* const unop_names[NUM_UNOPS] = {
+	"-",
+	"++",
+	"--",
+	"~",
+	"not",
+};
+
 const char* const opcode_names[NUM_OPCODES] = {
 	"NONE",
+	"BOOL",
 	"NUMBER",
 	"STRING",
 	"BYTECODE",
@@ -46,10 +78,28 @@ static sno_Bool print_instruction(const Bytecode* bytecode, PC pc) {
 		);
 	}
 	switch (opcode) {
+	case OP_BOOL: {
+		sno_assert(arg == 0 || arg == 1);
+		printf("%s", arg ? "true" : "false");
+	} break;
 	case OP_NUMBER: {
 		sno_assert(arg < bytecode->num_number_constants);
 		printf("%g", bytecode->number_constants[arg]);
 	} break;
+	case OP_SET_NEW_GLOBAL: {
+		sno_assert(arg < bytecode->num_string_constants);
+		IString* name = bytecode->string_constants[arg];
+		printf("%.*s", (unsigned int)name->length, istring_chars(name));
+	} break;
+	case OP_BINOP: {
+		sno_assert(arg < NUM_BINOPS);
+		printf("%s", binop_names[arg]);
+	} break;
+	case OP_UNOP: {
+		sno_assert(arg < NUM_UNOPS);
+		printf("%s", unop_names[arg]);
+	} break;
+
 	}
 	putchar('\n');
 	return is_extended;
