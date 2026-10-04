@@ -45,9 +45,15 @@ const char* const opcode_names[NUM_OPCODES] = {
 	"SET_LOCAL",
 	"GET_GLOBAL",
 	"SET_GLOBAL",
+	"GET_FIELD",
+	"SET_FIELD",
+	"GET_INDEX",
+	"SET_INDEX",
 	"SET_NEW_GLOBAL",
+	"GET_METHOD",
 	"UNOP",
 	"BINOP",
+	"CALL",
 	"RETURN",
 };
 
@@ -64,14 +70,14 @@ static sno_Bool print_instruction(const Bytecode* bytecode, PC pc) {
 		is_extended = sno_TRUE;
 	}
 	if (bytecode->instruction_positions[pc] != NO_POS) {
-		printf("%5u %5u >   %-16s %5i   ",
+		printf("%3u %3u >   %-16s %5i   ",
 			(unsigned int)(pc),
 			(unsigned int)bytecode->instruction_positions[pc],
 			opcode_names[opcode],
 			(int)arg
 		);
 	} else {
-		printf("%5u       >   %-16s %5i   ",
+		printf("%3u     >   %-16s %5i   ",
 			(unsigned int)(pc),
 			opcode_names[opcode],
 			(int)arg
@@ -129,7 +135,7 @@ void print_bytecode(const Bytecode* bytecode) {
 	);
 	for (PC i = 0; i < bytecode->num_instructions; i++) {
 		i += print_instruction(bytecode, i);
-#if 0
+#if 1
 		SourceCodePos pos = bytecode->instruction_positions[i];
 		if (pos != NO_POS) {
 			char buffer[sno_STACK_BUFFER_LENGTH];

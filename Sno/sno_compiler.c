@@ -133,6 +133,7 @@ static Bytecode* free_function_compiler(Tokenizer* ts, Compiler* cs) {
 
 static void expression(Tokenizer* ts);
 static int open_expression_list(Tokenizer* ts);
+static int closed_expression_list(Tokenizer* ts, TokenType closing_token);
 static void block(Tokenizer* ts, sno_Bool is_loop, sno_Bool is_global);
 
 
@@ -371,12 +372,7 @@ static void operand_primary(Tokenizer* ts) {
 		emit_number(ts, ts->token.pos, ts->token.info.number);
 	} break;
 	case TK_STRING: {
-		emit(
-			ts,
-			ts->token.pos,
-			OP_STRING,
-			add_string_constant(ts->cs, ts->token.info.string)
-		);
+		emit_string(ts, ts->token.pos, ts->token.info.string);
 	} break;
 	case TK_IDENTIFIER: {
 		identifier(ts, ts->token);
@@ -406,6 +402,42 @@ static void operand_primary(Tokenizer* ts) {
 
 static void operand_postfix(Tokenizer* ts) {
 	sno_assert_ptr(ts);
+	SourceCodePos pos = ts->token.pos;
+	switch (ts->token.type) {
+	case TK_LBRACKET: { // Index
+		read_next_token(ts);
+		expression(ts);
+		if (ts->token.type != TK_RBRACKET) {
+			syntax_error(ts, pos, "Missing closing bracket ']'");
+		}
+		emit(ts, pos, OP_GET_INDEX, 0);
+	} break;
+	case TK_DOT: { // Field or method call
+		read_next_token(ts);
+		if (ts->token.type != TK_IDENTIFIER) {
+			syntax_error(ts, pos, "Missing closing bracket ']'");
+		}
+		ConstID name_const_id = add_string_constant(ts->cs, ts->token.info.string);
+		read_next_token(ts);
+		SourceCodePos lparen_at = ts->token.pos;
+		if (ts->token.type == TK_LPAREN) {
+			emit(ts, pos, OP_GET_METHOD, name_const_id);
+			read_next_token(ts);
+			int num_args = closed_expression_list(ts, TK_RPAREN);
+			emit(ts, lparen_at, OP_CALL, (uint16_t)(num_args | (1 << 4)));
+		} else {
+			emit(ts, lparen_at, OP_GET_FIELD, name_const_id);
+		}
+	} break;
+	case TK_LPAREN: { // Function call
+		emit(ts, pos, OP_NONE, 0); // Self parameter = null
+		int num_args = closed_expression_list(ts, TK_RPAREN);
+		emit(ts, pos, OP_CALL, (uint16_t)(num_args | (1 << 4)));
+	} break;
+	default: {
+		return;
+	}
+	}
 }
 
 static void operand(Tokenizer* ts) {
@@ -509,25 +541,30 @@ static void expression(Tokenizer* ts) {
 static int open_expression_list(Tokenizer* ts) {
 	sno_assert_ptr(ts);
 	int num_expressions = 1;
-	expression(ts);
 	while (1) {
+		expression(ts);
 		if (ts->token.type == TK_TERMINATOR) {
 			// Fix calls
 			break;
-		}
-		i++;
-		if (i > num_declarations) {
-			syntax_error(
+		} else if (ts->token.type == TK_COMMA) {
+			num_expressions++;
+			continue;
+		} else {
+			syntax_error_at_cur_token(
 				ts,
-				assignment_token_pos,
-				"There %s %i item%s on the left but %i items on the right",
-				num_declarations == 1 ? "is" : "are",
-				(int)num_declarations,
-				num_declarations == 1 ? "" : "s",
-				(int)i
+				"Expected a comma ',' or statement end"
 			);
 		}
 	}
+	return num_expressions;
+}
+
+static int closed_expression_list(Tokenizer* ts, TokenType closing_token) {
+	sno_assert_ptr(ts);
+	if (ts->token.type == closing_token) {
+		return 0;
+	}
+	return 0;
 }
 
 
@@ -601,27 +638,22 @@ static void declaration_statement(Tokenizer* ts) {
 			emit(ts, NO_POS, OP_NONE, 0);
 		}
 	} else {
-		sno_assert(num_declarations >= 1);
+		sno_assert(
+			num_declarations >= 1 &&
+			num_declarations <= MAX_EXPR_PER_STMT
+		);
 		sno_assert(ts->prev_token.type == TK_ASSIGN);
-		size_t i = 0;
-		while (1) {
-			expression(ts);
-			if (ts->token.type == TK_TERMINATOR) {
-				// Fix calls
-				break;
-			}
-			i++;
-			if (i > num_declarations) {
-				syntax_error(
-					ts,
-					assignment_token_pos,
-					"There %s %i item%s on the left but %i items on the right",
-					num_declarations == 1 ? "is" : "are",
-					(int)num_declarations,
-					num_declarations == 1 ? "" : "s",
-					(int)i
-				);
-			}
+		int num_expressions = open_expression_list(ts);
+		if (num_expressions > (int)num_declarations) {
+			syntax_error(
+				ts,
+				assignment_token_pos,
+				"There %s %i item%s on the left but %i items on the right",
+				num_declarations == 1 ? "is" : "are",
+				(int)num_declarations,
+				num_declarations == 1 ? "" : "s",
+				num_expressions
+			);
 		}
 	}
 	sno_assert(num_declarations >= 1 && num_declarations <= MAX_EXPR_PER_STMT);
@@ -642,10 +674,24 @@ static void declaration_statement(Tokenizer* ts) {
 
 }
 
+static void expression_statement(Tokenizer* ts) {
+	sno_assert_ptr(ts);
+	expression(ts);
+}
+
 // return_stmt ::= 'return' expr_list_open
 static void return_statement(Tokenizer* ts) {
+	SourceCodePos pos = ts->token.pos;
 	read_next_token(ts);
-	
+	int num_returns;
+	if (ts->token.type == TK_TERMINATOR) {
+		// No returns
+		num_returns = 0;
+	} else {
+		num_returns = open_expression_list(ts);
+	}
+	sno_assert(num_returns >= 0 && num_returns < MAX_EXPR_PER_STMT);
+	emit(ts, pos, OP_RETURN, (uint16_t)num_returns);
 }
 
 // Returns true if it's a break, continue or return statement
@@ -657,15 +703,26 @@ static sno_Bool statement(Tokenizer* ts) {
 	case TK_IF:
 		if_statement(ts);
 		return sno_FALSE;
+	case TK_RETURN:
+		return_statement(ts);
+		return sno_TRUE;
 	case TK_VAR:
 	case TK_CONST:
 		declaration_statement(ts);
 		return sno_FALSE;
-
+	case TK_SELF:
+	case TK_TRUE:
+	case TK_FALSE:
+	case TK_NONE:
+	case TK_LNOT:
+	case TK_BITFLIP:
+	case TK_SUB:
+		expression_statement(ts);
+		return sno_FALSE;
 	default:
 		syntax_error_at_cur_token(
 			ts,
-			"Unexpected token"
+			"Unexpected token at the start of a statement"
 		);
 		break;
 	}
