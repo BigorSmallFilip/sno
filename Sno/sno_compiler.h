@@ -164,6 +164,13 @@ typedef union CompilerInstruction {
 		uint16_t arg;
 		SourceCodePos pos;
 	} d;
+	struct {
+		OpCode opcode;
+		uint8_t argc : 4;
+		uint8_t retc : 4;
+		uint8_t _padding;
+		SourceCodePos pos;
+	} call;
 } CompilerInstruction;
 
 DECLARE_GENERIC_DYN_ARRAY(CompilerInstruction, Instruction, instruction);

@@ -222,6 +222,14 @@ static PC emit_string(
 	return emit(ts, pos, OP_STRING, add_string_constant(ts->cs, string));
 }
 
+static CompilerInstruction* get_last_instruction(const Compiler* cs) {
+	sno_assert_ptr(cs);
+	sno_assert(cs->instructions.count > 0);
+	return &cs->instructions.buffer[
+		cs->instructions.count - 1
+	];
+}
+
 
 
 
@@ -676,7 +684,69 @@ static void declaration_statement(Tokenizer* ts) {
 
 static void expression_statement(Tokenizer* ts) {
 	sno_assert_ptr(ts);
-	expression(ts);
+	int num_lhs = 1;
+	BinOp assignment_op = NOT_BINOP;
+	SourceCodePos assignment_pos = 0;
+	while (1) {
+		operand(ts);
+		if (token_is_assignment(ts->token.type)) {
+			if (ts->token.type != TK_ASSIGN && num_lhs > 1) {
+				syntax_error_at_cur_token(
+					ts,
+					"Assign ops are only valid on one operand"
+				);
+			}
+			assignment_op = ts->token.type - 1 - TK_ASSIGN;
+			assignment_pos = ts->token.pos;
+			read_next_token(ts);
+			break;
+		} else if (ts->token.type == TK_COMMA) {
+			num_lhs++;
+			if (num_lhs > MAX_EXPR_PER_STMT) {
+				syntax_error_at_cur_token(
+					ts,
+					"Too many expressions in one statement"
+				);
+			}
+			read_next_token(ts);
+		} else if (ts->token.type == TK_TERMINATOR) {
+			if (num_lhs > 1) {
+				syntax_error_at_cur_token(
+					ts,
+					"Nope"
+				);
+			}
+			
+			return;
+		} else {
+			syntax_error_at_cur_token(
+				ts,
+				"Expected either comma ',' or an assignment token"
+			);
+		}
+	}
+	int num_rhs = open_expression_list(ts);
+	CompilerInstruction* last_instruction = get_last_instruction(ts->cs);
+	sno_Bool last_rhs_was_call = last_instruction->d.opcode == OP_CALL;
+	if (num_rhs > num_lhs) {
+		syntax_error(
+			ts,
+			assignment_pos,
+			"There are more expressions on the right than on the left"
+		);
+	}
+	if (last_rhs_was_call) {
+		// Correct the number of returns
+		last_instruction->call.retc = (uint8_t)(num_lhs - num_rhs);
+	} else {
+		if (num_lhs != num_rhs) {
+			syntax_error(
+				ts,
+				assignment_pos,
+				"Dif"
+			);
+		}
+	}
 }
 
 // return_stmt ::= 'return' expr_list_open
@@ -710,21 +780,15 @@ static sno_Bool statement(Tokenizer* ts) {
 	case TK_CONST:
 		declaration_statement(ts);
 		return sno_FALSE;
-	case TK_SELF:
-	case TK_TRUE:
-	case TK_FALSE:
-	case TK_NONE:
-	case TK_LNOT:
-	case TK_BITFLIP:
-	case TK_SUB:
+	default:
 		expression_statement(ts);
 		return sno_FALSE;
-	default:
+	/*default:
 		syntax_error_at_cur_token(
 			ts,
 			"Unexpected token at the start of a statement"
 		);
-		break;
+		break;*/
 	}
 }
 

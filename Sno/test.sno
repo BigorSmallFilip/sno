@@ -1,4 +1,4 @@
 
 var Person = none
 
-Person.new()
+Person = 1

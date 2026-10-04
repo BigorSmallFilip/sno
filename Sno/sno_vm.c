@@ -135,7 +135,7 @@ void print_bytecode(const Bytecode* bytecode) {
 	);
 	for (PC i = 0; i < bytecode->num_instructions; i++) {
 		i += print_instruction(bytecode, i);
-#if 1
+#if 0
 		SourceCodePos pos = bytecode->instruction_positions[i];
 		if (pos != NO_POS) {
 			char buffer[sno_STACK_BUFFER_LENGTH];
