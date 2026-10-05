@@ -134,8 +134,13 @@ static Bytecode* free_function_compiler(Tokenizer* ts, Compiler* cs) {
 
 static void expression(Tokenizer* ts);
 static int open_expression_list(Tokenizer* ts);
-static int closed_expression_list(Tokenizer* ts, TokenType closing_token);
+static int closed_expression_list(
+	Tokenizer* ts,
+	TokenType closing_token,
+	int max_exprs
+);
 static void block(Tokenizer* ts, sno_Bool is_loop, sno_Bool is_global);
+static void brace_block(Tokenizer* ts, sno_Bool is_loop);
 
 
 
@@ -371,6 +376,20 @@ static void exit_block(Compiler* cs) {
 
 
 
+static void linalg_constructor(Tokenizer* ts) {
+	SourceCodePos pos = ts->token.pos;
+	TokenType type = ts->token.type - TK_VEC2;
+	read_next_token(ts);
+	if (ts->token.type != TK_LPAREN) {
+		syntax_error_at_cur_token(
+			ts,
+			"Expected an opening parenthesis '('"
+		);
+	}
+	uint32_t num_values = closed_expression_list(ts, TK_RPAREN, 16);
+	emit(ts, pos, OP_NEW_LINALG, (uint16_t)(type | num_values));
+}
+
 static void operand_primary(Tokenizer* ts) {
 	switch (ts->token.type) {
 	case TK_NONE: {
@@ -387,6 +406,15 @@ static void operand_primary(Tokenizer* ts) {
 	} break;
 	case TK_STRING: {
 		emit_string(ts, ts->token.pos, ts->token.info.string);
+	} break;
+	case TK_VEC2:
+	case TK_VEC3:
+	case TK_VEC4:
+	case TK_QUAT:
+	case TK_MAT2:
+	case TK_MAT3:
+	case TK_MAT4: {
+		linalg_constructor(ts);
 	} break;
 	case TK_IDENTIFIER: {
 		identifier(ts, ts->token);
@@ -422,7 +450,7 @@ static int arguments(Tokenizer* ts) {
 	sno_assert_ptr(ts);
 	sno_assert(ts->token.type == TK_LPAREN);
 	read_next_token(ts);
-	return closed_expression_list(ts, TK_RPAREN);
+	return closed_expression_list(ts, TK_RPAREN, MAX_EXPR_PER_STMT);
 }
 
 static void call(Tokenizer* ts, SourceCodePos pos) {
@@ -551,13 +579,23 @@ static BinOp subexpression(
 		SourceCodePos binop_pos = ts->token.pos;
 		read_next_token(ts);
 		if (binop == BINOP_LAND || binop == BINOP_LOR) {
-			/*uint32_t jump_from = emit_instruction(
+			PC jump_from = emit(
 				ts,
-				binop == BINOP_LAND ? OP_AND : OP_OR
+				binop_pos,
+				binop == BINOP_LAND ? OP_AND : OP_OR,
+				0
 			);
 			next_binop = subexpression(ts, operator_precedence[binop].right);
-			uint32_t jump_to = emit_instruction(ts, OP_TO_BOOL) + 1;
-			set_jump_dst(ts, jump_from, jump_to);*/
+			PC jump_to = emit(ts, NO_POS, OP_TO_BOOL, 0) + 1;
+			if (jump_to - jump_from > UINT16_MAX) {
+				syntax_error(
+					ts,
+					binop_pos,
+					"Jumps too far"
+				);
+			}
+			ts->cs->instructions.buffer[jump_from].d.arg =
+				(uint16_t)(jump_to - jump_from);
 			next_binop = NOT_BINOP;
 		} else {
 			next_binop = subexpression(ts, operator_precedence[binop].right);
@@ -594,7 +632,11 @@ static int open_expression_list(Tokenizer* ts) {
 	return num_expressions;
 }
 
-static int closed_expression_list(Tokenizer* ts, TokenType closing_token) {
+static int closed_expression_list(
+	Tokenizer* ts,
+	TokenType closing_token, 
+	int max_exprs
+) {
 	sno_assert_ptr(ts);
 	if (ts->token.type == closing_token) {
 		read_next_token(ts);
@@ -604,7 +646,7 @@ static int closed_expression_list(Tokenizer* ts, TokenType closing_token) {
 	while (1) {
 		expression(ts);
 		if (ts->token.type == TK_COMMA) {
-			if (num_exprs > MAX_EXPR_PER_STMT) {
+			if (num_exprs > max_exprs) {
 				syntax_error_at_cur_token(
 					ts,
 					"Too many expressions"
@@ -635,8 +677,48 @@ static int closed_expression_list(Tokenizer* ts, TokenType closing_token) {
 static void if_statement(Tokenizer* ts) {
 	sno_assert_ptr(ts);
 	read_next_token(ts);
-	expression(ts);
+	expression(ts); // Condition
+	PC jump_from = emit(ts, NO_POS, OP_JUMP_FRWD_IF_FALSE, 0);
+	SourceCodePos lbrace_pos = ts->token.pos;
+	brace_block(ts, sno_FALSE);
+	PC jump_to = (PC)(ts->cs->instructions.count);
+	if (ts->token.type == TK_ELSE) {
+		SourceCodePos else_pos = ts->token.pos;
+		jump_to++;
+		read_next_token(ts);
+		PC else_jump_from = emit(ts, NO_POS, OP_JUMP_FRWD, 0);
+		if (ts->token.type == TK_IF) {
+			if_statement(ts);
+		} else {
+			brace_block(ts, sno_FALSE);
+		}
+		PC else_jump_to = (PC)ts->cs->instructions.count;
+		if (else_jump_to - else_jump_from > UINT16_MAX) {
+			syntax_error(ts, else_pos, "Jumps too far");
+		}
+		ts->cs->instructions.buffer[else_jump_from].d.arg =
+			(uint16_t)(else_jump_to - else_jump_from);
+	}
+	if (jump_to - jump_from > UINT16_MAX) {
+		syntax_error(ts, lbrace_pos, "Jumps too far");
+	}
+	ts->cs->instructions.buffer[jump_from].d.arg =
+		(uint16_t)(jump_to - jump_from);
+}
 
+static void while_statement(Tokenizer* ts) {
+	sno_assert_ptr(ts);
+	read_next_token(ts);
+	PC back_to = (PC)(ts->cs->instructions.count);
+	expression(ts); // Condition
+	PC condition_jump_from = emit(ts, NO_POS, OP_JUMP_FRWD_IF_FALSE, 0);
+	brace_block(ts, sno_TRUE);
+	PC back_from = emit(ts, NO_POS, OP_JUMP_BACK, 0);
+	PC condition_jump_to = back_from + 1; // TODO: Maybe check this increment?
+	ts->cs->instructions.buffer[back_from].d.arg =
+		(uint16_t)(back_from - back_to);
+	ts->cs->instructions.buffer[condition_jump_from].d.arg =
+		(uint16_t)(condition_jump_to - condition_jump_from);
 }
 
 // declaration_stmt ::= declarator identifier
@@ -902,7 +984,7 @@ static void return_statement(Tokenizer* ts) {
 	} else {
 		num_returns = open_expression_list(ts);
 	}
-	sno_assert(num_returns >= 0 && num_returns < MAX_EXPR_PER_STMT);
+	sno_assert(num_returns >= 0 && num_returns <= MAX_EXPR_PER_STMT);
 	emit(ts, pos, OP_RETURN, (uint16_t)num_returns);
 }
 
@@ -914,6 +996,9 @@ static sno_Bool statement(Tokenizer* ts) {
 	switch (ts->token.type) {
 	case TK_IF:
 		if_statement(ts);
+		return sno_FALSE;
+	case TK_WHILE:
+		while_statement(ts);
 		return sno_FALSE;
 	case TK_RETURN:
 		return_statement(ts);
@@ -942,7 +1027,7 @@ static void block(Tokenizer* ts, sno_Bool is_loop, sno_Bool is_global) {
 	Block block;
 	enter_block(ts->cs, &block, is_loop, is_global);
 	while (1) {
-		if (ts->token.type == TK_EOF) {
+		if (ts->token.type == TK_EOF || ts->token.type == TK_RBRACE) {
 			break;
 		}
 		statement(ts);
@@ -973,6 +1058,7 @@ static void brace_block(Tokenizer* ts, sno_Bool is_loop) {
 			"This block is missing its closing brace '}'"
 		);
 	}
+	read_next_token(ts);
 }
 
 

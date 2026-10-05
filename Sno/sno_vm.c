@@ -41,6 +41,9 @@ const char* const opcode_names[NUM_OPCODES] = {
 	"NUMBER",
 	"STRING",
 	"BYTECODE",
+	"NEW_LINALG",
+	"NEW_ARRAY",
+	"NEW_TABLE",
 	"GET_LOCAL",
 	"SET_LOCAL",
 	"GET_GLOBAL",
@@ -52,9 +55,15 @@ const char* const opcode_names[NUM_OPCODES] = {
 	"SET_NEW_GLOBAL",
 	"GET_METHOD",
 	"COPY",
-	"MASH",
+	"MASH", // Multi-assign shuffle
+	"TO_BOOL",
 	"UNOP",
 	"BINOP",
+	"AND",
+	"OR",
+	"JUMP_FRWD_IF_FALSE",
+	"JUMP_FRWD",
+	"JUMP_BACK",
 	"CALL",
 	"RETURN",
 	"NOP",
@@ -73,14 +82,14 @@ static sno_Bool print_instruction(const Bytecode* bytecode, PC pc) {
 		is_extended = sno_TRUE;
 	}
 	if (bytecode->instruction_positions[pc] != NO_POS) {
-		printf("%3u %3u >   %-16s %5i   ",
+		printf("%3u %3u >   %-18s %5i   ",
 			(unsigned int)(pc),
 			(unsigned int)bytecode->instruction_positions[pc],
 			opcode_names[opcode],
 			(int)arg
 		);
 	} else {
-		printf("%3u     >   %-16s %5i   ",
+		printf("%3u     >   %-18s %5i   ",
 			(unsigned int)(pc),
 			opcode_names[opcode],
 			(int)arg
@@ -117,6 +126,15 @@ static sno_Bool print_instruction(const Bytecode* bytecode, PC pc) {
 	case OP_UNOP: {
 		sno_assert(arg < NUM_UNOPS);
 		printf("%s", unop_names[arg]);
+	} break;
+	case OP_JUMP_FRWD_IF_FALSE:
+	case OP_JUMP_FRWD:
+	case OP_AND:
+	case OP_OR: {
+		printf("to %u", pc + arg);
+	} break;
+	case OP_JUMP_BACK: {
+		printf("to %u", pc - arg);
 	} break;
 	case OP_CALL: {
 		sno_assert(arg != 0xFF);
