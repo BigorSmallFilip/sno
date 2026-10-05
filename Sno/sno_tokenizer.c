@@ -764,6 +764,7 @@ static TokenType lex_token(Tokenizer* ts, Token* token) {
 			if (check_next_alphanumeric(ts)) goto identifier;
 			return TK_LNOT;
 		}
+		goto identifier;
 	}
 	case 'o': {
 		ts->cur_char++;

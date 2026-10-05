@@ -59,6 +59,7 @@ static void compact_instructions(Compiler* cs, Bytecode* bytecode) {
 	);
 	for (size_t i = 0; i < cs->instructions.count; i++) {
 		OpCode opcode = cs->instructions.buffer[i].d.opcode;
+		if (opcode == OP_NOP) { continue; }
 		uint16_t arg = cs->instructions.buffer[i].d.arg;
 		SourceCodePos pos = cs->instructions.buffer[i].d.pos;
 		if (arg < 0xFF) {
@@ -408,6 +409,10 @@ static void operand_primary(Tokenizer* ts) {
 		return;
 	} break;
 	default:
+		syntax_error_at_cur_token(
+			ts,
+			"Expected an operand"
+		);
 		break;
 	}
 	read_next_token(ts);
@@ -427,7 +432,7 @@ static void call(Tokenizer* ts, SourceCodePos pos) {
 	i.call.pos = pos;
 	i.call.opcode = OP_CALL;
 	i.call.argc = (uint8_t)num_args;
-	i.call.retc = 0;
+	i.call.retc = 1;
 	emit_instruction(ts, i);
 }
 
@@ -442,6 +447,7 @@ static void operand_postfix(Tokenizer* ts) {
 			if (ts->token.type != TK_RBRACKET) {
 				syntax_error(ts, pos, "Missing closing bracket ']'");
 			}
+			read_next_token(ts);
 			emit(ts, pos, OP_GET_INDEX, 0);
 		} break;
 		case TK_DOT: { // Field or method call
@@ -573,10 +579,10 @@ static int open_expression_list(Tokenizer* ts) {
 	while (1) {
 		expression(ts);
 		if (ts->token.type == TK_TERMINATOR) {
-			// Fix calls
 			break;
 		} else if (ts->token.type == TK_COMMA) {
 			num_expressions++;
+			read_next_token(ts);
 			continue;
 		} else {
 			syntax_error_at_cur_token(
@@ -731,30 +737,53 @@ static void declaration_statement(Tokenizer* ts) {
 
 }
 
+static sno_Bool is_lvalue(OpCode opcode) {
+	return
+		opcode == OP_GET_LOCAL ||
+		opcode == OP_GET_GLOBAL ||
+		opcode == OP_GET_FIELD ||
+		opcode == OP_GET_INDEX;
+}
+
 static void expression_statement(Tokenizer* ts) {
 	sno_assert_ptr(ts);
-	operand(ts);
-	if (get_last_instruction(ts->cs)->d.opcode == OP_CALL) {
-		if (ts->token.type != TK_TERMINATOR) {
-			// TODO: Terrible message
-			syntax_error(
-				ts,
-				ts->prev_token.pos,
-				"Statements starting with a call should be the only thing in the statement"
-			);
-		}
-		return;
-	}
-	int num_lhs = 1;
 	BinOp assignment_op = NOT_BINOP;
 	SourceCodePos assignment_pos = 0;
+	sno_Bool may_need_mash = sno_FALSE;
+	int num_lhs = 1;
+	PC lhs_instructions[MAX_EXPR_PER_STMT];
 	while (1) {
+		expression(ts);
+		CompilerInstruction last_i = *get_last_instruction(ts->cs);
+		// Save the lhs instructions on the stack,
+		// to convert them to SET later
+		if (last_i.d.opcode == OP_GET_FIELD) {
+			may_need_mash = sno_TRUE;
+		} else if (last_i.d.opcode == OP_GET_INDEX) {
+			may_need_mash = sno_TRUE;
+		}
+		lhs_instructions[num_lhs - 1] = (PC)ts->cs->instructions.count - 1;
 		if (token_is_assignment(ts->token.type)) {
-			if (ts->token.type != TK_ASSIGN && num_lhs > 1) {
-				syntax_error_at_cur_token(
-					ts,
-					"Assign ops are only valid on one operand"
-				);
+			if (ts->token.type != TK_ASSIGN) {
+				// Assign op
+				if (num_lhs > 1) {
+					syntax_error_at_cur_token(
+						ts,
+						"Assign ops are only valid on singular operands"
+					);
+				}
+				// Need to copy the operands for both GET and SET
+				if (last_i.d.opcode == OP_GET_FIELD) {
+					ts->cs->instructions.count--;
+					emit(ts, NO_POS, OP_COPY, 1);
+					emit_instruction(ts, last_i);
+					lhs_instructions[0]++;
+				} else if (last_i.d.opcode == OP_GET_INDEX) {
+					ts->cs->instructions.count--;
+					emit(ts, NO_POS, OP_COPY, 2);
+					emit_instruction(ts, last_i);
+					lhs_instructions[0]++;
+				}
 			}
 			assignment_op = ts->token.type - 1 - TK_ASSIGN;
 			assignment_pos = ts->token.pos;
@@ -769,16 +798,25 @@ static void expression_statement(Tokenizer* ts) {
 				);
 			}
 			read_next_token(ts);
-			operand(ts);
 			continue;
 		} else if (ts->token.type == TK_TERMINATOR) {
+			// No assignment
 			if (num_lhs > 1) {
-				syntax_error_at_cur_token(
+				syntax_error(
 					ts,
-					"Expected an assignment"
+					ts->prev_token.pos,
+					"Multiple expressions aren't allowed here"
 				);
 			}
-			
+			if (last_i.d.opcode != OP_CALL) {
+				syntax_error(
+					ts,
+					ts->prev_token.pos,
+					"Statement performs redundant operations"
+				);
+			}
+			get_last_instruction(ts->cs)->call.retc = 0;
+			// Check if in REPL mode
 			return;
 		} else {
 			syntax_error_at_cur_token(
@@ -789,7 +827,6 @@ static void expression_statement(Tokenizer* ts) {
 	}
 	int num_rhs = open_expression_list(ts);
 	CompilerInstruction* last_instruction = get_last_instruction(ts->cs);
-	sno_Bool last_rhs_was_call = last_instruction->d.opcode == OP_CALL;
 	if (num_rhs > num_lhs) {
 		syntax_error(
 			ts,
@@ -797,16 +834,59 @@ static void expression_statement(Tokenizer* ts) {
 			"There are more expressions on the right than on the left"
 		);
 	}
-	if (last_rhs_was_call) {
+	if (last_instruction->d.opcode == OP_CALL) {
 		// Correct the number of returns
-		last_instruction->call.retc = (uint8_t)(num_lhs - num_rhs);
+		sno_assert(num_lhs >= num_rhs);
+		last_instruction->call.retc = (uint8_t)(num_lhs - num_rhs + 1);
 	} else {
 		if (num_lhs != num_rhs) {
+			sno_assert(num_lhs > num_rhs);
 			syntax_error(
 				ts,
 				assignment_pos,
-				"Dif"
+				"There are more expressions on the left than on the right"
 			);
+		}
+	}
+
+
+
+	// Now it's time to assign
+	if (assignment_op != NOT_BINOP) {
+		sno_assert(num_lhs == 1);
+		CompilerInstruction get = ts->cs->instructions.buffer[
+			lhs_instructions[0]
+		];
+		if (!is_lvalue(get.d.opcode)) {
+			syntax_error(
+				ts,
+				get.d.pos,
+				"This operand is not assignable"
+			);
+		}
+		get.d.opcode++; // Convert GET instruction to SET instruction
+		sno_assert(assignment_op >= BINOP_ADD && assignment_op < NUM_BINOPS);
+		emit(ts, assignment_pos, OP_BINOP, (uint16_t)assignment_op);
+		emit_instruction(ts, get);
+	} else {
+		if (num_lhs > 1 && may_need_mash) {
+			emit(ts, NO_POS, OP_MASH, (uint16_t)num_lhs);
+		}
+		for (int i = num_lhs - 1; i >= 0; i--) {
+			CompilerInstruction* get = &ts->cs->instructions.buffer[
+				lhs_instructions[i]
+			];
+			if (!is_lvalue(get->d.opcode)) {
+				syntax_error(
+					ts,
+					get->d.pos,
+					"This operand is not assignable"
+				);
+			}
+			CompilerInstruction set = *get;
+			set.d.opcode++;
+			get->d.opcode = OP_NOP; // Remove the GET instruction
+			emit_instruction(ts, set); // Put in the SET instruction
 		}
 	}
 }

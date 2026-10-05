@@ -59,10 +59,13 @@ enum {
 	OP_SET_INDEX,
 	OP_SET_NEW_GLOBAL,
 	OP_GET_METHOD,
+	OP_COPY,
+	OP_MASH, // Multi-assign shuffle
 	OP_UNOP,
 	OP_BINOP,
 	OP_CALL,
 	OP_RETURN,
+	OP_NOP,
 	NUM_OPCODES,
 };
 typedef uint8_t OpCode;

@@ -51,10 +51,13 @@ const char* const opcode_names[NUM_OPCODES] = {
 	"SET_INDEX",
 	"SET_NEW_GLOBAL",
 	"GET_METHOD",
+	"COPY",
+	"MASH",
 	"UNOP",
 	"BINOP",
 	"CALL",
 	"RETURN",
+	"NOP",
 };
 
 static sno_Bool print_instruction(const Bytecode* bytecode, PC pc) {
@@ -115,7 +118,13 @@ static sno_Bool print_instruction(const Bytecode* bytecode, PC pc) {
 		sno_assert(arg < NUM_UNOPS);
 		printf("%s", unop_names[arg]);
 	} break;
-
+	case OP_CALL: {
+		sno_assert(arg != 0xFF);
+		printf("argc = %i, retc = %i", (int)arg & 0xF, (int)arg >> 4);
+	} break;
+	case OP_RETURN: {	
+		printf("retc = %i", (int)arg);
+	} break;
 	}
 	putchar('\n');
 	return is_extended;
