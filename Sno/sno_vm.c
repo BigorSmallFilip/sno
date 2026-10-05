@@ -99,7 +99,10 @@ static sno_Bool print_instruction(const Bytecode* bytecode, PC pc) {
 	} break;
 	case OP_SET_GLOBAL:
 	case OP_GET_GLOBAL:
-	case OP_SET_NEW_GLOBAL: {
+	case OP_GET_FIELD:
+	case OP_SET_FIELD:
+	case OP_SET_NEW_GLOBAL:
+	case OP_GET_METHOD: {
 		sno_assert(arg < bytecode->num_string_constants);
 		IString* name = bytecode->string_constants[arg];
 		printf("%.*s", (unsigned int)name->length, istring_chars(name));

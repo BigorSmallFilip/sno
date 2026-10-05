@@ -161,14 +161,16 @@ typedef union CompilerInstruction {
 	uint64_t i;
 	struct {
 		OpCode opcode;
+		uint8_t _padding0;
 		uint16_t arg;
 		SourceCodePos pos;
 	} d;
 	struct {
 		OpCode opcode;
+		uint8_t _padding0;
 		uint8_t argc : 4;
 		uint8_t retc : 4;
-		uint8_t _padding;
+		uint8_t _padding1;
 		SourceCodePos pos;
 	} call;
 } CompilerInstruction;

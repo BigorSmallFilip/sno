@@ -241,6 +241,98 @@ static sno_inline sno_Bool check_next_alphanumeric(Tokenizer* ts) {
 
 
 
+static void read_string_literal(
+	Tokenizer* ts,
+	Token* token,
+	sno_Bool* interpolated
+) {
+	sno_assert_ptr(ts);
+	sno_assert_ptr(token);
+	sno_assert_ptr(interpolated);
+	
+	sno_VMState* vm = ts->parent_vm;
+	ByteDynArray formatted_string = { 0 };
+	// TODO: Add an init size for dyn array
+	//byte_dyn_array_init(vm, &formatted_string, 1, 512);
+	while (1) {
+		ts->cur_char++;
+		switch (*ts->cur_char) {
+		case '\n': case '\r': case '\0': {
+			syntax_error(
+				ts,
+				(SourceCodePos)(
+					ts->token_start -
+					istring_chars(ts->source_code)
+				),
+				"String is missing closing quotes '\"'"
+			);
+		} break;
+		case '\t': {
+			syntax_error(
+				ts,
+				(SourceCodePos)(
+					ts->cur_char -
+					istring_chars(ts->source_code)
+				),
+				"Strings cannot contain tabs"
+			);
+		} break;
+		case '\\': {
+			ts->cur_char++;
+			char escapedchar;
+			switch (*ts->cur_char) {
+			case 'a':  escapedchar = '\a'; break;
+			case 'b':  escapedchar = '\b'; break;
+			case 'f':  escapedchar = '\f'; break;
+			case 'n':  escapedchar = '\n'; break;
+			case 'r':  escapedchar = '\r'; break;
+			case 't':  escapedchar = '\t'; break;
+			case 'v':  escapedchar = '\v'; break;
+			case '\\': escapedchar = '\\'; break;
+			case '\"': escapedchar = '\"'; break;
+			//case '\'': escapedchar = '\''; break;
+			case '0':  escapedchar = '\0'; break;
+			case '(': {
+				// Interpolated string
+				ts->string_interpolation_depth++;
+				*interpolated = sno_TRUE;
+				goto endstring;
+			}
+			default:
+				syntax_error(
+					ts,
+					(SourceCodePos)(
+						ts->cur_char -
+						istring_chars(ts->source_code) - 1
+					),
+					"Invalid string escape character '\\%c'",
+					*ts->cur_char
+				);
+				break;
+			}
+			byte_dyn_array_push(vm, &formatted_string, (uint8_t*)&escapedchar);
+		} break;
+		case '\"': {
+			goto endstring;
+		}
+
+		default:
+			// TODO: This is terribly inefficient
+			// Do multiple chars at the same time dork
+			byte_dyn_array_push(vm, &formatted_string, (uint8_t*)ts->cur_char);
+			break;
+		}
+	}
+endstring:
+	ts->cur_char++; // Skip the closing double quotes
+	token->info.string = create_istring(
+		vm->state,
+		(const char*)formatted_string.buffer,
+		formatted_string.count
+	);
+	byte_dyn_array_clear(vm, &formatted_string);
+}
+
 static void read_base10_number(Tokenizer* ts, Token* token) {
 	sno_assert_ptr(ts);
 	sno_assert_ptr(token);
@@ -536,8 +628,7 @@ static TokenType lex_token(Tokenizer* ts, Token* token) {
 	}
 	case '\"': {
 		sno_Bool interpolated = sno_FALSE;
-		//read_string_literal(ts, token, &interpolated);
-		sno_not_implemented;
+		read_string_literal(ts, token, &interpolated);
 		return TK_STRING + interpolated;
 	}
 
@@ -550,11 +641,14 @@ static TokenType lex_token(Tokenizer* ts, Token* token) {
 			sno_not_implemented;
 		} else if (check_next(ts, 'b')) {
 			sno_not_implemented;
+		} else if (!is_digit(*ts->cur_char)) {
+			token->info.number = 0;
+			return TK_NUMBER;
 		} else {
 			syntax_error(
 				ts,
 				(uint32_t)(ts->token_start - istring_chars(ts->source_code)),
-				"Numbers starting with 0 must be followed by '.', 'x' or 'b'"
+				"Numbers cannot start with leading 0s"
 			);
 		}
 	}

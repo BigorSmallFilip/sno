@@ -1,4 +1,2 @@
 
-var Person = none
-
-Person = 1
+print("Hello") + 1

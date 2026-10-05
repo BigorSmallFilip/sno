@@ -61,7 +61,7 @@ void snake_case##_dyn_array_clear(										 \
 ) {																		 \
 	sno_assert_ptr(vm);													 \
 	sno_assert_ptr(dyn_array);											 \
-	sno_assert_ptr(dyn_array->buffer);									 \
+	if (!dyn_array->buffer) { return; }									 \
 	state_free(															 \
         vm->state,														 \
 		sizeof(type) * dyn_array->capacity,								 \

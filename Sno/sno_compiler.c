@@ -179,17 +179,8 @@ static ConstID add_string_constant(Compiler* cs, const IString* string) {
 
 
 
-static PC emit(
-	Tokenizer* ts,
-	SourceCodePos pos,
-	OpCode opcode,
-	uint16_t arg
-) {
+static PC emit_instruction(Tokenizer* ts, CompilerInstruction instruction) {
 	sno_assert_ptr(ts);
-	CompilerInstruction instruction;
-	instruction.d.opcode = opcode;
-	instruction.d.arg = arg;
-	instruction.d.pos = pos;
 	instruction_dyn_array_push(
 		ts->parent_vm,
 		&ts->cs->instructions,
@@ -202,6 +193,20 @@ static PC emit(
 		);
 	}
 	return (PC)(ts->cs->instructions.count - 1);
+}
+
+static PC emit(
+	Tokenizer* ts,
+	SourceCodePos pos,
+	OpCode opcode,
+	uint16_t arg
+) {
+	sno_assert_ptr(ts);
+	CompilerInstruction instruction = { 0 };
+	instruction.d.opcode = opcode;
+	instruction.d.arg = arg;
+	instruction.d.pos = pos;
+	return emit_instruction(ts, instruction);
 }
 
 static PC emit_number(
@@ -408,43 +413,59 @@ static void operand_primary(Tokenizer* ts) {
 	read_next_token(ts);
 }
 
+static int arguments(Tokenizer* ts) {
+	sno_assert_ptr(ts);
+	sno_assert(ts->token.type == TK_LPAREN);
+	read_next_token(ts);
+	return closed_expression_list(ts, TK_RPAREN);
+}
+
+static void call(Tokenizer* ts, SourceCodePos pos) {
+	sno_assert_ptr(ts);
+	int num_args = arguments(ts);
+	CompilerInstruction i = { 0 };
+	i.call.pos = pos;
+	i.call.opcode = OP_CALL;
+	i.call.argc = (uint8_t)num_args;
+	i.call.retc = 0;
+	emit_instruction(ts, i);
+}
+
 static void operand_postfix(Tokenizer* ts) {
 	sno_assert_ptr(ts);
 	SourceCodePos pos = ts->token.pos;
-	switch (ts->token.type) {
-	case TK_LBRACKET: { // Index
-		read_next_token(ts);
-		expression(ts);
-		if (ts->token.type != TK_RBRACKET) {
-			syntax_error(ts, pos, "Missing closing bracket ']'");
-		}
-		emit(ts, pos, OP_GET_INDEX, 0);
-	} break;
-	case TK_DOT: { // Field or method call
-		read_next_token(ts);
-		if (ts->token.type != TK_IDENTIFIER) {
-			syntax_error(ts, pos, "Missing closing bracket ']'");
-		}
-		ConstID name_const_id = add_string_constant(ts->cs, ts->token.info.string);
-		read_next_token(ts);
-		SourceCodePos lparen_at = ts->token.pos;
-		if (ts->token.type == TK_LPAREN) {
-			emit(ts, pos, OP_GET_METHOD, name_const_id);
+	while (1) {
+		switch (ts->token.type) {
+		case TK_LBRACKET: { // Index
 			read_next_token(ts);
-			int num_args = closed_expression_list(ts, TK_RPAREN);
-			emit(ts, lparen_at, OP_CALL, (uint16_t)(num_args | (1 << 4)));
-		} else {
-			emit(ts, lparen_at, OP_GET_FIELD, name_const_id);
+			expression(ts);
+			if (ts->token.type != TK_RBRACKET) {
+				syntax_error(ts, pos, "Missing closing bracket ']'");
+			}
+			emit(ts, pos, OP_GET_INDEX, 0);
+		} break;
+		case TK_DOT: { // Field or method call
+			read_next_token(ts);
+			if (ts->token.type != TK_IDENTIFIER) {
+				syntax_error(ts, pos, "Missing closing bracket ']'");
+			}
+			ConstID name_const_id = add_string_constant(ts->cs, ts->token.info.string);
+			read_next_token(ts);
+			if (ts->token.type == TK_LPAREN) {
+				emit(ts, pos, OP_GET_METHOD, name_const_id);
+				call(ts, ts->token.pos);
+			} else {
+				emit(ts, ts->token.pos, OP_GET_FIELD, name_const_id);
+			}
+		} break;
+		case TK_LPAREN: { // Function call
+			emit(ts, pos, OP_NONE, 0); // Self parameter = null
+			call(ts, ts->token.pos);
+		} break;
+		default: {
+			return;
 		}
-	} break;
-	case TK_LPAREN: { // Function call
-		emit(ts, pos, OP_NONE, 0); // Self parameter = null
-		int num_args = closed_expression_list(ts, TK_RPAREN);
-		emit(ts, pos, OP_CALL, (uint16_t)(num_args | (1 << 4)));
-	} break;
-	default: {
-		return;
-	}
+		}
 	}
 }
 
@@ -570,9 +591,37 @@ static int open_expression_list(Tokenizer* ts) {
 static int closed_expression_list(Tokenizer* ts, TokenType closing_token) {
 	sno_assert_ptr(ts);
 	if (ts->token.type == closing_token) {
+		read_next_token(ts);
 		return 0;
 	}
-	return 0;
+	int num_exprs = 1;
+	while (1) {
+		expression(ts);
+		if (ts->token.type == TK_COMMA) {
+			if (num_exprs > MAX_EXPR_PER_STMT) {
+				syntax_error_at_cur_token(
+					ts,
+					"Too many expressions"
+				);
+			}
+			read_next_token(ts);
+			if (ts->token.type == closing_token) {
+				break;
+			}
+			num_exprs++;
+			continue;
+		} else if (ts->token.type == closing_token) {
+			break;
+		} else {
+			syntax_error_at_cur_token(
+				ts,
+				"Expected a comma ',' or a closing parenthesis ')'"
+			);
+		}
+	}
+	sno_assert(ts->token.type == closing_token);
+	read_next_token(ts); // Skip closing token
+	return num_exprs;
 }
 
 
@@ -684,11 +733,22 @@ static void declaration_statement(Tokenizer* ts) {
 
 static void expression_statement(Tokenizer* ts) {
 	sno_assert_ptr(ts);
+	operand(ts);
+	if (get_last_instruction(ts->cs)->d.opcode == OP_CALL) {
+		if (ts->token.type != TK_TERMINATOR) {
+			// TODO: Terrible message
+			syntax_error(
+				ts,
+				ts->prev_token.pos,
+				"Statements starting with a call should be the only thing in the statement"
+			);
+		}
+		return;
+	}
 	int num_lhs = 1;
 	BinOp assignment_op = NOT_BINOP;
 	SourceCodePos assignment_pos = 0;
 	while (1) {
-		operand(ts);
 		if (token_is_assignment(ts->token.type)) {
 			if (ts->token.type != TK_ASSIGN && num_lhs > 1) {
 				syntax_error_at_cur_token(
@@ -709,11 +769,13 @@ static void expression_statement(Tokenizer* ts) {
 				);
 			}
 			read_next_token(ts);
+			operand(ts);
+			continue;
 		} else if (ts->token.type == TK_TERMINATOR) {
 			if (num_lhs > 1) {
 				syntax_error_at_cur_token(
 					ts,
-					"Nope"
+					"Expected an assignment"
 				);
 			}
 			
