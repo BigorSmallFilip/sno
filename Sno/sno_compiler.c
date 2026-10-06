@@ -582,7 +582,7 @@ static void operand_postfix(Tokenizer* ts) {
 				emit_2(ts, pos, OP_GET_METHOD, name_const_id);
 				call(ts, ts->token.pos);
 			} else {
-				emit_2(ts, ts->token.pos, OP_GET_FIELD, name_const_id);
+				emit_2(ts, pos, OP_GET_FIELD, name_const_id);
 			}
 		} break;
 		case TK_LPAREN: { // Function call
@@ -1073,7 +1073,11 @@ static void expression_statement(Tokenizer* ts) {
 				lhs_positions[i],
 				lhs_instructions[i]
 			);
-			remove_op(ts, lhs_instructions[i]);
+			OpCode* op_to_remove = &ts->cs->instructions.buffer[
+				lhs_instructions[i]
+			];
+			const OpCodeInfo* info = &opcode_info[*op_to_remove];
+			*op_to_remove = OP_NOP_1 - 1 + info->length;
 		}
 	}
 }

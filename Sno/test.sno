@@ -1,4 +1,4 @@
 
-a[1].a, b[3] = thing(1, 2, 3, 4, 5)
-thing(1, 2, 3, 4, 5)
+a, b.c, d[e] = 1, 2, 3
 
+(print)("Hello")("What")

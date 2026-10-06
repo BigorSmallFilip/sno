@@ -99,6 +99,10 @@ enum {
 	OP_JMP_BACK, // 16-bit offset backward
 	OP_CALL, // 4-bit argc, 4-bit retc
 	OP_RETURN, // 8-bit retc
+
+	OP_NOP_1, // 0
+	OP_NOP_2, // 8-bit arg
+	OP_NOP_3, // 16-bit arg
 	NUM_OPCODES,
 };
 typedef uint8_t OpCode;
