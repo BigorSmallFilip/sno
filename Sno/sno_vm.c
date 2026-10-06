@@ -70,15 +70,18 @@ static void print_instructions(const Bytecode* bytecode) {
 		OpCode opcode = bytecode->instructions[pc];
 		sno_assert(opcode < NUM_OPCODES);
 		const OpCodeInfo* info = &opcode_info[opcode];
+		SourceCodePos pos = 0;
 		if (info->has_pos) {
-			sno_assert(bytecode->instruction_positions[pos_i] != NO_POS);
+			pos = bytecode->instruction_positions[pos_i];
+			sno_assert(pos != NO_POS);
 			printf("%3u %3u >   %-18s",
 				(unsigned int)(pc),
-				(unsigned int)bytecode->instruction_positions[pos_i],
+				(unsigned int)pos,
 				info->name
 			);
 			pos_i++;
 		} else {
+			pos = NO_POS;
 			printf("%3u     >   %-18s",
 				(unsigned int)(pc),
 				info->name
@@ -133,6 +136,19 @@ static void print_instructions(const Bytecode* bytecode) {
 		} break;
 		}
 		putchar('\n');
+
+#if 1
+		if (pos != NO_POS) {
+			char buffer[sno_STACK_BUFFER_LENGTH];
+			size_t length = sprint_source_code_context(
+				buffer,
+				sno_STACK_BUFFER_LENGTH - 1,
+				bytecode->source_code,
+				pos
+			);
+			printf("%.*s\n" sno_ANSI_NORMAL, (unsigned int)length, buffer);
+		}
+#endif
 	}
 }
 

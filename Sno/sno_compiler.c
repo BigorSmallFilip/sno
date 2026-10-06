@@ -286,7 +286,20 @@ static PC emit_string(
 	return emit_2(ts, NO_POS, OP_STRING, add_string_constant(ts->cs, string));
 }
 
-static void remove_op(Tokenizer* ts, PC pc) {
+static void insert_copy(Tokenizer* ts, uint8_t back, OpCode copy_opcode) {
+	sno_assert(back < ts->cs->instructions.count);
+	uint8_t temp = 0;
+	byte_dyn_array_push(ts->parent_vm, &ts->cs->instructions, &temp);
+	PC pc = (PC)(ts->cs->instructions.count - 1 - back);
+	memmove(
+		&ts->cs->instructions.buffer[pc + 1],
+		&ts->cs->instructions.buffer[pc],
+		back
+	);
+	ts->cs->instructions.buffer[pc] = copy_opcode;
+}
+
+static uint8_t remove_op(Tokenizer* ts, PC pc) {
 	sno_assert(pc < ts->cs->instructions.count);
 	sno_assert(pc != ts->cs->last_instruction_pc); // Don't use it for this
 	OpCode opcode = ts->cs->instructions.buffer[pc];
@@ -298,9 +311,10 @@ static void remove_op(Tokenizer* ts, PC pc) {
 		ts->cs->instructions.count - pc + info->length
 	);
 	ts->cs->instructions.count -= info->length;
+	return info->length;
 }
 
-static void emit_copy_of_get_op_as_set(
+static PC emit_copy_of_get_op_as_set(
 	Tokenizer* ts,
 	SourceCodePos pos,
 	PC get_pc
@@ -314,15 +328,14 @@ static void emit_copy_of_get_op_as_set(
 	if (*get == OP_GET_GLOBAL || *get == OP_GET_FIELD) {
 		// copy 2 bytes arg
 		uint16_t arg = get[1] | (get[2] << 8);
-		emit_2(ts, pos, set, arg);
+		return emit_2(ts, pos, set, arg);
 	} else if (*get == OP_GET_LOCAL) {
 		sno_assert(*get + 1 == OP_SET_LOCAL);
-		emit_1(ts, pos, set, get[1]);
+		return emit_1(ts, pos, set, get[1]);
 	} else {
 		sno_assert(*get == OP_GET_INDEX);
-		emit_0(ts, pos, set);
+		return emit_0(ts, pos, set);
 	}
-	add_instruction_pos(ts, pos, set);
 }
 
 
@@ -573,7 +586,7 @@ static void operand_postfix(Tokenizer* ts) {
 			}
 		} break;
 		case TK_LPAREN: { // Function call
-			emit_0(ts, pos, OP_NONE); // Self parameter = null
+			emit_0(ts, NO_POS, OP_NONE); // Self parameter = null
 			call(ts, ts->token.pos);
 		} break;
 		default: {
@@ -944,14 +957,10 @@ static void expression_statement(Tokenizer* ts) {
 				}
 				// Need to copy the stack operands for both GET and SET
 				if (last_op == OP_GET_FIELD) {
-					ts->cs->instructions.count--;
-					emit_0(ts, NO_POS, OP_COPY_1);
-					//emit_instruction(ts, last_i);
+					insert_copy(ts, 3, OP_COPY_1);
 					lhs_instructions[0]++;
 				} else if (last_op == OP_GET_INDEX) {
-					ts->cs->instructions.count--;
-					emit_0(ts, NO_POS, OP_COPY_2);
-					//emit_instruction(ts, last_i);
+					insert_copy(ts, 1, OP_COPY_2);
 					lhs_instructions[0]++;
 				}
 			}
@@ -970,6 +979,7 @@ static void expression_statement(Tokenizer* ts) {
 			read_next_token(ts);
 			continue;
 		} else if (ts->token.type == TK_TERMINATOR) {
+			// Check if in REPL mode
 			// No assignment
 			if (num_lhs > 1) {
 				syntax_error(
@@ -985,8 +995,9 @@ static void expression_statement(Tokenizer* ts) {
 					"Expression statements must either assign or call something"
 				);
 			}
-			//get_last_instruction(ts->cs)->call.retc = 0;
-			// Check if in REPL mode
+			// Set the return count to 0
+			ts->cs->instructions.buffer[ts->cs->last_instruction_pc + 1] &=
+				~0b11110000;
 			return;
 		} else {
 			syntax_error_at_cur_token(
@@ -1009,7 +1020,7 @@ static void expression_statement(Tokenizer* ts) {
 	if (*last_op == OP_CALL) {
 		// Correct the number of returns
 		sno_assert(num_lhs >= num_rhs);
-		last_op[1] = (uint8_t)(num_lhs - num_rhs + 1) << 4;
+		last_op[1] |= (uint8_t)(num_lhs - num_rhs + 1) << 4;
 	} else {
 		if (num_lhs != num_rhs) {
 			sno_assert(num_lhs > num_rhs);
