@@ -153,7 +153,8 @@ sno_Bool print_source_code_tokens(
 #define MAX_STACK_CONSTRUCTOR_ARGS 200
 
 DECLARE_GENERIC_DYN_ARRAY(SourceCodePos, SourceCodePos, pos);
-DECLARE_GENERIC_DYN_ARRAY(Bytecode, Bytecode, bytecode);
+DECLARE_GENERIC_DYN_ARRAY(PC, PC, pc);
+DECLARE_GENERIC_DYN_ARRAY(Bytecode*, Bytecode, bytecode);
 DECLARE_GENERIC_DYN_ARRAY(LocalVar, LocalVar, local_var);
 
 #define MAX_BLOCK_DEPTH 3
@@ -163,6 +164,7 @@ typedef struct Block {
 	uint8_t num_active_local_vars;
 	sno_Bool is_loop;
 	sno_Bool is_global;
+	PCDynArray break_and_continues;
 } Block;
 
 typedef struct Compiler {

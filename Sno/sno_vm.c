@@ -145,7 +145,7 @@ static void print_instructions(const Bytecode* bytecode) {
 		}
 		putchar('\n');
 
-#if 1
+#if 0
 		if (pos != NO_POS) {
 			char buffer[sno_STACK_BUFFER_LENGTH];
 			size_t length = sprint_source_code_context(

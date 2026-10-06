@@ -3,7 +3,8 @@
 #define DEBUG_PRINT_PARSER
 
 DEFINE_GENERIC_DYN_ARRAY(SourceCodePos, SourceCodePos, pos);
-DEFINE_GENERIC_DYN_ARRAY(Bytecode, Bytecode, bytecode);
+DEFINE_GENERIC_DYN_ARRAY(PC, PC, pc);
+DEFINE_GENERIC_DYN_ARRAY(Bytecode*, Bytecode, bytecode);
 DEFINE_GENERIC_DYN_ARRAY(LocalVar, LocalVar, local_var);
 
 
@@ -930,6 +931,7 @@ static void expression_statement(Tokenizer* ts) {
 	int num_lhs = 1;
 	PC lhs_instructions[MAX_EXPR_PER_STMT];
 	SourceCodePos lhs_positions[MAX_EXPR_PER_STMT];
+	PC first_lhs_position_index = 0;
 	while (1) {
 		expression(ts);
 		OpCode last_op = ts->cs->instructions.buffer[
@@ -946,6 +948,9 @@ static void expression_statement(Tokenizer* ts) {
 		lhs_positions[num_lhs - 1] = ts->cs->instruction_pos.buffer[
 			ts->cs->instruction_pos.count - 1
 		];
+		if (num_lhs == 1) {
+			first_lhs_position_index = ts->cs->instruction_pos.count - 1;
+		}
 		if (token_is_assignment(ts->token.type)) {
 			if (ts->token.type != TK_ASSIGN) {
 				// Assign op
@@ -1080,6 +1085,13 @@ static void expression_statement(Tokenizer* ts) {
 			*op_to_remove = OP_NOP_1 - 1 + info->length;
 		}
 	}
+
+	// Remove NOPS
+	//PC instruction_r = lhs_instructions[0];
+	//PC pos_r = first_lhs_position_index;
+	//PC instruction_w = lhs_instructions[0];
+	//PC pos_w = first_lhs_position_index;
+
 }
 
 // return_stmt ::= 'return' expr_list_open
