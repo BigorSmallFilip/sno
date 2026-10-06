@@ -286,6 +286,20 @@ static PC emit_string(
 	return emit_2(ts, NO_POS, OP_STRING, add_string_constant(ts->cs, string));
 }
 
+static void remove_op(Tokenizer* ts, PC pc) {
+	sno_assert(pc < ts->cs->instructions.count);
+	sno_assert(pc != ts->cs->last_instruction_pc); // Don't use it for this
+	OpCode opcode = ts->cs->instructions.buffer[pc];
+	sno_assert(opcode < NUM_OPCODES);
+	const OpCodeInfo* info = &opcode_info[opcode];
+	memmove(
+		&ts->cs->instructions.buffer[pc],
+		&ts->cs->instructions.buffer[pc + info->length],
+		ts->cs->instructions.count - pc + info->length
+	);
+	ts->cs->instructions.count -= info->length;
+}
+
 static void emit_copy_of_get_op_as_set(
 	Tokenizer* ts,
 	SourceCodePos pos,
@@ -1043,12 +1057,12 @@ static void expression_statement(Tokenizer* ts) {
 				);
 			}
 			// Remove the GET instruction
-			// ...
 			emit_copy_of_get_op_as_set(
 				ts,
 				lhs_positions[i],
 				lhs_instructions[i]
 			);
+			remove_op(ts, lhs_instructions[i]);
 		}
 	}
 }
