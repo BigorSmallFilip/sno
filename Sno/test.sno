@@ -1,32 +1,7 @@
 
-print(vec3(0, 0, 0))
+t[0] = false and false
+while a and b {
+	t[1] = false and false
+}
+t[2] = false and false
 
-
-/*
-a = 1
-a += 2
-a.f = 3
-a.f += 4
-a[1] = 5
-a[1] += 6
-
-/*5
-NUMBER 1
-SET_GLOBAL a
-
-GET_GLOBAL a
-NUMBER 2
-ADD
-SET_GLOBAL
-
-GET_GLOBAL a
-NUMBER 3
-SET_FIELD f
-
-GET_GLOBAL a
-GET_FIELD f
-NUMBER 4
-ADD
-SET_FIELD f
-*/
-*/
