@@ -949,7 +949,7 @@ static void expression_statement(Tokenizer* ts) {
 			ts->cs->instruction_pos.count - 1
 		];
 		if (num_lhs == 1) {
-			first_lhs_position_index = ts->cs->instruction_pos.count - 1;
+			first_lhs_position_index = (PC)ts->cs->instruction_pos.count - 1;
 		}
 		if (token_is_assignment(ts->token.type)) {
 			if (ts->token.type != TK_ASSIGN) {
