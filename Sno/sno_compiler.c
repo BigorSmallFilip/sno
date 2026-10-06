@@ -2,7 +2,7 @@
 
 #define DEBUG_PRINT_PARSER
 
-DEFINE_GENERIC_DYN_ARRAY(CompilerInstruction, Instruction, instruction);
+DEFINE_GENERIC_DYN_ARRAY(SourceCodePos, SourceCodePos, pos);
 DEFINE_GENERIC_DYN_ARRAY(Bytecode, Bytecode, bytecode);
 DEFINE_GENERIC_DYN_ARRAY(LocalVar, LocalVar, local_var);
 
@@ -33,7 +33,8 @@ static Bytecode* create_bytecode(sno_VMState* vm) {
 static void init_function_compiler(Tokenizer* ts, Compiler* cs, IString* name) {
 	sno_assert(ts);
 	//sno_VMState* vm = ts->parent_vm;
-	instruction_dyn_array_init(&cs->instructions);
+	byte_dyn_array_init(&cs->instructions);
+	pos_dyn_array_init(&cs->instruction_pos);
 	number_dyn_array_init(&cs->number_constants);
 	istring_dyn_array_init(&cs->string_constants);
 	bytecode_dyn_array_init(&cs->bytecode_constants);
@@ -41,52 +42,6 @@ static void init_function_compiler(Tokenizer* ts, Compiler* cs, IString* name) {
 	ts->cs = cs;
 	cs->ts = ts;
 	cs->name = name;
-}
-
-static void compact_instructions(Compiler* cs, Bytecode* bytecode) {
-	sno_assert_ptr(cs);
-	sno_assert_ptr(bytecode);
-	sno_assert(cs->instructions.count > 0);
-	sno_GlobalState* state = cs->ts->parent_vm->state;
-	PC pc = 0;
-	Instruction* instructions = state_alloc(
-		state,
-		cs->instructions.count * 2 * sizeof(Instruction)
-	);
-	SourceCodePos* instruction_positions = state_alloc(
-		state,
-		cs->instructions.count * sizeof(SourceCodePos)
-	);
-	for (size_t i = 0; i < cs->instructions.count; i++) {
-		OpCode opcode = cs->instructions.buffer[i].d.opcode;
-		if (opcode == OP_NOP) { continue; }
-		uint16_t arg = cs->instructions.buffer[i].d.arg;
-		SourceCodePos pos = cs->instructions.buffer[i].d.pos;
-		if (arg < 0xFF) {
-			instruction_positions[pc] = pos;
-			instructions[pc++] = opcode | (arg << 8);
-		} else {
-			instruction_positions[pc] = pos;
-			instructions[pc++] = opcode | 0xFF;
-			instruction_positions[pc] = pos;
-			instructions[pc++] = arg;
-		}
-	}
-	instructions = state_realloc(
-		state,
-		cs->instructions.count * 2 * sizeof(Instruction),
-		instructions,
-		pc * sizeof(Instruction)
-	);
-	instruction_positions = state_realloc(
-		state,
-		cs->instructions.count * 2 * sizeof(SourceCodePos),
-		instruction_positions,
-		pc * sizeof(SourceCodePos)
-	);
-	bytecode->num_instructions = pc;
-	bytecode->instructions = instructions;
-	bytecode->instruction_positions = instruction_positions;
 }
 
 static Bytecode* free_function_compiler(Tokenizer* ts, Compiler* cs) {
@@ -98,7 +53,30 @@ static Bytecode* free_function_compiler(Tokenizer* ts, Compiler* cs) {
 	bytecode->source_code = ts->source_code;
 
 	sno_assert(cs->instructions.count < MAX_BYTECODE_INSTRUCTIONS);
-	compact_instructions(cs, bytecode);
+	sno_assert(cs->instruction_pos.count <= cs->instructions.count);
+	bytecode->instructions = state_alloc(
+		state,
+		cs->instructions.count * sizeof(uint8_t)
+	);
+	bytecode->instructions_size = (PC)cs->instructions.count;
+	memcpy(
+		bytecode->instructions,
+		cs->instructions.buffer,
+		cs->instructions.count * sizeof(uint8_t)
+	);
+	byte_dyn_array_clear(ts->parent_vm, &cs->instructions);
+
+	bytecode->instruction_positions = state_alloc(
+		state,
+		cs->instruction_pos.count * sizeof(SourceCodePos)
+	);
+	bytecode->num_instruction_positions = (PC)cs->instruction_pos.count;
+	memcpy(
+		bytecode->instruction_positions,
+		cs->instruction_pos.buffer,
+		cs->instruction_pos.count * sizeof(SourceCodePos)
+	);
+	pos_dyn_array_clear(ts->parent_vm, &cs->instruction_pos);
 	
 	sno_assert(cs->number_constants.count < MAX_NUMBER_CONSTANTS);
 	bytecode->number_constants = state_alloc(
@@ -185,60 +163,152 @@ static ConstID add_string_constant(Compiler* cs, const IString* string) {
 
 
 
-static PC emit_instruction(Tokenizer* ts, CompilerInstruction instruction) {
-	sno_assert_ptr(ts);
-	instruction_dyn_array_push(
-		ts->parent_vm,
-		&ts->cs->instructions,
-		&instruction
-	);
-	if (ts->cs->instructions.count > MAX_BYTECODE_INSTRUCTIONS) {
+static void check_instruction_limit(Compiler* cs) {
+	if (cs->instructions.count > MAX_BYTECODE_INSTRUCTIONS) {
 		syntax_error_at_cur_token(
-			ts,
+			cs->ts,
 			"Compiler generated too many bytecode instructions"
 		);
 	}
-	return (PC)(ts->cs->instructions.count - 1);
 }
 
-static PC emit(
+static void add_instruction_pos(
+	Tokenizer* ts,
+	SourceCodePos pos,
+	OpCode opcode
+) {
+	sno_assert_ptr(ts);
+	if (pos != NO_POS) {
+		sno_assert(pos < ts->source_code->length);
+	}
+	if (pos == NO_POS) {
+		sno_assert(!opcode_info[opcode].has_pos);
+	} else {
+		sno_assert(opcode_info[opcode].has_pos);
+		pos_dyn_array_push(
+			ts->parent_vm,
+			&ts->cs->instruction_pos,
+			&pos
+		);
+	}
+}
+
+static sno_Bool is_lvalue(OpCode opcode) {
+	return
+		opcode == OP_GET_LOCAL ||
+		opcode == OP_GET_GLOBAL ||
+		opcode == OP_GET_FIELD ||
+		opcode == OP_GET_INDEX;
+}
+
+static PC emit_0(
+	Tokenizer* ts,
+	SourceCodePos pos,
+	OpCode opcode
+) {
+	sno_assert_ptr(ts);
+	PC pc = (PC)ts->cs->instructions.count;
+	ts->cs->last_instruction_pc = pc;
+	byte_dyn_array_push(
+		ts->parent_vm,
+		&ts->cs->instructions,
+		&opcode
+	);
+	check_instruction_limit(ts->cs);
+	add_instruction_pos(ts, pos, opcode);
+	return pc;
+}
+
+static PC emit_1(
+	Tokenizer* ts,
+	SourceCodePos pos,
+	OpCode opcode,
+	uint8_t arg
+) {
+	sno_assert_ptr(ts);
+	PC pc = (PC)ts->cs->instructions.count;
+	ts->cs->last_instruction_pc = pc;
+	uint8_t ordered[2];
+	ordered[0] = opcode;
+	ordered[1] = arg;
+	byte_dyn_array_push_n(
+		ts->parent_vm,
+		&ts->cs->instructions,
+		ordered,
+		2
+	);
+	check_instruction_limit(ts->cs);
+	add_instruction_pos(ts, pos, opcode);
+	return pc;
+}
+
+static PC emit_2(
 	Tokenizer* ts,
 	SourceCodePos pos,
 	OpCode opcode,
 	uint16_t arg
 ) {
 	sno_assert_ptr(ts);
-	CompilerInstruction instruction = { 0 };
-	instruction.d.opcode = opcode;
-	instruction.d.arg = arg;
-	instruction.d.pos = pos;
-	return emit_instruction(ts, instruction);
+	PC pc = (PC)ts->cs->instructions.count;
+	ts->cs->last_instruction_pc = pc;
+	uint8_t ordered[3];
+	ordered[0] = opcode;
+	ordered[1] = arg & 0xFF;
+	ordered[2] = arg >> 8;
+	byte_dyn_array_push_n(
+		ts->parent_vm,
+		&ts->cs->instructions,
+		ordered,
+		3
+	);
+	check_instruction_limit(ts->cs);
+	add_instruction_pos(ts, pos, opcode);
+	return pc;
 }
 
 static PC emit_number(
 	Tokenizer* ts,
-	SourceCodePos pos,
 	sno_Number number
 ) {
 	sno_assert_ptr(ts);
-	return emit(ts, pos, OP_NUMBER, add_number_constant(ts->cs, number));
+	if (sno_number_is_valid_i8(number)) {
+		int8_t i8 = (int8_t)number;
+		return emit_1(ts, NO_POS, OP_NUMBER_IMM8, i8);
+	}
+	return emit_2(ts, NO_POS, OP_NUMBER, add_number_constant(ts->cs, number));
 }
 
 static PC emit_string(
 	Tokenizer* ts,
-	SourceCodePos pos,
 	IString* string
 ) {
 	sno_assert_ptr(ts);
-	return emit(ts, pos, OP_STRING, add_string_constant(ts->cs, string));
+	return emit_2(ts, NO_POS, OP_STRING, add_string_constant(ts->cs, string));
 }
 
-static CompilerInstruction* get_last_instruction(const Compiler* cs) {
-	sno_assert_ptr(cs);
-	sno_assert(cs->instructions.count > 0);
-	return &cs->instructions.buffer[
-		cs->instructions.count - 1
-	];
+static void emit_copy_of_get_op_as_set(
+	Tokenizer* ts,
+	SourceCodePos pos,
+	PC get_pc
+) {
+	sno_assert(ts);
+	sno_assert(ts->cs);
+	sno_assert(ts->cs->instructions.count > 0);
+	OpCode* get = &ts->cs->instructions.buffer[get_pc];
+	sno_assert(is_lvalue(*get));
+	OpCode set = *get + 1;
+	if (*get == OP_GET_GLOBAL || *get == OP_GET_FIELD) {
+		// copy 2 bytes arg
+		uint16_t arg = get[1] | (get[2] << 8);
+		emit_2(ts, pos, set, arg);
+	} else if (*get == OP_GET_LOCAL) {
+		sno_assert(*get + 1 == OP_SET_LOCAL);
+		emit_1(ts, pos, set, get[1]);
+	} else {
+		sno_assert(*get == OP_GET_INDEX);
+		emit_0(ts, pos, set);
+	}
+	add_instruction_pos(ts, pos, set);
 }
 
 
@@ -315,7 +385,7 @@ static sno_Bool recursive_search_local_variable(Compiler* cs, IString* name) {
 	if (id >= 0) {
 		// Id 0 should always be the 'self' argument
 		sno_assert(id >= 1 && id < MAX_ACTIVE_LOCAL_VARS);
-		emit(cs->ts, NO_POS, OP_GET_LOCAL, (LocalSlot)id);
+		emit_1(cs->ts, NO_POS, OP_GET_LOCAL, (LocalSlot)id);
 		return sno_TRUE;
 	} else {
 		if (
@@ -335,7 +405,7 @@ static sno_Bool recursive_search_local_variable(Compiler* cs, IString* name) {
 static void identifier(Tokenizer* ts, Token name) {
 	if (!recursive_search_local_variable(ts->cs, name.info.string)) {
 		// Nothing found so treat it like a global
-		emit(
+		emit_2(
 			ts,
 			name.pos,
 			OP_GET_GLOBAL,
@@ -386,26 +456,26 @@ static void linalg_constructor(Tokenizer* ts) {
 			"Expected an opening parenthesis '('"
 		);
 	}
-	uint32_t num_values = closed_expression_list(ts, TK_RPAREN, 16);
-	emit(ts, pos, OP_NEW_LINALG, (uint16_t)(type | num_values));
+	int num_values = closed_expression_list(ts, TK_RPAREN, 16);
+	emit_1(ts, pos, OP_NEW_LINALG, (uint8_t)(type | num_values));
 }
 
 static void operand_primary(Tokenizer* ts) {
 	switch (ts->token.type) {
 	case TK_NONE: {
-		emit(ts, ts->token.pos, OP_NONE, 0);
+		emit_0(ts, NO_POS, OP_NONE);
 	} break;
 	case TK_TRUE: {
-		emit(ts, ts->token.pos, OP_BOOL, 1);
+		emit_0(ts, NO_POS, OP_TRUE);
 	} break;
 	case TK_FALSE: {
-		emit(ts, ts->token.pos, OP_BOOL, 0);
+		emit_0(ts, NO_POS, OP_FALSE);
 	} break;
 	case TK_NUMBER: {
-		emit_number(ts, ts->token.pos, ts->token.info.number);
+		emit_number(ts, ts->token.info.number);
 	} break;
 	case TK_STRING: {
-		emit_string(ts, ts->token.pos, ts->token.info.string);
+		emit_string(ts, ts->token.info.string);
 	} break;
 	case TK_VEC2:
 	case TK_VEC3:
@@ -456,12 +526,8 @@ static int arguments(Tokenizer* ts) {
 static void call(Tokenizer* ts, SourceCodePos pos) {
 	sno_assert_ptr(ts);
 	int num_args = arguments(ts);
-	CompilerInstruction i = { 0 };
-	i.call.pos = pos;
-	i.call.opcode = OP_CALL;
-	i.call.argc = (uint8_t)num_args;
-	i.call.retc = 1;
-	emit_instruction(ts, i);
+	sno_assert(num_args >= 0 && num_args <= MAX_EXPR_PER_STMT);
+	emit_1(ts, pos, OP_CALL, (uint8_t)num_args);
 }
 
 static void operand_postfix(Tokenizer* ts) {
@@ -476,7 +542,7 @@ static void operand_postfix(Tokenizer* ts) {
 				syntax_error(ts, pos, "Missing closing bracket ']'");
 			}
 			read_next_token(ts);
-			emit(ts, pos, OP_GET_INDEX, 0);
+			emit_0(ts, pos, OP_GET_INDEX);
 		} break;
 		case TK_DOT: { // Field or method call
 			read_next_token(ts);
@@ -486,14 +552,14 @@ static void operand_postfix(Tokenizer* ts) {
 			ConstID name_const_id = add_string_constant(ts->cs, ts->token.info.string);
 			read_next_token(ts);
 			if (ts->token.type == TK_LPAREN) {
-				emit(ts, pos, OP_GET_METHOD, name_const_id);
+				emit_2(ts, pos, OP_GET_METHOD, name_const_id);
 				call(ts, ts->token.pos);
 			} else {
-				emit(ts, ts->token.pos, OP_GET_FIELD, name_const_id);
+				emit_2(ts, ts->token.pos, OP_GET_FIELD, name_const_id);
 			}
 		} break;
 		case TK_LPAREN: { // Function call
-			emit(ts, pos, OP_NONE, 0); // Self parameter = null
+			emit_0(ts, pos, OP_NONE); // Self parameter = null
 			call(ts, ts->token.pos);
 		} break;
 		default: {
@@ -563,13 +629,13 @@ static BinOp subexpression(
 	Tokenizer* ts,
 	unsigned int precedence
 ) {
-	UnOp unary_op = get_unop(ts->token.type);
-	if (unary_op != NOT_UNOP) {
+	UnOp unop = get_unop(ts->token.type);
+	if (unop != NOT_UNOP) {
 		// Unary op
 		SourceCodePos unop_pos = ts->token.pos;
 		read_next_token(ts);
 		subexpression(ts, UNOP_PRECEDENCE);
-		emit(ts, unop_pos, OP_UNOP, (uint16_t)unary_op);
+		emit_0(ts, unop_pos, (OpCode)(OP_TO_BOOL_LNOT + unop - UNOP_LNOT));
 	} else {
 		operand(ts);
 	}
@@ -579,14 +645,14 @@ static BinOp subexpression(
 		SourceCodePos binop_pos = ts->token.pos;
 		read_next_token(ts);
 		if (binop == BINOP_LAND || binop == BINOP_LOR) {
-			PC jump_from = emit(
+			PC jump_from = emit_2(
 				ts,
 				binop_pos,
 				binop == BINOP_LAND ? OP_AND : OP_OR,
 				0
 			);
 			next_binop = subexpression(ts, operator_precedence[binop].right);
-			PC jump_to = emit(ts, NO_POS, OP_TO_BOOL, 0) + 1;
+			PC jump_to = emit_0(ts, NO_POS, OP_TO_BOOL) + 1;
 			if (jump_to - jump_from > UINT16_MAX) {
 				syntax_error(
 					ts,
@@ -594,12 +660,17 @@ static BinOp subexpression(
 					"Jumps too far"
 				);
 			}
-			ts->cs->instructions.buffer[jump_from].d.arg =
-				(uint16_t)(jump_to - jump_from);
+			uint16_t offset = (uint16_t)(jump_to - jump_from);
+			ts->cs->instructions.buffer[jump_from + 1] = offset & 0xFF;
+			ts->cs->instructions.buffer[jump_from + 2] = offset >> 8;
 			next_binop = NOT_BINOP;
 		} else {
 			next_binop = subexpression(ts, operator_precedence[binop].right);
-			emit(ts, binop_pos, OP_BINOP, (uint16_t)binop);
+			emit_0(
+				ts,
+				binop_pos,
+				(OpCode)(OP_ADD + binop)
+			);
 		}
 		binop = next_binop;
 	}
@@ -678,7 +749,7 @@ static void if_statement(Tokenizer* ts) {
 	sno_assert_ptr(ts);
 	read_next_token(ts);
 	expression(ts); // Condition
-	PC jump_from = emit(ts, NO_POS, OP_JUMP_FRWD_IF_FALSE, 0);
+	PC jump_from = emit_2(ts, NO_POS, OP_JMP_IF_FALSE, 0);
 	SourceCodePos lbrace_pos = ts->token.pos;
 	brace_block(ts, sno_FALSE);
 	PC jump_to = (PC)(ts->cs->instructions.count);
@@ -686,7 +757,7 @@ static void if_statement(Tokenizer* ts) {
 		SourceCodePos else_pos = ts->token.pos;
 		jump_to++;
 		read_next_token(ts);
-		PC else_jump_from = emit(ts, NO_POS, OP_JUMP_FRWD, 0);
+		PC else_jump_from = emit_2(ts, NO_POS, OP_JMP, 0);
 		if (ts->token.type == TK_IF) {
 			if_statement(ts);
 		} else {
@@ -696,14 +767,16 @@ static void if_statement(Tokenizer* ts) {
 		if (else_jump_to - else_jump_from > UINT16_MAX) {
 			syntax_error(ts, else_pos, "Jumps too far");
 		}
-		ts->cs->instructions.buffer[else_jump_from].d.arg =
-			(uint16_t)(else_jump_to - else_jump_from);
+		uint16_t else_jump_offset = (uint16_t)(else_jump_to - else_jump_from);
+		ts->cs->instructions.buffer[else_jump_from + 1] = else_jump_offset & 0xFF;
+		ts->cs->instructions.buffer[else_jump_from + 2] = else_jump_offset >> 8;
 	}
 	if (jump_to - jump_from > UINT16_MAX) {
 		syntax_error(ts, lbrace_pos, "Jumps too far");
 	}
-	ts->cs->instructions.buffer[jump_from].d.arg =
-		(uint16_t)(jump_to - jump_from);
+	uint16_t jump_offset = (uint16_t)(jump_to - jump_from);
+	ts->cs->instructions.buffer[jump_from + 1] = jump_offset & 0xFF;
+	ts->cs->instructions.buffer[jump_from + 2] = jump_offset >> 8;
 }
 
 static void while_statement(Tokenizer* ts) {
@@ -711,14 +784,17 @@ static void while_statement(Tokenizer* ts) {
 	read_next_token(ts);
 	PC back_to = (PC)(ts->cs->instructions.count);
 	expression(ts); // Condition
-	PC condition_jump_from = emit(ts, NO_POS, OP_JUMP_FRWD_IF_FALSE, 0);
+	PC out_from = emit_2(ts, NO_POS, OP_JMP_IF_FALSE, 0);
 	brace_block(ts, sno_TRUE);
-	PC back_from = emit(ts, NO_POS, OP_JUMP_BACK, 0);
-	PC condition_jump_to = back_from + 1; // TODO: Maybe check this increment?
-	ts->cs->instructions.buffer[back_from].d.arg =
-		(uint16_t)(back_from - back_to);
-	ts->cs->instructions.buffer[condition_jump_from].d.arg =
-		(uint16_t)(condition_jump_to - condition_jump_from);
+	PC back_from = emit_2(ts, NO_POS, OP_JMP_BACK, 0);
+	PC out_to = back_from + 1; // TODO: Maybe check this increment?
+
+	uint16_t back_offset = (uint16_t)(back_from - back_to);
+	uint16_t out_offset = (uint16_t)(out_from - out_to);
+	ts->cs->instructions.buffer[back_from + 1] = back_offset & 0xFF;
+	ts->cs->instructions.buffer[back_from + 2] = back_offset >> 8;
+	ts->cs->instructions.buffer[out_from + 1] = out_offset & 0xFF;
+	ts->cs->instructions.buffer[out_from + 2] = out_offset >> 8;
 }
 
 // declaration_stmt ::= declarator identifier
@@ -780,7 +856,7 @@ static void declaration_statement(Tokenizer* ts) {
 
 	if (no_assignment) {
 		for (size_t i = 0; i < num_declarations; i++) {
-			emit(ts, NO_POS, OP_NONE, 0);
+			emit_0(ts, NO_POS, OP_NONE);
 		}
 	} else {
 		sno_assert(
@@ -805,7 +881,7 @@ static void declaration_statement(Tokenizer* ts) {
 	for (int i = (int)num_declarations - 1; i >= 0; i--) {
 		Token name_token = name_tokens[i];
 		if (ts->cs->current_block->is_global) {
-			emit(
+			emit_2(
 				ts,
 				name_token.pos,
 				OP_SET_NEW_GLOBAL,
@@ -813,18 +889,10 @@ static void declaration_statement(Tokenizer* ts) {
 			);
 		} else {
 			LocalSlot local_slot = try_declare_local_variable(ts, name_token);
-			emit(ts, NO_POS, OP_SET_LOCAL, local_slot);
+			emit_1(ts, NO_POS, OP_SET_LOCAL, local_slot);
 		}
 	}
 
-}
-
-static sno_Bool is_lvalue(OpCode opcode) {
-	return
-		opcode == OP_GET_LOCAL ||
-		opcode == OP_GET_GLOBAL ||
-		opcode == OP_GET_FIELD ||
-		opcode == OP_GET_INDEX;
 }
 
 static void expression_statement(Tokenizer* ts) {
@@ -834,17 +902,23 @@ static void expression_statement(Tokenizer* ts) {
 	sno_Bool may_need_mash = sno_FALSE;
 	int num_lhs = 1;
 	PC lhs_instructions[MAX_EXPR_PER_STMT];
+	SourceCodePos lhs_positions[MAX_EXPR_PER_STMT];
 	while (1) {
 		expression(ts);
-		CompilerInstruction last_i = *get_last_instruction(ts->cs);
+		OpCode last_op = ts->cs->instructions.buffer[
+			ts->cs->last_instruction_pc
+		];
 		// Save the lhs instructions on the stack,
 		// to convert them to SET later
-		if (last_i.d.opcode == OP_GET_FIELD) {
+		if (last_op == OP_GET_FIELD) {
 			may_need_mash = sno_TRUE;
-		} else if (last_i.d.opcode == OP_GET_INDEX) {
+		} else if (last_op == OP_GET_INDEX) {
 			may_need_mash = sno_TRUE;
 		}
-		lhs_instructions[num_lhs - 1] = (PC)ts->cs->instructions.count - 1;
+		lhs_instructions[num_lhs - 1] = ts->cs->last_instruction_pc;
+		lhs_positions[num_lhs - 1] = ts->cs->instruction_pos.buffer[
+			ts->cs->instruction_pos.count - 1
+		];
 		if (token_is_assignment(ts->token.type)) {
 			if (ts->token.type != TK_ASSIGN) {
 				// Assign op
@@ -854,16 +928,16 @@ static void expression_statement(Tokenizer* ts) {
 						"Assign ops are only valid on singular operands"
 					);
 				}
-				// Need to copy the operands for both GET and SET
-				if (last_i.d.opcode == OP_GET_FIELD) {
+				// Need to copy the stack operands for both GET and SET
+				if (last_op == OP_GET_FIELD) {
 					ts->cs->instructions.count--;
-					emit(ts, NO_POS, OP_COPY, 1);
-					emit_instruction(ts, last_i);
+					emit_0(ts, NO_POS, OP_COPY_1);
+					//emit_instruction(ts, last_i);
 					lhs_instructions[0]++;
-				} else if (last_i.d.opcode == OP_GET_INDEX) {
+				} else if (last_op == OP_GET_INDEX) {
 					ts->cs->instructions.count--;
-					emit(ts, NO_POS, OP_COPY, 2);
-					emit_instruction(ts, last_i);
+					emit_0(ts, NO_POS, OP_COPY_2);
+					//emit_instruction(ts, last_i);
 					lhs_instructions[0]++;
 				}
 			}
@@ -887,17 +961,17 @@ static void expression_statement(Tokenizer* ts) {
 				syntax_error(
 					ts,
 					ts->prev_token.pos,
-					"Multiple expressions aren't allowed here"
+					"Multiple expressions are only allowed for assignments"
 				);
 			}
-			if (last_i.d.opcode != OP_CALL) {
+			if (last_op != OP_CALL) {
 				syntax_error(
 					ts,
 					ts->prev_token.pos,
-					"Statement performs redundant operations"
+					"Expression statements must either assign or call something"
 				);
 			}
-			get_last_instruction(ts->cs)->call.retc = 0;
+			//get_last_instruction(ts->cs)->call.retc = 0;
 			// Check if in REPL mode
 			return;
 		} else {
@@ -908,7 +982,6 @@ static void expression_statement(Tokenizer* ts) {
 		}
 	}
 	int num_rhs = open_expression_list(ts);
-	CompilerInstruction* last_instruction = get_last_instruction(ts->cs);
 	if (num_rhs > num_lhs) {
 		syntax_error(
 			ts,
@@ -916,10 +989,13 @@ static void expression_statement(Tokenizer* ts) {
 			"There are more expressions on the right than on the left"
 		);
 	}
-	if (last_instruction->d.opcode == OP_CALL) {
+	uint8_t* last_op = &ts->cs->instructions.buffer[
+		ts->cs->last_instruction_pc
+	];
+	if (*last_op == OP_CALL) {
 		// Correct the number of returns
 		sno_assert(num_lhs >= num_rhs);
-		last_instruction->call.retc = (uint8_t)(num_lhs - num_rhs + 1);
+		last_op[1] = (uint8_t)(num_lhs - num_rhs + 1) << 4;
 	} else {
 		if (num_lhs != num_rhs) {
 			sno_assert(num_lhs > num_rhs);
@@ -935,40 +1011,44 @@ static void expression_statement(Tokenizer* ts) {
 
 	// Now it's time to assign
 	if (assignment_op != NOT_BINOP) {
+		// Assign op
 		sno_assert(num_lhs == 1);
-		CompilerInstruction get = ts->cs->instructions.buffer[
+		uint8_t get = ts->cs->instructions.buffer[
 			lhs_instructions[0]
 		];
-		if (!is_lvalue(get.d.opcode)) {
+		if (!is_lvalue(get)) {
 			syntax_error(
 				ts,
-				get.d.pos,
+				lhs_positions[0],
 				"This operand is not assignable"
 			);
 		}
-		get.d.opcode++; // Convert GET instruction to SET instruction
+		get++; // Convert GET instruction to SET instruction
 		sno_assert(assignment_op >= BINOP_ADD && assignment_op < NUM_BINOPS);
-		emit(ts, assignment_pos, OP_BINOP, (uint16_t)assignment_op);
-		emit_instruction(ts, get);
+		emit_0(ts, assignment_pos, (OpCode)(OP_ADD + assignment_op));
+		emit_copy_of_get_op_as_set(ts, lhs_positions[0], lhs_instructions[0]);
 	} else {
 		if (num_lhs > 1 && may_need_mash) {
-			emit(ts, NO_POS, OP_MASH, (uint16_t)num_lhs);
+			emit_1(ts, NO_POS, OP_MASH, (uint8_t)num_lhs);
 		}
 		for (int i = num_lhs - 1; i >= 0; i--) {
-			CompilerInstruction* get = &ts->cs->instructions.buffer[
+			OpCode* get = &ts->cs->instructions.buffer[
 				lhs_instructions[i]
 			];
-			if (!is_lvalue(get->d.opcode)) {
+			if (!is_lvalue(*get)) {
 				syntax_error(
 					ts,
-					get->d.pos,
+					lhs_positions[i],
 					"This operand is not assignable"
 				);
 			}
-			CompilerInstruction set = *get;
-			set.d.opcode++;
-			get->d.opcode = OP_NOP; // Remove the GET instruction
-			emit_instruction(ts, set); // Put in the SET instruction
+			// Remove the GET instruction
+			// ...
+			emit_copy_of_get_op_as_set(
+				ts,
+				lhs_positions[i],
+				lhs_instructions[i]
+			);
 		}
 	}
 }
@@ -985,7 +1065,7 @@ static void return_statement(Tokenizer* ts) {
 		num_returns = open_expression_list(ts);
 	}
 	sno_assert(num_returns >= 0 && num_returns <= MAX_EXPR_PER_STMT);
-	emit(ts, pos, OP_RETURN, (uint16_t)num_returns);
+	emit_1(ts, pos, OP_RETURN, (uint8_t)num_returns);
 }
 
 // Returns true if it's a break, continue or return statement
@@ -1075,7 +1155,7 @@ static Bytecode* parse_global_scope(Tokenizer* ts) {
 		sno_unreachable;
 		syntax_error(ts, 0, "Global scope ended early here");
 	}
-	emit(ts, NO_POS, OP_RETURN, 0);
+	emit_1(ts, (SourceCodePos)(ts->source_code->length - 1), OP_RETURN, 0);
 	Bytecode* bytecode = free_function_compiler(ts, &cs);
 
 	return bytecode;

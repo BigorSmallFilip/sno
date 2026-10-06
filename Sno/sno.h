@@ -196,21 +196,21 @@ typedef int32_t sno_NumberInt;
 #endif
 
 #define sno_number_is_valid_u8(n) \
-	((sno_floor(n) == (n)) && ((n) >= 0) && ((n) <= UINT8_MAX))
+	(((uint8_t)(n)  == (n)) && ((n) >= 0) && ((n) <= UINT8_MAX))
 #define sno_number_is_valid_i8(n) \
-	((sno_floor(n) == (n)) && ((n) >= INT8_MIN) && ((n) <= INT8_MAX))
+	(((int8_t)(n)   == (n)) && ((n) >= INT8_MIN) && ((n) <= INT8_MAX))
 #define sno_number_is_valid_u16(n) \
-	((sno_floor(n) == (n)) && ((n) >= 0) && ((n) <= UINT16_MAX))
+	(((uint16_t)(n) == (n)) && ((n) >= 0) && ((n) <= UINT16_MAX))
 #define sno_number_is_valid_i16(n) \
-	((sno_floor(n) == (n)) && ((n) >= INT16_MIN) && ((n) <= INT16_MAX))
+	(((int16_t)(n)  == (n)) && ((n) >= INT16_MIN) && ((n) <= INT16_MAX))
 #define sno_number_is_valid_u32(n) \
-	((sno_floor(n) == (n)) && ((n) >= 0) && ((n) <= UINT32_MAX))
+	(((uint32_t)(n) == (n)) && ((n) >= 0) && ((n) <= UINT32_MAX))
 #define sno_number_is_valid_i32(n) \
-	((sno_floor(n) == (n)) && ((n) >= INT32_MIN) && ((n) <= INT32_MAX))
+	(((int32_t)(n)  == (n)) && ((n) >= INT32_MIN) && ((n) <= INT32_MAX))
 #define sno_number_is_valid_u64(n) \
-	((sno_floor(n) == (n)) && ((n) >= 0) && ((n) <= UINT64_MAX))
+	(((uint64_t)(n) == (n)) && ((n) >= 0) && ((n) <= UINT64_MAX))
 #define sno_number_is_valid_i64(n) \
-	((sno_floor(n) == (n)) && ((n) >= INT64_MIN) && ((n) <= INT64_MAX))
+	(((int64_t)(n)  == (n)) && ((n) >= INT64_MIN) && ((n) <= INT64_MAX))
 
 
 

@@ -143,12 +143,7 @@ sno_Bool print_source_code_tokens(
 #define MAX_LOCAL_VARS_PER_FUNCTION 65000
 #define MAX_ACTIVE_LOCAL_VARS 200
 
-// 14 because when calling functions, there are 4 bits storing the number of args
-// and 4 bits storing the number of returns used. This means you could have 15
-// args and returns, however that would be binary 0b11111111, which is interpreted
-// as an extended instruction. Max 14 means that call instructions will never
-// accidentally become extended.
-#define MAX_EXPR_PER_STMT 14
+#define MAX_EXPR_PER_STMT 15
 #if MAX_ACTIVE_LOCAL_VARS + MAX_EXPR_PER_STMT + 1 > 254
 #error Too many local variables to store in one byte
 #endif
@@ -157,25 +152,7 @@ sno_Bool print_source_code_tokens(
 #define MAX_FUNCTION_CONSTANTS 65000
 #define MAX_STACK_CONSTRUCTOR_ARGS 200
 
-typedef union CompilerInstruction {
-	uint64_t i;
-	struct {
-		OpCode opcode;
-		uint8_t _padding0;
-		uint16_t arg;
-		SourceCodePos pos;
-	} d;
-	struct {
-		OpCode opcode;
-		uint8_t _padding0;
-		uint8_t argc : 4;
-		uint8_t retc : 4;
-		uint8_t _padding1;
-		SourceCodePos pos;
-	} call;
-} CompilerInstruction;
-
-DECLARE_GENERIC_DYN_ARRAY(CompilerInstruction, Instruction, instruction);
+DECLARE_GENERIC_DYN_ARRAY(SourceCodePos, SourceCodePos, pos);
 DECLARE_GENERIC_DYN_ARRAY(Bytecode, Bytecode, bytecode);
 DECLARE_GENERIC_DYN_ARRAY(LocalVar, LocalVar, local_var);
 
@@ -192,13 +169,15 @@ typedef struct Compiler {
 	Tokenizer* ts;
 	IString* name;
 	struct Compiler* parent_function;
-	InstructionDynArray instructions;
+	SourceCodePosDynArray instruction_pos;
+	ByteDynArray instructions;
 	NumberDynArray number_constants;
 	IStringDynArray string_constants;
 	BytecodeDynArray bytecode_constants;
 	LocalVarDynArray local_vars;
 	Block* current_block;
 	size_t current_block_depth;
+	PC last_instruction_pc;
 	LocalSlot num_active_local_slots;
 	LocalSlot max_active_local_slots;
 	LocalID active_local_vars[MAX_ACTIVE_LOCAL_VARS]; // Indexes into the local_vars dynarray

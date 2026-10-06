@@ -32,11 +32,11 @@ typedef enum {
 extern const char* const binop_names[];
 
 typedef enum {
+	UNOP_LNOT,
 	UNOP_NEG,
+	UNOP_BITFLIP,
 	UNOP_INC,
 	UNOP_DEC,
-	UNOP_BITFLIP,
-	UNOP_LNOT,
 	NUM_UNOPS,
 	NOT_UNOP = -1,
 } UnOp;
@@ -45,49 +45,77 @@ extern const char* const unop_names[];
 
 enum {
 	OP_NONE,
-	OP_BOOL,
+	OP_TRUE,
+	OP_FALSE,
+	OP_NUMBER_IMM8,
 	OP_NUMBER,
 	OP_STRING,
 	OP_BYTECODE,
 	OP_NEW_LINALG,
 	OP_NEW_ARRAY,
 	OP_NEW_TABLE,
-	OP_GET_LOCAL,
-	OP_SET_LOCAL,
-	OP_GET_GLOBAL,
-	OP_SET_GLOBAL,
-	OP_GET_FIELD,
-	OP_SET_FIELD,
-	OP_GET_INDEX,
-	OP_SET_INDEX,
-	OP_SET_NEW_GLOBAL,
-	OP_GET_METHOD,
-	OP_COPY,
-	OP_MASH, // Multi-assign shuffle
+	OP_GET_LOCAL, // 8-bit LocalID
+	OP_SET_LOCAL, // 8-bit LocalID
+	OP_GET_GLOBAL, // 16-bit string ConstID
+	OP_SET_GLOBAL, // 16-bit string ConstID
+	OP_GET_FIELD, // 16-bit string ConstID
+	OP_SET_FIELD, // 16-bit string ConstID
+	OP_GET_INDEX, // imm
+	OP_SET_INDEX, // imm
+	OP_SET_NEW_GLOBAL, // 16-bit string ConstID
+	OP_GET_METHOD, // 16-bit string ConstID
+	OP_COPY_1,
+	OP_COPY_2,
+	OP_MASH, // Multi-assign shuffle, 8-bit size
+
 	OP_TO_BOOL,
-	OP_UNOP,
-	OP_BINOP,
-	OP_AND,
-	OP_OR,
-	OP_JUMP_FRWD_IF_FALSE,
-	OP_JUMP_FRWD,
-	OP_JUMP_BACK,
-	OP_CALL,
-	OP_RETURN,
-	OP_NOP,
+	OP_TO_BOOL_LNOT,
+	OP_NEG,
+	OP_BITFLIP,
+
+	OP_ADD,
+	OP_SUB,
+	OP_MUL,
+	OP_DIV,
+	OP_IDIV,
+	OP_MOD,
+	OP_POW,
+	OP_BAND,
+	OP_BOR,
+	OP_BXOR,
+	OP_SHL,
+	OP_SHR,
+	OP_LT,
+	OP_GT,
+	OP_LE,
+	OP_GE,
+	OP_EQ,
+	OP_NEQ,
+
+	OP_AND, // 16-bit offset forward
+	OP_OR, // 16-bit offset forward
+	OP_JMP_IF_FALSE, // 16-bit offset forward
+	OP_JMP, // 16-bit offset forward
+	OP_JMP_BACK, // 16-bit offset backward
+	OP_CALL, // 4-bit argc, 4-bit retc
+	OP_RETURN, // 8-bit retc
 	NUM_OPCODES,
 };
 typedef uint8_t OpCode;
 
-extern const char* const opcode_names[];
+typedef struct OpCodeInfo {
+	uint8_t has_pos;
+	uint8_t length; // 1, 2 or 3 bytes
+	const char* const name;
+} OpCodeInfo;
+extern const OpCodeInfo opcode_info[NUM_OPCODES];
 
-typedef uint16_t Instruction;
 typedef uint16_t ConstID;
 typedef uint8_t LocalSlot;
 typedef uint16_t LocalID;
 typedef uint32_t PC; // Program counter
 
-#define MAX_BYTECODE_INSTRUCTIONS (UINT32_MAX - 1)
+#define MAX_BYTECODE_INSTRUCTIONS (UINT32_MAX - 10)
 
 typedef struct LocalVar {
 	struct IString* name;
@@ -100,11 +128,12 @@ typedef struct Bytecode {
 	struct IString* name;
 	struct IString* source_code_name;
 	struct IString* source_code;
-	PC num_instructions;
+	PC instructions_size;
+	PC num_instruction_positions;
 	ConstID num_number_constants;
 	ConstID num_string_constants;
 	ConstID num_bytecode_constants;
-	Instruction* instructions;
+	uint8_t* instructions;
 	SourceCodePos* instruction_positions;
 	sno_Number* number_constants;
 	IString** string_constants;
