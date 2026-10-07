@@ -467,6 +467,10 @@ static sno_Bool skip_whitespace_and_comments(
 			stmt_end = sno_TRUE;
 			break;
 		}
+		case ',': {
+			ts->next_token_is_comma = sno_TRUE;
+			return stmt_end;
+		}
 		case '/': {
 			if (ts->cur_char + 1 == ts->source_code_end) {
 				return stmt_end;
@@ -912,6 +916,7 @@ void read_next_token(Tokenizer* ts) {
 			insert_terminator_on_endline = sno_TRUE;
 		default: break;
 		}
+		ts->next_token_is_comma = sno_FALSE;
 		ts->insert_terminator = skip_whitespace_and_comments(
 			ts,
 			insert_terminator_on_endline

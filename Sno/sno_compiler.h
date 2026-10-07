@@ -118,6 +118,7 @@ typedef struct Tokenizer {
 	Token token;
 	Token prev_token;
 	sno_Bool insert_terminator;
+	sno_Bool next_token_is_comma;
 	struct sno_VMState* parent_vm;
 	struct IString* source_code_name;
 	struct IString* source_code;
