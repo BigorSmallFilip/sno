@@ -113,6 +113,10 @@ static void print_instructions(const Bytecode* bytecode) {
 			IString* string = bytecode->string_constants[arg];
 			printf("\"%.*s\"", (unsigned int)string->length, istring_chars(string));
 		} break;
+		case OP_GET_LOCAL:
+		case OP_SET_LOCAL: {
+			printf("%i", (int)arg);
+		} break;
 		case OP_SET_GLOBAL:
 		case OP_GET_GLOBAL:
 		case OP_GET_FIELD:

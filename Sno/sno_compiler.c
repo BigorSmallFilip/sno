@@ -629,17 +629,17 @@ static void operand_primary(Tokenizer* ts) {
 	case TK_STRING: {
 		emit_string(ts, ts->token.info.string);
 	} break;
-	case TK_VEC2:
-	case TK_VEC3:
-	case TK_VEC4:
-	case TK_QUAT:
-	case TK_MAT2:
-	case TK_MAT3:
-	case TK_MAT4: {
-		linalg_constructor(ts);
-	} break;
 	case TK_IDENTIFIER: {
 		identifier(ts, ts->token, sno_FALSE);
+	} break;
+	case TK_SELF: {
+		if (!ts->cs->has_self_parameter) {
+			syntax_error_at_cur_token(
+				ts,
+				"No self parameter specified"
+			);
+		}
+		emit_1(ts, NO_POS, OP_GET_LOCAL, 0);
 	} break;
 	case TK_FUNCTION: {
 		read_next_token(ts);
@@ -652,14 +652,20 @@ static void operand_primary(Tokenizer* ts) {
 		);
 		return;
 	}
-	case TK_SELF: {
-		if (!ts->cs->has_self_parameter) {
-			syntax_error_at_cur_token(
-				ts,
-				"No self parameter specified"
-			);
-		}
-		emit_1(ts, NO_POS, OP_GET_LOCAL, 0);
+	case TK_VEC2:
+	case TK_VEC3:
+	case TK_VEC4:
+	case TK_QUAT:
+	case TK_MAT2:
+	case TK_MAT3:
+	case TK_MAT4: {
+		linalg_constructor(ts);
+	} break;
+	case TK_LBRACKET: {
+		//array_constructor(ts);
+	} break;
+	case TK_LBRACE: {
+		//array_constructor(ts);
 	} break;
 	case TK_LPAREN: {
 		SourceCodePos lparen_pos = ts->token.pos;
@@ -859,7 +865,7 @@ static int open_expression_list(Tokenizer* ts) {
 	int num_expressions = 1;
 	while (1) {
 		expression(ts);
-		if (ts->token.type == TK_TERMINATOR) {
+		if (ts->token.type == TK_TERMINATOR || ts->token.type == TK_RBRACE) {
 			break;
 		} else if (ts->token.type == TK_COMMA) {
 			num_expressions++;
@@ -1118,7 +1124,7 @@ static void declaration_statement(Tokenizer* ts) {
 			);
 		}
 		read_next_token(ts);
-		if (ts->token.type == TK_TERMINATOR) {
+		if (ts->token.type == TK_TERMINATOR || ts->token.type == TK_RBRACE) {
 			// Don't skip this token
 			no_assignment = sno_TRUE;
 			break;
@@ -1192,6 +1198,7 @@ static void function_statement(Tokenizer* ts) {
 	read_next_token(ts);
 	expect_token(ts, TK_IDENTIFIER, "Expected a function name");
 	Token name_token = ts->token;
+	read_next_token(ts);
 	function(ts, name_token.info.string);
 	emit_2(
 		ts,
@@ -1271,7 +1278,7 @@ static void expression_statement(Tokenizer* ts) {
 	expression(ts);
 	OpCode last_op = ts->cs->instructions.buffer[ts->cs->last_instruction_pc];
 	if (last_op == OP_CALL) {
-		if (ts->token.type != TK_TERMINATOR) {
+		if (ts->token.type != TK_TERMINATOR || ts->token.type == TK_RBRACE) {
 			syntax_error(
 				ts,
 				ts->prev_token.pos,
@@ -1339,9 +1346,11 @@ static void expression_statement(Tokenizer* ts) {
 
 // return_stmt ::= 'return' expr_list_open
 static void return_statement(Tokenizer* ts) {
+	sno_assert_ptr(ts);
+	sno_assert(ts->token.type == TK_RETURN);
 	read_next_token(ts);
 	int num_returns;
-	if (ts->token.type == TK_TERMINATOR) {
+	if (ts->token.type == TK_TERMINATOR || ts->token.type == TK_RBRACE) {
 		// No returns
 		num_returns = 0;
 	} else {
@@ -1379,6 +1388,9 @@ static sno_Bool statement(Tokenizer* ts) {
 	case TK_CONST:
 		declaration_statement(ts);
 		return sno_FALSE;
+	case TK_FUNCTION:
+		function_statement(ts);
+		return sno_FALSE;
 	default:
 		expression_statement(ts);
 		return sno_FALSE;
@@ -1404,6 +1416,9 @@ static void block(Tokenizer* ts, sno_Bool is_loop, sno_Bool is_global) {
 		}
 		statement(ts);
 		if (ts->token.type != TK_TERMINATOR) {
+			if (ts->token.type == TK_RBRACE) {
+				break;
+			}
 			syntax_error_at_cur_token(ts, "Statement didn't end properly lol");
 		}
 		read_next_token(ts);

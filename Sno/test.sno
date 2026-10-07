@@ -1,4 +1,6 @@
 
-var a = function(self) {
-	return self
-}
+var funcs = [
+	function() {
+		return print("What")
+	}
+]
