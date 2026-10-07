@@ -21,6 +21,19 @@ static sno_no_return void syntax_error_at_cur_token(
 	vsyntax_error(ts, ts->token.pos, format, args);
 }
 
+static void expect_token(
+	Tokenizer* ts,
+	TokenType type,
+	const char* const msg
+) {
+	if (ts->token.type != type) {
+		syntax_error_at_cur_token(
+			ts,
+			msg
+		);
+	}
+}
+
 
 
 
@@ -39,6 +52,10 @@ static void init_function_compiler(Tokenizer* ts, Compiler* cs, IString* name) {
 	number_dyn_array_init(&cs->number_constants);
 	istring_dyn_array_init(&cs->string_constants);
 	bytecode_dyn_array_init(&cs->bytecode_constants);
+	local_var_dyn_array_init(&cs->local_vars);
+
+	cs->num_active_local_slots = 1;
+	cs->max_active_local_slots = 1;
 
 	ts->cs = cs;
 	cs->ts = ts;
@@ -182,10 +199,9 @@ static void add_instruction_pos(
 	if (pos != NO_POS) {
 		sno_assert(pos < ts->source_code->length);
 	}
-	if (pos == NO_POS) {
-		sno_assert(!opcode_info[opcode].has_pos);
-	} else {
-		sno_assert(opcode_info[opcode].has_pos);
+	sno_Bool has_pos = opcode_info[opcode].has_pos;
+	if (has_pos) {
+		sno_assert(pos != NO_POS);
 		pos_dyn_array_push(
 			ts->parent_vm,
 			&ts->cs->instruction_pos,
@@ -451,11 +467,6 @@ static void enter_block(
 	sno_Bool is_global
 ) {
 	sno_assert(!(is_loop && is_global));
-	block->is_loop = is_loop;
-	block->is_global = is_global;
-	block->num_active_local_vars = cs->num_active_local_slots;
-	block->prev = cs->current_block;
-	cs->current_block = block;
 	cs->current_block_depth++;
 	if (cs->current_block_depth > MAX_BLOCK_DEPTH) {
 		syntax_error_at_cur_token(
@@ -463,6 +474,12 @@ static void enter_block(
 			"Syntax is too deeply nested"
 		);
 	}
+	block->is_loop = is_loop;
+	block->is_global = is_global;
+	block->num_active_local_vars = cs->num_active_local_slots;
+	block->prev = cs->current_block;
+	pc_dyn_array_init(&block->breaks_and_continues);
+	cs->current_block = block;
 }
 
 static void exit_block(Compiler* cs) {
@@ -825,6 +842,126 @@ static void while_statement(Tokenizer* ts) {
 	ts->cs->instructions.buffer[out_from + 2] = out_offset >> 8;
 }
 
+
+
+static void for_statement(Tokenizer* ts) {
+	sno_Bool is_numeric_for_loop = sno_TRUE;
+	read_next_token(ts);
+	expect_token(ts, TK_IDENTIFIER, "Expected for loop variable");
+	Token iter1 = ts->token;
+	read_next_token(ts);
+	Token iter2 = { 0 };
+	if (ts->token.type == TK_COMMA) {
+		read_next_token(ts);
+		expect_token(ts, TK_IDENTIFIER, "Expected for loop variable");
+		iter2 = ts->token;
+		read_next_token(ts);
+		is_numeric_for_loop = sno_FALSE;
+	}
+	// iter variables done
+	sno_Bool inclusive = sno_FALSE;
+	if (ts->token.type == TK_ASSIGN) {
+		// Numeric for loop
+		if (iter2.type == TK_IDENTIFIER) {
+			syntax_error(
+				ts,
+				iter2.pos,
+				"Cannot use two iterator variables in a numeric for loop"
+			);
+		}
+		sno_assert(is_numeric_for_loop);
+		read_next_token(ts);
+		expression(ts); // Start
+		expect_token(ts, TK_COMMA, "Expected a comma ','");
+		read_next_token(ts);
+		if (ts->token.type == TK_ASSIGN) {
+			read_next_token(ts);
+			inclusive = sno_TRUE;
+		}
+		expression(ts); // Stop
+		if (ts->token.type == TK_COMMA) {
+			read_next_token(ts);
+			expression(ts); // Step
+		} else {
+			emit_number(ts, 1); // Step is 1 by default
+		}
+	} else if (ts->token.type == TK_IN) {
+		// Container for loop
+		if (iter2.type != TK_IDENTIFIER) {
+
+		}
+		is_numeric_for_loop = sno_FALSE;
+		read_next_token(ts);
+		expression(ts); // Thing to iterate
+	} else {
+		syntax_error_at_cur_token(
+			ts, "Expected either an '=' or 'in' here"
+		);
+	}
+
+	LocalSlot iter_local_id = try_declare_local_variable(ts, iter1);
+	if (iter2.type != 0) {
+		try_declare_local_variable(ts, iter2);
+	}
+
+	uint32_t start = emit_2(
+		ts,
+		NO_POS,
+		is_numeric_for_loop ?
+			OP_START_NUMERIC_FOR_LOOP :
+			OP_START_CONTAINER_FOR_LOOP,
+		0
+	);
+	if (is_numeric_for_loop) {
+		emit_1(ts, NO_POS, OP_SET_LOCAL, iter_local_id);
+	} else {
+		if (iter2.type != 0) {
+			emit_1(ts, NO_POS, OP_SET_LOCAL, iter_local_id);
+			emit_1(ts, NO_POS, OP_SET_LOCAL, iter_local_id + 1);
+		} else {
+			emit_0(ts, NO_POS, OP_POP);
+			emit_1(ts, NO_POS, OP_SET_LOCAL, iter_local_id);
+		}
+	}
+	brace_block(ts, sno_TRUE);
+	uint32_t end = emit_2(
+		ts,
+		NO_POS,
+		is_numeric_for_loop ?
+			OP_END_NUMERIC_FOR_LOOP :
+			OP_END_CONTAINER_FOR_LOOP,
+		0
+	);
+
+
+	ts->cs->instructions.buffer[start + 1] = 0;
+	ts->cs->instructions.buffer[end + 1] = 0;
+	//set_jump_dst(ts, start, end + 1);
+	//set_jump_dst(ts, end, start + (is_numeric_for_loop ? 0 : 1));
+
+	deactivate_local_variables(ts->cs, iter_local_id);
+}
+
+static void break_statement(Tokenizer* ts) {
+	read_next_token(ts);
+	PC jump = emit_2(ts, NO_POS, OP_JMP, 0);
+	pc_dyn_array_push(
+		ts->parent_vm,
+		&ts->cs->current_block->breaks_and_continues,
+		&jump
+	);
+}
+
+static void continue_statement(Tokenizer* ts) {
+	read_next_token(ts);
+	PC jump = emit_2(ts, NO_POS, OP_JMP_BACK, 0);
+	pc_dyn_array_push(
+		ts->parent_vm,
+		&ts->cs->current_block->breaks_and_continues,
+		&jump
+	);
+}
+
 // declaration_stmt ::= declarator identifier
 //                      { ',' [declarator] identifier }
 //                      ( ( '=' expr_list_open ) | ';' )
@@ -1121,6 +1258,15 @@ static sno_Bool statement(Tokenizer* ts) {
 	case TK_WHILE:
 		while_statement(ts);
 		return sno_FALSE;
+	case TK_FOR:
+		for_statement(ts);
+		return sno_FALSE;
+	case TK_BREAK:
+		break_statement(ts);
+		return sno_TRUE;
+	case TK_CONTINUE:
+		continue_statement(ts);
+		return sno_TRUE;
 	case TK_RETURN:
 		return_statement(ts);
 		return sno_TRUE;

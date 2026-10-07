@@ -1,4 +1,6 @@
 
-a, b.c, d[e] = 1, 2, 3
-
-(print)("Hello")("What")
+if true == true {
+	for i = 0, 10 {
+		print(i + 1)
+	}
+}

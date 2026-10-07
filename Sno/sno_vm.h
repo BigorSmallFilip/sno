@@ -64,6 +64,8 @@ enum {
 	OP_SET_INDEX, // imm
 	OP_SET_NEW_GLOBAL, // 16-bit string ConstID
 	OP_GET_METHOD, // 16-bit string ConstID
+
+	OP_POP,
 	OP_COPY_1,
 	OP_COPY_2,
 	OP_MASH, // Multi-assign shuffle, 8-bit size
@@ -97,6 +99,12 @@ enum {
 	OP_JMP_IF_FALSE, // 16-bit offset forward
 	OP_JMP, // 16-bit offset forward
 	OP_JMP_BACK, // 16-bit offset backward
+
+	OP_START_NUMERIC_FOR_LOOP, // 16-bit offset forward
+	OP_END_NUMERIC_FOR_LOOP, // 16-bit offset backward
+	OP_START_CONTAINER_FOR_LOOP, // 16-bit offset forward
+	OP_END_CONTAINER_FOR_LOOP, // 16-bit offset backward
+
 	OP_CALL, // 4-bit argc, 4-bit retc
 	OP_RETURN, // 8-bit retc
 

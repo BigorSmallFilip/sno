@@ -25,6 +25,7 @@ const OpCodeInfo opcode_info[NUM_OPCODES] = {
 	{ 1, 1, "SET_INDEX" },
 	{ 1, 3, "SET_NEW_GLOBAL" },
 	{ 1, 3, "GET_METHOD" },
+	{ 0, 1, "POP" },
 	{ 0, 1, "COPY_1" },
 	{ 0, 1, "COPY_2" },
 	{ 0, 2, "MASH" },
@@ -55,6 +56,10 @@ const OpCodeInfo opcode_info[NUM_OPCODES] = {
 	{ 0, 3, "JMP_IF_FALSE" },
 	{ 0, 3, "JMP" },
 	{ 0, 3, "JMP_BACK" },
+	{ 0, 3, "START_NUMERIC_FOR_LOOP" },
+	{ 0, 3, "END_NUMERIC_FOR_LOOP" },
+	{ 0, 3, "START_CONTAINER_FOR_LOOP" },
+	{ 0, 3, "END_CONTAINER_FOR_LOOP" },
 	{ 1, 2, "CALL" },
 	{ 1, 2, "RETURN" },
 	{ 1, 1, "NOP_1" },
@@ -82,7 +87,7 @@ static void print_instructions(const Bytecode* bytecode) {
 		if (info->has_pos) {
 			pos = bytecode->instruction_positions[pos_i];
 			sno_assert(pos != NO_POS);
-			printf("%3u %3u >   %-18s",
+			printf("%3u %3u >   %-18s ",
 				(unsigned int)(pc),
 				(unsigned int)pos,
 				info->name
@@ -90,7 +95,7 @@ static void print_instructions(const Bytecode* bytecode) {
 			pos_i++;
 		} else {
 			pos = NO_POS;
-			printf("%3u     >   %-18s",
+			printf("%3u     >   %-18s ",
 				(unsigned int)(pc),
 				info->name
 			);
@@ -128,10 +133,14 @@ static void print_instructions(const Bytecode* bytecode) {
 		} break;
 		case OP_JMP_IF_FALSE:
 		case OP_JMP:
+		case OP_START_NUMERIC_FOR_LOOP:
+		case OP_START_CONTAINER_FOR_LOOP:
 		case OP_AND:
 		case OP_OR: {
 			printf("to %u", pc + arg);
 		} break;
+		case OP_END_NUMERIC_FOR_LOOP:
+		case OP_END_CONTAINER_FOR_LOOP:
 		case OP_JMP_BACK: {
 			printf("to %u", pc - arg);
 		} break;
