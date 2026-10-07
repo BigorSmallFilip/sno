@@ -21,6 +21,15 @@ static sno_no_return void syntax_error_at_cur_token(
 	vsyntax_error(ts, ts->token.pos, format, args);
 }
 
+static void unexpected_token(
+	Tokenizer* ts
+) {
+	syntax_error_at_cur_token(
+		ts,
+		"Unexpected token"
+	);
+}
+
 static void expect_token(
 	Tokenizer* ts,
 	TokenType type,
@@ -32,6 +41,20 @@ static void expect_token(
 			msg
 		);
 	}
+}
+
+static void expect_token_and_skip(
+	Tokenizer* ts,
+	TokenType type,
+	const char* const msg
+) {
+	if (ts->token.type != type) {
+		syntax_error_at_cur_token(
+			ts,
+			msg
+		);
+	}
+	read_next_token(ts);
 }
 
 
@@ -57,6 +80,7 @@ static void init_function_compiler(Tokenizer* ts, Compiler* cs, IString* name) {
 	cs->num_active_local_slots = 1;
 	cs->max_active_local_slots = 1;
 
+	cs->parent_function = ts->cs;
 	ts->cs = cs;
 	cs->ts = ts;
 	cs->name = name;
@@ -216,6 +240,22 @@ static sno_Bool is_lvalue(OpCode opcode) {
 		opcode == OP_GET_GLOBAL ||
 		opcode == OP_GET_FIELD ||
 		opcode == OP_GET_INDEX;
+}
+
+static void emit_direct(
+	Tokenizer* ts,
+	SourceCodePos pos,
+	uint8_t* data,
+	size_t length
+) {
+	byte_dyn_array_push_n(
+		ts->parent_vm,
+		&ts->cs->instructions,
+		data,
+		length
+	);
+	check_instruction_limit(ts->cs);
+	add_instruction_pos(ts, pos, data[0]);
 }
 
 static PC emit_0(
@@ -420,7 +460,11 @@ static int search_local_variable_in_function(Compiler* cs, IString* name) {
 	return -1;
 }
 
-static sno_Bool recursive_search_local_variable(Compiler* cs, IString* name) {
+static sno_Bool recursive_search_local_variable(
+	Compiler* cs,
+	IString* name,
+	sno_Bool set
+) {
 	if (cs->current_block->is_global) {
 		// If you've reached the global scope then stop searching
 		return sno_FALSE;
@@ -429,12 +473,12 @@ static sno_Bool recursive_search_local_variable(Compiler* cs, IString* name) {
 	if (id >= 0) {
 		// Id 0 should always be the 'self' argument
 		sno_assert(id >= 1 && id < MAX_ACTIVE_LOCAL_VARS);
-		emit_1(cs->ts, NO_POS, OP_GET_LOCAL, (LocalSlot)id);
+		emit_1(cs->ts, NO_POS, OP_GET_LOCAL + set, (LocalSlot)id);
 		return sno_TRUE;
 	} else {
 		if (
 			!cs->parent_function ||
-			!recursive_search_local_variable(cs->parent_function, name)
+			!recursive_search_local_variable(cs->parent_function, name, set)
 		) {
 			return sno_FALSE;
 		} else {
@@ -442,17 +486,17 @@ static sno_Bool recursive_search_local_variable(Compiler* cs, IString* name) {
 			sno_not_implemented;
 		}
 	}
-	sno_unreachable;
+	//sno_unreachable;
 	return sno_FALSE;
 }
 
-static void identifier(Tokenizer* ts, Token name) {
-	if (!recursive_search_local_variable(ts->cs, name.info.string)) {
+static void identifier(Tokenizer* ts, Token name, sno_Bool set) {
+	if (!recursive_search_local_variable(ts->cs, name.info.string, set)) {
 		// Nothing found so treat it like a global
 		emit_2(
 			ts,
 			name.pos,
-			OP_GET_GLOBAL,
+			OP_GET_GLOBAL + set,
 			add_string_constant(ts->cs, name.info.string)
 		);
 	}
@@ -490,6 +534,69 @@ static void exit_block(Compiler* cs) {
 }
 
 
+
+static void parse_function_parameters(Tokenizer* ts) {
+	expect_token_and_skip(ts, TK_LPAREN, "Expected function parameters");
+	int num_parameters = 1;
+	if (ts->token.type == TK_RPAREN) {
+		read_next_token(ts);
+		return;
+	}
+	if (ts->token.type == TK_COMMA) {
+		syntax_error_at_cur_token(ts, "Expected a parameter");
+	}
+	if (ts->token.type == TK_CONST) {
+		read_next_token(ts);
+	}
+	if (ts->token.type == TK_SELF) {
+		ts->cs->has_self_parameter = sno_TRUE;
+		read_next_token(ts);
+	}
+	while (1) {
+		if (ts->token.type == TK_COMMA) {
+			read_next_token(ts);
+		}
+		if (ts->token.type == TK_RPAREN) {
+			break;
+		}
+		if (ts->token.type == TK_CONST) {
+			read_next_token(ts);
+		}
+		expect_token(ts, TK_IDENTIFIER, "Expected a parameter");
+		try_declare_local_variable(ts, ts->token);
+		read_next_token(ts);
+		num_parameters++;
+	}
+	sno_assert(ts->token.type == TK_RPAREN);
+	read_next_token(ts);
+}
+
+static void parse_function(Tokenizer* ts, IString* name) {
+	Compiler cs = { 0 };
+	init_function_compiler(ts, &cs, name);
+	parse_function_parameters(ts);
+	brace_block(ts, sno_FALSE);
+	// Insert a return 0 if the last statement wasn't a return statement
+	if (
+		(ts->cs->instructions.count == 0) ||
+		(ts->cs->instructions.buffer[ts->cs->last_instruction_pc] != OP_RETURN)
+	) {
+		emit_1(ts, NO_POS, OP_RETURN, 0);
+	}
+	Bytecode* bytecode = free_function_compiler(ts, &cs);
+
+#ifdef DEBUG_PRINT_PARSER
+	print_bytecode(bytecode);
+#endif
+
+	ConstID bytecode_const_id = (ConstID)ts->cs->bytecode_constants.count;
+	bytecode_dyn_array_push(
+		ts->parent_vm,
+		&ts->cs->bytecode_constants,
+		&bytecode
+	);
+	emit_2(ts, NO_POS, OP_BYTECODE, bytecode_const_id);
+}
 
 static void linalg_constructor(Tokenizer* ts) {
 	SourceCodePos pos = ts->token.pos;
@@ -532,8 +639,19 @@ static void operand_primary(Tokenizer* ts) {
 		linalg_constructor(ts);
 	} break;
 	case TK_IDENTIFIER: {
-		identifier(ts, ts->token);
+		identifier(ts, ts->token, sno_FALSE);
 	} break;
+	case TK_FUNCTION: {
+		read_next_token(ts);
+		parse_function(
+			ts,
+			create_istring(
+				ts->parent_vm->state,
+				sno_string_comma_length("<anonymous function>")
+			)
+		);
+		return;
+	}
 	case TK_SELF: {
 		sno_not_implemented;
 	} break;
@@ -550,7 +668,7 @@ static void operand_primary(Tokenizer* ts) {
 		}
 		read_next_token(ts);
 		return;
-	} break;
+	}
 	default:
 		syntax_error_at_cur_token(
 			ts,
@@ -571,6 +689,9 @@ static int arguments(Tokenizer* ts) {
 static void call(Tokenizer* ts, SourceCodePos pos) {
 	sno_assert_ptr(ts);
 	int num_args = arguments(ts);
+	if (num_args > MAX_EXPR_PER_STMT) {
+		syntax_error_at_cur_token(ts, "Too many arguments");
+	}
 	sno_assert(num_args >= 0 && num_args <= MAX_EXPR_PER_STMT);
 	emit_1(ts, pos, OP_CALL, (uint8_t)num_args);
 }
@@ -987,7 +1108,7 @@ static void declaration_statement(Tokenizer* ts) {
 		if (num_declarations > MAX_EXPR_PER_STMT) {
 			syntax_error_at_cur_token(
 				ts,
-				"Expected a variable name " sno_stringify(MAX_EXPR_PER_STMT)
+				"Expected a variable name"
 			);
 		}
 		read_next_token(ts);
@@ -1060,180 +1181,144 @@ static void declaration_statement(Tokenizer* ts) {
 
 }
 
-static void expression_statement(Tokenizer* ts) {
+static void multiple_assignment_statement(Tokenizer* ts) {
 	sno_assert_ptr(ts);
-	BinOp assignment_op = NOT_BINOP;
-	SourceCodePos assignment_pos = 0;
-	sno_Bool may_need_mash = sno_FALSE;
-	int num_lhs = 1;
-	PC lhs_instructions[MAX_EXPR_PER_STMT];
-	SourceCodePos lhs_positions[MAX_EXPR_PER_STMT];
-	PC first_lhs_position_index = 0;
+	SourceCodePos assign_pos;
+	Token identifer_tokens[MAX_EXPR_PER_STMT];
+	int num_identifiers = 0;
 	while (1) {
-		expression(ts);
-		OpCode last_op = ts->cs->instructions.buffer[
-			ts->cs->last_instruction_pc
-		];
-		// Save the lhs instructions on the stack,
-		// to convert them to SET later
-		if (last_op == OP_GET_FIELD) {
-			may_need_mash = sno_TRUE;
-		} else if (last_op == OP_GET_INDEX) {
-			may_need_mash = sno_TRUE;
-		}
-		lhs_instructions[num_lhs - 1] = ts->cs->last_instruction_pc;
-		lhs_positions[num_lhs - 1] = ts->cs->instruction_pos.buffer[
-			ts->cs->instruction_pos.count - 1
-		];
-		if (num_lhs == 1) {
-			first_lhs_position_index = (PC)ts->cs->instruction_pos.count - 1;
-		}
-		if (token_is_assignment(ts->token.type)) {
-			if (ts->token.type != TK_ASSIGN) {
-				// Assign op
-				if (num_lhs > 1) {
-					syntax_error_at_cur_token(
-						ts,
-						"Assign ops are only valid on singular operands"
-					);
-				}
-				// Need to copy the stack operands for both GET and SET
-				if (last_op == OP_GET_FIELD) {
-					insert_copy(ts, 3, OP_COPY_1);
-					lhs_instructions[0]++;
-				} else if (last_op == OP_GET_INDEX) {
-					insert_copy(ts, 1, OP_COPY_2);
-					lhs_instructions[0]++;
-				}
-			}
-			assignment_op = ts->token.type - 1 - TK_ASSIGN;
-			assignment_pos = ts->token.pos;
+		sno_assert(ts->token.type == TK_IDENTIFIER);
+		identifer_tokens[num_identifiers++] = ts->token;
+		read_next_token(ts);
+		if (ts->token.type == TK_COMMA) {
 			read_next_token(ts);
-			break;
-		} else if (ts->token.type == TK_COMMA) {
-			num_lhs++;
-			if (num_lhs > MAX_EXPR_PER_STMT) {
-				syntax_error_at_cur_token(
-					ts,
-					"Too many expressions in one statement"
-				);
-			}
-			read_next_token(ts);
+			expect_token(
+				ts,
+				TK_IDENTIFIER,
+				"Expected another variable name after the comma ','"
+			);
 			continue;
-		} else if (ts->token.type == TK_TERMINATOR) {
-			// Check if in REPL mode
-			// No assignment
-			if (num_lhs > 1) {
-				syntax_error(
-					ts,
-					ts->prev_token.pos,
-					"Multiple expressions are only allowed for assignments"
-				);
-			}
-			if (last_op != OP_CALL) {
-				syntax_error(
-					ts,
-					ts->prev_token.pos,
-					"Expression statements must either assign or call something"
-				);
-			}
-			// Set the return count to 0
-			ts->cs->instructions.buffer[ts->cs->last_instruction_pc + 1] &=
-				~0b11110000;
-			return;
+		} else if (ts->token.type == TK_ASSIGN) {
+			assign_pos = ts->token.pos;
+			break;
+		} else if (token_is_assignment(ts->token.type)) {
+			syntax_error_at_cur_token(
+				ts,
+				"Assign ops are not allowed with multiple expressions"
+			);
 		} else {
 			syntax_error_at_cur_token(
 				ts,
-				"Expected either comma ',' or an assignment token"
+				"Expected either a comma ',' or assignment '='"
 			);
 		}
 	}
-	int num_rhs = open_expression_list(ts);
-	if (num_rhs > num_lhs) {
+	sno_assert(ts->token.type == TK_ASSIGN);
+	read_next_token(ts);
+	int num_expressions = open_expression_list(ts);
+	if (num_expressions > num_identifiers) {
 		syntax_error(
 			ts,
-			assignment_pos,
+			assign_pos,
 			"There are more expressions on the right than on the left"
 		);
 	}
-	uint8_t* last_op = &ts->cs->instructions.buffer[
-		ts->cs->last_instruction_pc
-	];
+	OpCode* last_op = &ts->cs->instructions.buffer[ts->cs->last_instruction_pc];
 	if (*last_op == OP_CALL) {
-		// Correct the number of returns
-		sno_assert(num_lhs >= num_rhs);
-		last_op[1] |= (uint8_t)(num_lhs - num_rhs + 1) << 4;
-	} else {
-		if (num_lhs != num_rhs) {
-			sno_assert(num_lhs > num_rhs);
+		last_op[1] &= 0b00001111;
+		last_op[1] |= (num_identifiers - num_expressions + 1) << 4;
+	} else if (num_expressions != num_identifiers) {
+		syntax_error(
+			ts,
+			assign_pos,
+			"There are more expressions on the left than on the right"
+		);
+	}
+	for (int i = num_identifiers - 1; i >= 0; i--) {
+		identifier(ts, identifer_tokens[i], sno_TRUE);
+	}
+}
+
+static void expression_statement(Tokenizer* ts) {
+	sno_assert_ptr(ts);
+	if (ts->next_token_is_comma) {
+		// Multiple assignments
+		multiple_assignment_statement(ts);
+		return;
+	}
+	// Read the lhs
+	//SourceCodePos pos = ts->token.pos;
+	expression(ts);
+	OpCode last_op = ts->cs->instructions.buffer[ts->cs->last_instruction_pc];
+	if (last_op == OP_CALL) {
+		if (ts->token.type != TK_TERMINATOR) {
 			syntax_error(
 				ts,
-				assignment_pos,
-				"There are more expressions on the left than on the right"
+				ts->prev_token.pos,
+				"Expected the call to be the last thing in this statement"
 			);
 		}
+		ts->cs->instructions.buffer[ts->cs->last_instruction_pc + 1] &=
+			0b00001111; // Set retc to 0
+		return;
+	}
+	if (ts->token.type == TK_COMMA) {
+		syntax_error_at_cur_token(
+			ts,
+			"Multiple assignments only work on single identifiers"
+		);
+	}
+	if (!token_is_assignment(ts->token.type)) {
+		syntax_error_at_cur_token(
+			ts,
+			"Expected an assignment token"
+		);
+	}
+	SourceCodePos assign_pos = ts->token.pos;
+	BinOp assign_op = ts->token.type - TK_ASSIGN - 1;
+	read_next_token(ts);
+	if (!is_lvalue(last_op)) {
+		syntax_error(
+			ts,
+			assign_pos,
+			"Left expression is not assignable"
+		);
 	}
 
-
-
-	// Now it's time to assign
-	if (assignment_op != NOT_BINOP) {
-		// Assign op
-		sno_assert(num_lhs == 1);
-		uint8_t get = ts->cs->instructions.buffer[
-			lhs_instructions[0]
+	// Copy the last instruction for later
+	uint8_t last_instruction[3];
+	const OpCodeInfo* last_op_info = &opcode_info[last_op];
+	SourceCodePos get_pos = NO_POS;
+	if (last_op_info->has_pos) {
+		get_pos = ts->cs->instruction_pos.buffer[
+			ts->cs->instruction_pos.count - 1
 		];
-		if (!is_lvalue(get)) {
-			syntax_error(
-				ts,
-				lhs_positions[0],
-				"This operand is not assignable"
-			);
-		}
-		get++; // Convert GET instruction to SET instruction
-		sno_assert(assignment_op >= BINOP_ADD && assignment_op < NUM_BINOPS);
-		emit_0(ts, assignment_pos, (OpCode)(OP_ADD + assignment_op));
-		emit_copy_of_get_op_as_set(ts, lhs_positions[0], lhs_instructions[0]);
-	} else {
-		if (num_lhs > 1 && may_need_mash) {
-			emit_1(ts, NO_POS, OP_MASH, (uint8_t)num_lhs);
-		}
-		for (int i = num_lhs - 1; i >= 0; i--) {
-			OpCode* get = &ts->cs->instructions.buffer[
-				lhs_instructions[i]
-			];
-			if (!is_lvalue(*get)) {
-				syntax_error(
-					ts,
-					lhs_positions[i],
-					"This operand is not assignable"
-				);
-			}
-			// Remove the GET instruction
-			emit_copy_of_get_op_as_set(
-				ts,
-				lhs_positions[i],
-				lhs_instructions[i]
-			);
-			OpCode* op_to_remove = &ts->cs->instructions.buffer[
-				lhs_instructions[i]
-			];
-			const OpCodeInfo* info = &opcode_info[*op_to_remove];
-			*op_to_remove = OP_NOP_1 - 1 + info->length;
-		}
+		sno_assert(get_pos != NO_POS);
+		ts->cs->instruction_pos.count--;
 	}
+	memcpy(
+		last_instruction,
+		&ts->cs->instructions.buffer[ts->cs->last_instruction_pc],
+		last_op_info->length
+	);
+	ts->cs->instructions.count -= last_op_info->length; // Remove get
 
-	// Remove NOPS
-	//PC instruction_r = lhs_instructions[0];
-	//PC pos_r = first_lhs_position_index;
-	//PC instruction_w = lhs_instructions[0];
-	//PC pos_w = first_lhs_position_index;
-
+	if (assign_op == NOT_BINOP) {
+		expression(ts);
+	} else {
+		if      (last_op == OP_GET_FIELD) { emit_0(ts, NO_POS, OP_COPY_1); }
+		else if (last_op == OP_GET_INDEX) { emit_0(ts, NO_POS, OP_COPY_2); }
+		emit_direct(ts, get_pos, last_instruction, last_op_info->length);
+		expression(ts);
+		emit_0(ts, assign_pos, OP_ADD + (OpCode)assign_op);
+	}
+	// Put the last instruction back as a SET instruction
+	last_instruction[0]++;
+	emit_direct(ts, get_pos, last_instruction, last_op_info->length);
 }
 
 // return_stmt ::= 'return' expr_list_open
 static void return_statement(Tokenizer* ts) {
-	SourceCodePos pos = ts->token.pos;
 	read_next_token(ts);
 	int num_returns;
 	if (ts->token.type == TK_TERMINATOR) {
@@ -1243,7 +1328,7 @@ static void return_statement(Tokenizer* ts) {
 		num_returns = open_expression_list(ts);
 	}
 	sno_assert(num_returns >= 0 && num_returns <= MAX_EXPR_PER_STMT);
-	emit_1(ts, pos, OP_RETURN, (uint8_t)num_returns);
+	emit_1(ts, NO_POS, OP_RETURN, (uint8_t)num_returns);
 }
 
 // Returns true if it's a break, continue or return statement
@@ -1339,10 +1424,10 @@ static Bytecode* parse_global_scope(Tokenizer* ts) {
 	
 	block(ts, sno_FALSE, sno_TRUE);
 	if (ts->token.type != TK_EOF) {
-		sno_unreachable;
+		//sno_unreachable;
 		syntax_error(ts, 0, "Global scope ended early here");
 	}
-	emit_1(ts, (SourceCodePos)(ts->source_code->length - 1), OP_RETURN, 0);
+	emit_1(ts, NO_POS, OP_RETURN, 0);
 	Bytecode* bytecode = free_function_compiler(ts, &cs);
 
 	return bytecode;

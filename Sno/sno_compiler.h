@@ -181,6 +181,7 @@ typedef struct Compiler {
 	Block* current_block;
 	size_t current_block_depth;
 	PC last_instruction_pc;
+	sno_Bool has_self_parameter;
 	LocalSlot num_active_local_slots;
 	LocalSlot max_active_local_slots;
 	LocalID active_local_vars[MAX_ACTIVE_LOCAL_VARS]; // Indexes into the local_vars dynarray

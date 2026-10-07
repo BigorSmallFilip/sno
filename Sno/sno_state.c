@@ -3,6 +3,7 @@
 #include "sno_compiler.h"
 #include <stdlib.h>
 #include <string.h>
+#include <stdio.h>
 
 sno_API sno_GlobalState* sno_create_state(void) {
 	sno_GlobalState* state = malloc(sizeof(sno_GlobalState));

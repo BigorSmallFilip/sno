@@ -68,8 +68,6 @@ enum {
 	OP_POP,
 	OP_COPY_1,
 	OP_COPY_2,
-	OP_MASH, // Multi-assign shuffle, 8-bit size
-
 	OP_TO_BOOL,
 	OP_TO_BOOL_LNOT,
 	OP_NEG,
@@ -107,10 +105,6 @@ enum {
 
 	OP_CALL, // 4-bit argc, 4-bit retc
 	OP_RETURN, // 8-bit retc
-
-	OP_NOP_1, // 0
-	OP_NOP_2, // 8-bit arg
-	OP_NOP_3, // 16-bit arg
 	NUM_OPCODES,
 };
 typedef uint8_t OpCode;

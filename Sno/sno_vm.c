@@ -1,6 +1,7 @@
 #include "sno_vm.h"
 
 #include "sno_compiler.h"
+#include <stdio.h>
 
 
 
@@ -28,7 +29,6 @@ const OpCodeInfo opcode_info[NUM_OPCODES] = {
 	{ 0, 1, "POP" },
 	{ 0, 1, "COPY_1" },
 	{ 0, 1, "COPY_2" },
-	{ 0, 2, "MASH" },
 	{ 0, 1, "TO_BOOL" },
 	{ 0, 1, "TO_BOOL_LNOT" },
 	{ 1, 1, "NEG" },
@@ -61,10 +61,7 @@ const OpCodeInfo opcode_info[NUM_OPCODES] = {
 	{ 0, 3, "START_CONTAINER_FOR_LOOP" },
 	{ 0, 3, "END_CONTAINER_FOR_LOOP" },
 	{ 1, 2, "CALL" },
-	{ 1, 2, "RETURN" },
-	{ 1, 1, "NOP_1" },
-	{ 1, 2, "NOP_2" },
-	{ 1, 3, "NOP_3" },
+	{ 0, 2, "RETURN" },
 };
 
 
@@ -78,11 +75,6 @@ static void print_instructions(const Bytecode* bytecode) {
 		OpCode opcode = bytecode->instructions[pc];
 		sno_assert(opcode < NUM_OPCODES);
 		const OpCodeInfo* info = &opcode_info[opcode];
-		if (opcode >= OP_NOP_1 && opcode <= OP_NOP_3) {
-			pos_i++;
-			pc += info->length;
-			continue;
-		}
 		SourceCodePos pos = 0;
 		if (info->has_pos) {
 			pos = bytecode->instruction_positions[pos_i];
