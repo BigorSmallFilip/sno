@@ -905,6 +905,7 @@ void read_next_token(Tokenizer* ts) {
 		case TK_FALSE:
 		case TK_TRUE:
 		case TK_NONE:
+		case TK_SELF:
 		case TK_NUMBER:
 		case TK_STRING:
 		case TK_BREAK:

@@ -535,7 +535,7 @@ static void exit_block(Compiler* cs) {
 
 
 
-static void parse_function_parameters(Tokenizer* ts) {
+static void function_parameters(Tokenizer* ts) {
 	expect_token_and_skip(ts, TK_LPAREN, "Expected function parameters");
 	int num_parameters = 1;
 	if (ts->token.type == TK_RPAREN) {
@@ -571,10 +571,10 @@ static void parse_function_parameters(Tokenizer* ts) {
 	read_next_token(ts);
 }
 
-static void parse_function(Tokenizer* ts, IString* name) {
+static void function(Tokenizer* ts, IString* name) {
 	Compiler cs = { 0 };
 	init_function_compiler(ts, &cs, name);
-	parse_function_parameters(ts);
+	function_parameters(ts);
 	brace_block(ts, sno_FALSE);
 	// Insert a return 0 if the last statement wasn't a return statement
 	if (
@@ -643,7 +643,7 @@ static void operand_primary(Tokenizer* ts) {
 	} break;
 	case TK_FUNCTION: {
 		read_next_token(ts);
-		parse_function(
+		function(
 			ts,
 			create_istring(
 				ts->parent_vm->state,
@@ -653,7 +653,13 @@ static void operand_primary(Tokenizer* ts) {
 		return;
 	}
 	case TK_SELF: {
-		sno_not_implemented;
+		if (!ts->cs->has_self_parameter) {
+			syntax_error_at_cur_token(
+				ts,
+				"No self parameter specified"
+			);
+		}
+		emit_1(ts, NO_POS, OP_GET_LOCAL, 0);
 	} break;
 	case TK_LPAREN: {
 		SourceCodePos lparen_pos = ts->token.pos;
@@ -1178,7 +1184,21 @@ static void declaration_statement(Tokenizer* ts) {
 			emit_1(ts, NO_POS, OP_SET_LOCAL, local_slot);
 		}
 	}
+}
 
+static void function_statement(Tokenizer* ts) {
+	sno_assert_ptr(ts);
+	sno_assert(ts->token.type == TK_FUNCTION);
+	read_next_token(ts);
+	expect_token(ts, TK_IDENTIFIER, "Expected a function name");
+	Token name_token = ts->token;
+	function(ts, name_token.info.string);
+	emit_2(
+		ts,
+		name_token.pos,
+		OP_SET_NEW_GLOBAL,
+		add_string_constant(ts->cs, name_token.info.string)
+	);
 }
 
 static void multiple_assignment_statement(Tokenizer* ts) {

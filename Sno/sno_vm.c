@@ -167,7 +167,7 @@ void print_bytecode(const Bytecode* bytecode) {
 		return;
 	}
 	printf(
-		"Bytecode for function \"%.*s\"\n",
+		"Bytecode for %.*s\n",
 		(unsigned int)bytecode->name->length,
 		istring_chars(bytecode->name)
 	);
