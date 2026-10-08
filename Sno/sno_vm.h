@@ -53,7 +53,9 @@ enum {
 	OP_BYTECODE,
 	OP_NEW_LINALG,
 	OP_NEW_ARRAY,
+	OP_CONCAT_ARRAY,
 	OP_NEW_TABLE,
+	OP_CONCAT_TABLE,
 	OP_GET_LOCAL, // 8-bit LocalID
 	OP_SET_LOCAL, // 8-bit LocalID
 	OP_GET_GLOBAL, // 16-bit string ConstID

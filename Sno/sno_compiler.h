@@ -148,6 +148,7 @@ sno_Bool print_source_code_tokens(
 #if MAX_ACTIVE_LOCAL_VARS + MAX_EXPR_PER_STMT + 1 > 254
 #error Too many local variables to store in one byte
 #endif
+#define MAX_CONCATS 64
 #define MAX_NUMBER_CONSTANTS 65000
 #define MAX_STRING_CONSTANTS 65000
 #define MAX_FUNCTION_CONSTANTS 65000

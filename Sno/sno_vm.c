@@ -15,7 +15,9 @@ const OpCodeInfo opcode_info[NUM_OPCODES] = {
 	{ 0, 3, "BYTECODE" },
 	{ 1, 2, "NEW_LINALG" },
 	{ 1, 1, "NEW_ARRAY" },
+	{ 1, 2, "CONCAT_ARRAY" },
 	{ 1, 1, "NEW_TABLE" },
+	{ 1, 2, "CONCAT_TABLE" },
 	{ 0, 2, "GET_LOCAL" },
 	{ 0, 2, "SET_LOCAL" },
 	{ 1, 3, "GET_GLOBAL" },
@@ -101,6 +103,8 @@ static void print_instructions(const Bytecode* bytecode) {
 			arg |= bytecode->instructions[pc++] << 8;
 		}
 		switch (opcode) {
+		case OP_CONCAT_ARRAY:
+		case OP_CONCAT_TABLE:
 		case OP_NUMBER_IMM8: {
 			printf("%i", (int)((int8_t)arg));
 		} break;

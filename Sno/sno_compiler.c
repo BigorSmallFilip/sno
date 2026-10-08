@@ -612,6 +612,85 @@ static void linalg_constructor(Tokenizer* ts) {
 	emit_1(ts, pos, OP_NEW_LINALG, (uint8_t)(type | num_values));
 }
 
+static void array_constructor(Tokenizer* ts) {
+	sno_assert_ptr(ts);
+	sno_assert(ts->token.type == TK_LBRACKET);
+	emit_0(ts, ts->token.pos, OP_NEW_ARRAY);
+	read_next_token(ts);
+	if (ts->token.type == TK_RBRACKET) {
+		read_next_token(ts);
+		return;
+	}
+	int num_expressions = 0;
+	while (1) {
+		expression(ts);
+		num_expressions++;
+		sno_assert(num_expressions <= MAX_CONCATS);
+		if (num_expressions == MAX_CONCATS) {
+			emit_1(
+				ts,
+				ts->token.pos,
+				OP_CONCAT_ARRAY,
+				(uint8_t)num_expressions
+			);
+			num_expressions = 0;
+		}
+		if (ts->token.type == TK_COMMA || ts->token.type == TK_TERMINATOR) {
+			read_next_token(ts);
+			if (ts->token.type == TK_RBRACKET) {
+				break;
+			}
+			continue;
+		} else if (ts->token.type == TK_RBRACKET) {
+			break;
+		} else {
+			unexpected_token(ts);
+		}
+	}
+	sno_assert(ts->token.type == TK_RBRACKET);
+	if (num_expressions > 0) {
+		emit_1(ts, ts->token.pos, OP_CONCAT_ARRAY, (uint8_t)num_expressions);
+	}
+	read_next_token(ts);
+}
+
+static void table_constructor(Tokenizer* ts) {
+	sno_assert_ptr(ts);
+	sno_assert(ts->token.type == TK_LBRACE);
+	emit_0(ts, ts->token.pos, OP_NEW_TABLE);
+	read_next_token(ts);
+	if (ts->token.type == TK_RBRACE) {
+		read_next_token(ts);
+		return;
+	}
+	int num_kvs = 0;
+	while (1) {
+		expression(ts);
+		num_kvs++;
+		sno_assert(num_kvs <= MAX_CONCATS);
+		if (num_kvs == MAX_CONCATS) {
+			emit_1(ts, ts->token.pos, OP_CONCAT_ARRAY, (uint8_t)num_kvs);
+			num_kvs = 0;
+		}
+		if (ts->token.type == TK_COMMA || ts->token.type == TK_TERMINATOR) {
+			read_next_token(ts);
+			if (ts->token.type == TK_RBRACE) {
+				break;
+			}
+			continue;
+		} else if (ts->token.type == TK_RBRACE) {
+			break;
+		} else {
+			unexpected_token(ts);
+		}
+	}
+	sno_assert(ts->token.type == TK_RBRACE);
+	if (num_kvs > 0) {
+		emit_1(ts, ts->token.pos, OP_CONCAT_ARRAY, (uint8_t)num_kvs);
+	}
+	read_next_token(ts);
+}
+
 static void operand_primary(Tokenizer* ts) {
 	switch (ts->token.type) {
 	case TK_NONE: {
@@ -660,13 +739,16 @@ static void operand_primary(Tokenizer* ts) {
 	case TK_MAT3:
 	case TK_MAT4: {
 		linalg_constructor(ts);
-	} break;
+		return;
+	};
 	case TK_LBRACKET: {
-		//array_constructor(ts);
-	} break;
+		array_constructor(ts);
+		return;
+	};
 	case TK_LBRACE: {
 		//array_constructor(ts);
-	} break;
+		return;
+	};
 	case TK_LPAREN: {
 		SourceCodePos lparen_pos = ts->token.pos;
 		read_next_token(ts);
