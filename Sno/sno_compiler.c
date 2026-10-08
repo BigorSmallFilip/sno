@@ -625,8 +625,8 @@ static void array_constructor(Tokenizer* ts) {
 	while (1) {
 		expression(ts);
 		num_expressions++;
-		sno_assert(num_expressions <= MAX_CONCATS);
-		if (num_expressions == MAX_CONCATS) {
+		sno_assert(num_expressions <= MAX_ARRAY_CONCATS);
+		if (num_expressions == MAX_ARRAY_CONCATS) {
 			emit_1(
 				ts,
 				ts->token.pos,
@@ -654,6 +654,32 @@ static void array_constructor(Tokenizer* ts) {
 	read_next_token(ts);
 }
 
+static void table_constructor_item(Tokenizer* ts) {
+	sno_assert_ptr(ts);
+	if (ts->token.type == TK_FUNCTION) {
+		read_next_token(ts);
+		expect_token(ts, TK_IDENTIFIER, "Expected a function name");
+		IString* name = ts->token.info.string;
+		emit_string(ts, name);
+		read_next_token(ts);
+		function(ts, name);
+	} else if (ts->token.type == TK_IDENTIFIER) {
+		Token name_token = ts->token;
+		emit_string(ts, name_token.info.string);
+		read_next_token(ts);
+		if (ts->token.type == TK_COMMA || ts->token.type == TK_TERMINATOR) {
+			identifier(ts, name_token, sno_FALSE);
+		} else {
+			expect_token_and_skip(ts, TK_COLON, "Expected a colon ':'");
+			expression(ts);
+		}
+	} else {
+		expression(ts);
+		expect_token_and_skip(ts, TK_COLON, "Expected a colon ':'");
+		expression(ts);
+	}
+}
+
 static void table_constructor(Tokenizer* ts) {
 	sno_assert_ptr(ts);
 	sno_assert(ts->token.type == TK_LBRACE);
@@ -663,14 +689,14 @@ static void table_constructor(Tokenizer* ts) {
 		read_next_token(ts);
 		return;
 	}
-	int num_kvs = 0;
+	int num_items = 0;
 	while (1) {
-		expression(ts);
-		num_kvs++;
-		sno_assert(num_kvs <= MAX_CONCATS);
-		if (num_kvs == MAX_CONCATS) {
-			emit_1(ts, ts->token.pos, OP_CONCAT_ARRAY, (uint8_t)num_kvs);
-			num_kvs = 0;
+		table_constructor_item(ts);
+		num_items++;
+		sno_assert(num_items <= MAX_TABLE_CONCATS);
+		if (num_items == MAX_TABLE_CONCATS) {
+			emit_1(ts, ts->token.pos, OP_CONCAT_TABLE, (uint8_t)num_items);
+			num_items = 0;
 		}
 		if (ts->token.type == TK_COMMA || ts->token.type == TK_TERMINATOR) {
 			read_next_token(ts);
@@ -685,8 +711,8 @@ static void table_constructor(Tokenizer* ts) {
 		}
 	}
 	sno_assert(ts->token.type == TK_RBRACE);
-	if (num_kvs > 0) {
-		emit_1(ts, ts->token.pos, OP_CONCAT_ARRAY, (uint8_t)num_kvs);
+	if (num_items > 0) {
+		emit_1(ts, ts->token.pos, OP_CONCAT_TABLE, (uint8_t)num_items);
 	}
 	read_next_token(ts);
 }
@@ -746,7 +772,7 @@ static void operand_primary(Tokenizer* ts) {
 		return;
 	};
 	case TK_LBRACE: {
-		//array_constructor(ts);
+		table_constructor(ts);
 		return;
 	};
 	case TK_LPAREN: {
