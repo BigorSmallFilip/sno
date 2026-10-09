@@ -7,6 +7,8 @@
 
 
 
+typedef uint32_t Hash;
+
 void* state_alloc(sno_GlobalState* state, size_t size);
 void* state_realloc(
 	sno_GlobalState* state,

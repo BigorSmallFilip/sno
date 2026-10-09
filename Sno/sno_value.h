@@ -3,7 +3,6 @@
 
 #include "sno.h"
 #include "sno_mem.h"
-#include "sno_state.h"
 
 typedef enum ValueType {
 	VT_NONE,
@@ -17,14 +16,13 @@ typedef enum ValueType {
 	NUM_VALUE_TYPES,
 } ValueType;
 
-typedef uint32_t Hash;
-
 typedef union ValueUnion {
 	uint64_t i;
 	void* ptr;
 	sno_Number number;
 	struct IString* string;
 	struct Array* arr;
+	struct Table* table;
 } ValueUnion;
 
 typedef struct Value {
@@ -32,11 +30,16 @@ typedef struct Value {
 	ValueUnion u;
 } Value;
 
-//DECLARE_GENERIC_DYN_ARRAY(Value, Value, value);
+DECLARE_GENERIC_DYN_ARRAY(Value, Value, value);
 
 typedef struct Array {
 	gc_object_header;
-	//ValueDynArray values;
+	ValueDynArray values;
 } Array;
+
+typedef struct Table {
+	gc_object_header;
+	ValueDynArray values;
+} Table;
 
 #endif
