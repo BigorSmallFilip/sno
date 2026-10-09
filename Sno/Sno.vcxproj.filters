@@ -36,6 +36,9 @@
     <ClCompile Include="sno_vm.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="sno_value.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="sno.h">

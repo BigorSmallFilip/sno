@@ -35,7 +35,17 @@ typedef struct sno_VMState {
 	ExceptionType exception_type;
 	ExceptionJump* exception_jump;
 	const IString* exception_message;
+	
 } sno_VMState;
+
+typedef struct CallInfo {
+	union {
+		struct Bytecode* bytecode;
+		sno_ForeignFunction* foreign;
+	} function;
+	sno_Bool is_c_function;
+
+} CallInfo;
 
 
 

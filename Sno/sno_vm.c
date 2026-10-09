@@ -204,3 +204,12 @@ void print_bytecode(const Bytecode* bytecode) {
 #endif
 	}*/
 }
+
+
+
+uint8_t execute_bytecode(const sno_VMState* vm, uint8_t argc) {
+	sno_assert_ptr(vm);
+	sno_assert(argc <= MAX_EXPR_PER_STMT);
+	//Bytecode* bytecode = NULL;
+	return 0;
+}

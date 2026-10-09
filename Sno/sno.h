@@ -245,4 +245,8 @@ sno_API void sno_clear_error(sno_VMState* vm);
 
 sno_API void sno_run_test_thing(sno_GlobalState* state);
 
+
+
+typedef uint8_t(sno_ForeignFunction)(sno_VMState*, uint8_t);
+
 #endif

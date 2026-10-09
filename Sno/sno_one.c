@@ -3,5 +3,6 @@
 #include "sno_state.c"
 #include "sno_string.c"
 #include "sno_tokenizer.c"
+#include "sno_value.c"
 #include "sno_vm.c"
 #include "testmain.c"

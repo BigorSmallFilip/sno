@@ -180,6 +180,7 @@
     <ClCompile Include="sno_state.c" />
     <ClCompile Include="sno_string.c" />
     <ClCompile Include="sno_tokenizer.c" />
+    <ClCompile Include="sno_value.c" />
     <ClCompile Include="sno_vm.c" />
     <ClCompile Include="testmain.c" />
   </ItemGroup>
