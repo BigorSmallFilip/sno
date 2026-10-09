@@ -99,22 +99,22 @@ sno_API void sno_run_test_thing(sno_GlobalState* state) {
 
 	sno_VMState* vm = sno_create_vm(state);
 	IString* path = create_istring(state, sno_string_comma_length("test.sno"));
-
-	Bytecode* bytecode = compile_source_code(
-		vm,
-		path,
-		load_istring_from_file(state, istring_chars(path), path->length)
+	IString* source_code = load_istring_from_file(
+		state,
+		istring_chars(path),
+		path->length
 	);
+	if (!source_code) {
+		return;
+	}
+
+	Bytecode* bytecode = compile_source_code(vm, path, source_code);
 	if (!bytecode) {
 		sno_print_error_message(vm);
 		sno_clear_error(vm);
 	}
 
-	(void)print_source_code_tokens(
-		vm,
-		path,
-		load_istring_from_file(state, istring_chars(path), path->length)
-	);
+	(void)print_source_code_tokens(vm, path, source_code);
 
 	//print_string_interning_table(state);
 }

@@ -487,7 +487,7 @@ static sno_Bool recursive_search_local_variable(
 		}
 	}
 	//sno_unreachable;
-	return sno_FALSE;
+	//return sno_FALSE;
 }
 
 static void identifier(Tokenizer* ts, Token name, sno_Bool set) {
