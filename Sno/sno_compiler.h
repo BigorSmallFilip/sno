@@ -167,6 +167,7 @@ typedef struct Block {
 	uint8_t num_active_local_vars;
 	sno_Bool is_loop;
 	sno_Bool is_global;
+	PC start_pc;
 	PCDynArray breaks_and_continues;
 } Block;
 

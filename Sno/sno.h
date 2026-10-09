@@ -26,7 +26,7 @@
 // During development
 #ifdef sno_MSVC
 
-#define sno_BUILD_LIB
+//#define sno_BUILD_LIB
 
 #define sno_USE_DEBUG_BREAK
 #define sno_USE_ANSI_COLOR

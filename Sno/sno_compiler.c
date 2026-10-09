@@ -486,8 +486,10 @@ static sno_Bool recursive_search_local_variable(
 			sno_not_implemented;
 		}
 	}
-	//sno_unreachable;
-	//return sno_FALSE;
+#ifdef sno_DEBUG
+	sno_unreachable;
+	return sno_FALSE;
+#endif
 }
 
 static void identifier(Tokenizer* ts, Token name, sno_Bool set) {
@@ -520,6 +522,7 @@ static void enter_block(
 	}
 	block->is_loop = is_loop;
 	block->is_global = is_global;
+	block->start_pc = (PC)cs->instructions.count;
 	block->num_active_local_vars = cs->num_active_local_slots;
 	block->prev = cs->current_block;
 	pc_dyn_array_init(&block->breaks_and_continues);
@@ -528,6 +531,24 @@ static void enter_block(
 
 static void exit_block(Compiler* cs) {
 	Block* block = cs->current_block; // The block to exit out of
+	if (block->is_loop) {
+		for (size_t i = 0; i < block->breaks_and_continues.count; i++) {
+			PC jump_pc = block->breaks_and_continues.buffer[i];
+			uint8_t* jump = &cs->instructions.buffer[jump_pc];
+			sno_assert(*jump == OP_JMP || *jump == OP_JMP_BACK);
+			uint16_t offset = 0;
+			if (*jump == OP_JMP) {
+				offset = (uint16_t)(cs->instructions.count - jump_pc);
+			} else {
+				jump[0] = OP_JMP;
+				offset = (uint16_t)(cs->instructions.count - 3 - jump_pc);
+			}
+			jump[1] = (uint8_t)(offset & 0xFF);
+			jump[2] = (uint8_t)(offset >> 8);
+		}
+	} else {
+		sno_assert(block->breaks_and_continues.count == 0);
+	}
 	cs->current_block = block->prev;
 	cs->current_block_depth--;
 	deactivate_local_variables(cs, block->num_active_local_vars);
@@ -1073,10 +1094,10 @@ static void while_statement(Tokenizer* ts) {
 	PC out_from = emit_2(ts, NO_POS, OP_JMP_IF_FALSE, 0);
 	brace_block(ts, sno_TRUE);
 	PC back_from = emit_2(ts, NO_POS, OP_JMP_BACK, 0);
-	PC out_to = back_from + 1; // TODO: Maybe check this increment?
+	PC out_to = back_from;
 
-	uint16_t back_offset = (uint16_t)(back_from - back_to);
-	uint16_t out_offset = (uint16_t)(out_from - out_to);
+	uint16_t back_offset = (uint16_t)(back_from - back_to + 3);
+	uint16_t out_offset = (uint16_t)(out_to - out_from);
 	ts->cs->instructions.buffer[back_from + 1] = back_offset & 0xFF;
 	ts->cs->instructions.buffer[back_from + 2] = back_offset >> 8;
 	ts->cs->instructions.buffer[out_from + 1] = out_offset & 0xFF;
@@ -1145,7 +1166,7 @@ static void for_statement(Tokenizer* ts) {
 		try_declare_local_variable(ts, iter2);
 	}
 
-	uint32_t start = emit_2(
+	PC start = emit_2(
 		ts,
 		NO_POS,
 		is_numeric_for_loop ?
@@ -1165,7 +1186,7 @@ static void for_statement(Tokenizer* ts) {
 		}
 	}
 	brace_block(ts, sno_TRUE);
-	uint32_t end = emit_2(
+	PC end = emit_2(
 		ts,
 		NO_POS,
 		is_numeric_for_loop ?
@@ -1175,8 +1196,12 @@ static void for_statement(Tokenizer* ts) {
 	);
 
 
-	ts->cs->instructions.buffer[start + 1] = 0;
-	ts->cs->instructions.buffer[end + 1] = 0;
+	uint16_t offset_out = (uint16_t)(end - start);
+	uint16_t offset_back = (uint16_t)(end - start);
+	ts->cs->instructions.buffer[start + 1] = offset_out & 0xFF;
+	ts->cs->instructions.buffer[start + 2] = offset_out >> 8;
+	ts->cs->instructions.buffer[end + 1] = offset_back & 0xFF;
+	ts->cs->instructions.buffer[end + 2] = offset_back >> 8;
 	//set_jump_dst(ts, start, end + 1);
 	//set_jump_dst(ts, end, start + (is_numeric_for_loop ? 0 : 1));
 

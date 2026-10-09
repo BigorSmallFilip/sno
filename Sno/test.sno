@@ -1,12 +1,4 @@
 
-const Person = {
-	function new(name, age) {
-		const person = {
-			name,
-			age,
-		}
-		return person
-	}
+for k, v in numbers {
+	print(k, v)
 }
-
-print(Person)
