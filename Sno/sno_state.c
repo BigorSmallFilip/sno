@@ -87,6 +87,13 @@ sno_API void sno_clear_error(sno_VMState* vm) {
 
 
 
+sno_API uint8_t sno_call(sno_VMState* vm, uint8_t argc) {
+	sno_assert_ptr(vm);
+	sno_assert(argc <= MAX_EXPR_PER_STMT);
+	return 0;
+}
+
+
 sno_API void sno_run_test_thing(sno_GlobalState* state) {
 	sno_assert_ptr(state);
 
