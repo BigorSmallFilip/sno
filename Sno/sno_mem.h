@@ -132,7 +132,8 @@ enum {
 	OT_STRING,
 	OT_ARRAY,
 	OT_TABLE,
-	OT_FUNCTION,
+	OT_BYTECODE,
+	OT_MODULE,
 };
 typedef uint8_t GCObjectType;
 

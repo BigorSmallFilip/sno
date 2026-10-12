@@ -9,6 +9,7 @@
 
 
 typedef struct Module {
+	gc_object_header;
 	IString* name;
 
 	Table vars;
@@ -16,6 +17,7 @@ typedef struct Module {
 
 typedef struct sno_GlobalState {
 	StringInterningTable string_table;
+	Table modules;
 	size_t mem_allocated;
 	size_t num_allocations;
 } sno_GlobalState;
