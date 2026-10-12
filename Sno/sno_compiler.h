@@ -166,7 +166,7 @@ typedef struct Block {
 	struct Block* prev;
 	uint8_t num_active_local_vars;
 	sno_Bool is_loop;
-	sno_Bool is_global;
+	sno_Bool is_global; // Should be same as checking if no prev block
 	PC start_pc;
 	PCDynArray breaks_and_continues;
 } Block;

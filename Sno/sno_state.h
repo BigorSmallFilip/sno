@@ -3,7 +3,22 @@
 
 #include "sno.h"
 #include "sno_string.h"
+#include "sno_value.h"
 #include <setjmp.h>
+
+
+
+typedef struct Module {
+	IString* name;
+
+	Table vars;
+} Module;
+
+typedef struct sno_GlobalState {
+	StringInterningTable string_table;
+	size_t mem_allocated;
+	size_t num_allocations;
+} sno_GlobalState;
 
 
 
@@ -21,14 +36,6 @@ typedef struct ExceptionJump {
 	struct ExceptionJump* prev;
 	jmp_buf buf;
 } ExceptionJump;
-
-
-
-typedef struct sno_GlobalState {
-	StringInterningTable string_table;
-	size_t mem_allocated;
-	size_t num_allocations;
-} sno_GlobalState;
 
 typedef struct sno_VMState {
 	sno_GlobalState* state;

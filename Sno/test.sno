@@ -1,4 +1,2 @@
 
-for k, v in numbers {
-	print(k, v)
-}
+var a = 10
