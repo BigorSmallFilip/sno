@@ -94,6 +94,31 @@ sno_API uint8_t sno_call(sno_VMState* vm, uint8_t argc) {
 }
 
 
+
+static void test_tables(sno_VMState* vm) {
+	IString* k1 = create_istring(vm->state, sno_string_comma_length("name"));
+	IString* v1 = create_istring(vm->state, sno_string_comma_length("Alice"));
+	IString* k2 = create_istring(vm->state, sno_string_comma_length("other"));
+	IString* v2 = create_istring(vm->state, sno_string_comma_length("Bob"));
+	Value vk1;
+	Value vv1;
+	Value vk2;
+	Value vv2;
+	vk1.type = VT_STRING; vk1.u.string = k1;
+	vv1.type = VT_STRING; vv1.u.string = v1;
+	vk2.type = VT_STRING; vk2.u.string = k2;
+	vv2.type = VT_STRING; vv2.u.string = v2;
+	Table* table = create_table(vm);
+	sno_assert_ptr(table);
+	table_set_key(vm, table, vk1, vv1);
+	table_set_key(vm, table, vk2, vv2);
+	Value table_value;
+	table_value.type = VT_TABLE;
+	table_value.u.table = table;
+	print_value(table_value);
+
+}
+
 sno_API void sno_run_test_thing(sno_GlobalState* state) {
 	sno_assert_ptr(state);
 
@@ -122,6 +147,8 @@ sno_API void sno_run_test_thing(sno_GlobalState* state) {
 	}
 
 	(void)print_source_code_tokens(vm, path, source_code);
+
+	test_tables(vm);
 
 	//print_string_interning_table(state);
 }
