@@ -2,6 +2,8 @@
 
 #include "sno_state.h"
 
+#include <stdio.h>
+
 DEFINE_GENERIC_DYN_ARRAY(Value, Value, value);
 
 
@@ -33,10 +35,7 @@ static void print_table(Table* table) {
 	if (table->capacity_mask > 0) {
 		for (uint32_t i = 0; i < table->capacity_mask + 1; i++) {
 			TableEntry* entry = &table->entries[i];
-			if (
-				entry->key_type == VT_UNDEFINED ||
-				entry->key_type == VT_TOMBSTONE
-			) {
+			if (entry->key_type < 0) {
 				continue;
 			}
 			if (first_entry) {
@@ -128,8 +127,10 @@ static Hash hash_value(Value value) {
 	case VT_FOREIGN_FUNCTION: return hash_bits((uint64_t)value.u.ptr);
 	default:
 		sno_unreachable;
-		return 0;
 	}
+#ifdef sno_USE_ASSERT
+	return sno_FALSE;
+#endif
 }
 
 static sno_Bool value_union_equals(ValueUnion a, ValueUnion b, ValueType type) {
@@ -144,8 +145,10 @@ static sno_Bool value_union_equals(ValueUnion a, ValueUnion b, ValueType type) {
 	case VT_FOREIGN_FUNCTION: return a.ptr == b.ptr;
 	default:
 		sno_unreachable;
-		return sno_FALSE;
 	}
+#ifdef sno_USE_ASSERT
+	return sno_FALSE;
+#endif
 }
 
 static sno_Bool table_find_entry(
@@ -252,7 +255,8 @@ static void resize_table(
 	table->capacity_mask = new_capacity - 1;
 	table->count = old_count;
 	
-	// Re-add the existing entries.
+	// Re-add the existing entries
+	uint32_t count_found = 0;
 	if (old_count > 0) {
 		for (uint32_t i = 0; i < old_capacity; i++) {
 			TableEntry* entry = &old_entries[i];
@@ -260,6 +264,7 @@ static void resize_table(
 			if (entry->key_type < 0) {
 				continue;
 			}
+			count_found++;
 			Value entry_key;
 			Value entry_value;
 			entry_key.type = entry->key_type;
@@ -269,10 +274,12 @@ static void resize_table(
 			table_insert_entry(table, entry_key, entry_value);
 		}
 	}
+	sno_assert(old_count == count_found);
+	sno_assert(old_count == table->count);
 	if (old_entries) {
 		state_free(
 			vm->state,
-			(table->capacity_mask + 1) * sizeof(TableEntry),
+			(old_capacity + 1) * sizeof(TableEntry),
 			old_entries
 		);
 	}
@@ -295,6 +302,13 @@ sno_Bool table_set_key(
 			TABLE_GROWTH_FACTOR,
 			TABLE_MIN_CAPACITY
 		);
+		if (new_capacity > TABLE_MAX_CAPACITY) {
+			vm_throw(
+				vm,
+				EXCEPTION_RUNTIME_ERROR,
+				sno_string_comma_length("Table too big")
+			);
+		}
 		resize_table(vm, table, new_capacity);
 	}
 	if (!table_insert_entry(table, key, value)) {

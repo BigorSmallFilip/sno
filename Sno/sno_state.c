@@ -135,9 +135,29 @@ static void test_tables(sno_VMState* vm) {
 	add_str_key_str_value(vm, table, "name7", "Group");
 	add_str_key_str_value(vm, table, "name8", "Ham");
 	add_str_key_str_value(vm, table, "name9", "Insides");
-	print_value(table_value); putchar('\n');
+	//print_value(table_value); putchar('\n');
 	remove_str_key(vm, table, "name1");
-	print_value(table_value); putchar('\n');
+	//print_value(table_value); putchar('\n');
+
+	size_t final_count_expected = table->count;
+	for (size_t j = 0; j < 100; j++) {
+		for (size_t i = 0; i < 1000; i++) {
+			char key[128];
+			snprintf(key, 128, "%i", (int)i);
+			add_str_key_str_value(vm, table, key, key);
+		}
+		Value nk = { .type = VT_NUMBER };
+		nk.u.number = (sno_Number)j;
+		final_count_expected++;
+		table_set_key(vm, table, nk, nk);
+		for (size_t i = 0; i < 1000; i++) {
+			char key[128];
+			snprintf(key, 128, "%i", (int)i);
+			remove_str_key(vm, table, key);
+		}
+		//print_value(table_value); putchar('\n');
+	}
+	sno_assert(table->count == final_count_expected);
 }
 
 sno_API void sno_run_test_thing(sno_GlobalState* state) {
@@ -169,7 +189,6 @@ sno_API void sno_run_test_thing(sno_GlobalState* state) {
 
 	(void)print_source_code_tokens(vm, path, source_code);
 
-	test_tables(vm);
-
-	//print_string_interning_table(state);
+	//test_tables(vm);
+	print_string_interning_table(state);
 }

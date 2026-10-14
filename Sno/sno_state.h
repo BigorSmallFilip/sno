@@ -45,6 +45,8 @@ typedef struct sno_VMState {
 	ExceptionJump* exception_jump;
 	const IString* exception_message;
 	
+	Value* stack;
+	uint32_t stack_idx;
 } sno_VMState;
 
 typedef struct CallInfo {
