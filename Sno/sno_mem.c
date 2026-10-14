@@ -11,6 +11,7 @@ void* state_alloc(sno_State* state, size_t size) {
 	void* block = malloc(size);
 	if (!block) {
 		fputs("Allocation failed", stderr);
+		exit(-1);
 	}
 	return block;
 }
@@ -27,6 +28,7 @@ void* state_realloc(
 	void* new_block = realloc(block, new_size);
 	if (!new_block) {
 		fputs(sno_ANSI_RED "Reallocation failed\n" sno_ANSI_NORMAL, stderr);
+		exit(-1);
 	}
 	return new_block;
 }

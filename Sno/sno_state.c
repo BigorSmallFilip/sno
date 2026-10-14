@@ -7,6 +7,9 @@
 
 sno_API sno_State* sno_create_state(void) {
 	sno_State* state = malloc(sizeof(sno_State));
+	if (!state) {
+		return NULL;
+	}
 	memset(state, 0, sizeof(sno_State));
 	if (!state) {
 		return NULL;
