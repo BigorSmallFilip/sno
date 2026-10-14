@@ -81,14 +81,14 @@ void print_value(Value value) {
 
 
 
-Array* create_array(sno_VMState* vm) {
-	sno_assert_ptr(vm);
+Array* create_array(sno_State* state) {
+	sno_assert_ptr(state);
 	return NULL;
 }
 
-Table* create_table(sno_VMState* vm) {
-	sno_assert_ptr(vm);
-	Table* table = state_alloc(vm->state, sizeof(Table));
+Table* create_table(sno_State* state) {
+	sno_assert_ptr(state);
+	Table* table = state_alloc(state, sizeof(Table));
 	memset(table, 0, sizeof(Table));
 	
 	return table;
@@ -230,18 +230,18 @@ static sno_Bool table_insert_entry(Table* table, Value key, Value value) {
 }
 
 static void resize_table(
-	sno_VMState* vm,
+	sno_State* state,
 	Table* table,
 	uint32_t new_capacity
 ) {
-	sno_assert_ptr(vm);
+	sno_assert_ptr(state);
 	sno_assert_ptr(table);
 	sno_assert_ptr(sno_is_power_of_2(new_capacity));
 	sno_assert_ptr(new_capacity >= TABLE_MIN_CAPACITY);
 	sno_assert(new_capacity <= TABLE_MAX_CAPACITY);
 	// Create the new empty hash table.
 	TableEntry* new_entries = state_alloc(
-		vm->state,
+		state,
 		new_capacity * sizeof(TableEntry)
 	);
 	for (uint32_t i = 0; i < new_capacity; i++) {
@@ -278,7 +278,7 @@ static void resize_table(
 	sno_assert(old_count == table->count);
 	if (old_entries) {
 		state_free(
-			vm->state,
+			state,
 			(old_capacity + 1) * sizeof(TableEntry),
 			old_entries
 		);
@@ -286,12 +286,12 @@ static void resize_table(
 }
 
 sno_Bool table_set_key(
-	sno_VMState* vm,
+	sno_State* state,
 	Table* table,
 	Value key,
 	Value value
 ) {
-	sno_assert_ptr(vm);
+	sno_assert_ptr(state);
 	sno_assert_ptr(table);
 	if (
 		table->count + 1 >
@@ -303,13 +303,13 @@ sno_Bool table_set_key(
 			TABLE_MIN_CAPACITY
 		);
 		if (new_capacity > TABLE_MAX_CAPACITY) {
-			vm_throw(
-				vm,
+			state_throw(
+				state,
 				EXCEPTION_RUNTIME_ERROR,
 				sno_string_comma_length("Table too big")
 			);
 		}
-		resize_table(vm, table, new_capacity);
+		resize_table(state, table, new_capacity);
 	}
 	if (!table_insert_entry(table, key, value)) {
 		table->count++;
@@ -319,12 +319,12 @@ sno_Bool table_set_key(
 }
 
 sno_Bool table_get_key(
-	sno_VMState* vm,
+	sno_State* state,
 	Table* table,
 	Value key,
 	Value* out_value
 ) {
-	sno_assert_ptr(vm);
+	sno_assert_ptr(state);
 	sno_assert_ptr(table);
 	sno_assert_ptr(out_value);
 	if (table->count == 0) {
@@ -340,11 +340,11 @@ sno_Bool table_get_key(
 }
 
 sno_Bool table_remove_key(
-	sno_VMState* vm,
+	sno_State* state,
 	Table* table,
 	Value key
 ) {
-	sno_assert_ptr(vm);
+	sno_assert_ptr(state);
 	sno_assert_ptr(table);
 	if (table->count == 0) {
 		return sno_FALSE;
@@ -366,7 +366,7 @@ sno_Bool table_remove_key(
 			TABLE_GROWTH_FACTOR,
 			TABLE_MIN_CAPACITY
 		);
-		resize_table(vm, table, new_capacity);
+		resize_table(state, table, new_capacity);
 	}
 	return sno_TRUE;
 }

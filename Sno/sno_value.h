@@ -45,7 +45,7 @@ typedef struct Array {
 	ValueDynArray values;
 } Array;
 
-Array* create_array(struct sno_VMState* vm);
+Array* create_array(struct sno_State* state);
 
 
 
@@ -68,21 +68,21 @@ typedef struct Table {
 	TableEntry* entries;
 } Table;
 
-Table* create_table(struct sno_VMState* vm);
+Table* create_table(struct sno_State* state);
 sno_Bool table_set_key(
-	struct sno_VMState* vm,
+	struct sno_State* state,
 	Table* table,
 	Value key,
 	Value value
 );
 sno_Bool table_get_key(
-	struct sno_VMState* vm,
+	struct sno_State* state,
 	Table* table,
 	Value key,
 	Value* out_value
 );
 sno_Bool table_remove_key(
-	struct sno_VMState* vm,
+	struct sno_State* state,
 	Table* table,
 	Value key
 );

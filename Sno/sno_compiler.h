@@ -119,7 +119,7 @@ typedef struct Tokenizer {
 	Token prev_token;
 	sno_Bool insert_terminator;
 	sno_Bool next_token_is_comma;
-	struct sno_VMState* parent_vm;
+	struct sno_State* main_state;
 	struct IString* source_code_name;
 	struct IString* source_code;
 	const char* source_code_end;
@@ -134,7 +134,7 @@ void read_first_token(Tokenizer* ts);
 void read_next_token(Tokenizer* ts);
 
 sno_Bool print_source_code_tokens(
-	struct sno_VMState* vm,
+	struct sno_State* state,
 	struct IString* source_code_name,
 	struct IString* source_code
 );
@@ -191,7 +191,7 @@ typedef struct Compiler {
 } Compiler;
 
 Bytecode* compile_source_code(
-	sno_VMState* vm,
+	sno_State* state,
 	struct IString* source_code_name,
 	struct IString* source_code
 );

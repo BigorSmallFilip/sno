@@ -223,31 +223,26 @@ typedef int32_t sno_NumberInt;
 
 
 
-typedef struct sno_GlobalState sno_GlobalState;
+typedef struct sno_State sno_State;
 
-sno_API sno_GlobalState* sno_create_state(void);
-sno_API void sno_free_state(sno_GlobalState* state);
-
-typedef struct sno_VMState sno_VMState;
-
-sno_API sno_VMState* sno_create_vm(sno_GlobalState* state);
-sno_API void sno_free_vm(sno_VMState* vm);
+sno_API sno_State* sno_create_state(void);
+sno_API void sno_free_state(sno_State* state);
 
 sno_API sno_no_return void sno_throw_runtime_error(
-	sno_VMState* vm,
+	sno_State* state,
 	const char* const message,
 	size_t message_length
 );
 sno_API void sno_print_error_message(
-	const sno_VMState* vm
+	const sno_State* state
 );
-sno_API void sno_clear_error(sno_VMState* vm);
+sno_API void sno_clear_error(sno_State* state);
 
-sno_API uint8_t sno_call(sno_VMState* vm, uint8_t argc);
+sno_API uint8_t sno_call(sno_State* state, uint8_t argc);
 
-sno_API void sno_run_test_thing(sno_GlobalState* state);
+sno_API void sno_run_test_thing(sno_State* state);
 
 
-typedef uint8_t(sno_ForeignFunction)(sno_VMState*, uint8_t);
+typedef uint8_t(sno_ForeignFunction)(sno_State*, uint8_t);
 
 #endif

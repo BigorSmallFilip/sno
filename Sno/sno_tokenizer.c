@@ -250,10 +250,10 @@ static void read_string_literal(
 	sno_assert_ptr(token);
 	sno_assert_ptr(interpolated);
 	
-	sno_VMState* vm = ts->parent_vm;
+	sno_State* state = ts->main_state;
 	ByteDynArray formatted_string = { 0 };
 	// TODO: Add an init size for dyn array
-	//byte_dyn_array_init(vm, &formatted_string, 1, 512);
+	//byte_dyn_array_init(state, &formatted_string, 1, 512);
 	while (1) {
 		ts->cur_char++;
 		switch (*ts->cur_char) {
@@ -310,7 +310,7 @@ static void read_string_literal(
 				);
 				break;
 			}
-			byte_dyn_array_push(vm, &formatted_string, (uint8_t*)&escapedchar);
+			byte_dyn_array_push(state, &formatted_string, (uint8_t*)&escapedchar);
 		} break;
 		case '\"': {
 			goto endstring;
@@ -319,18 +319,18 @@ static void read_string_literal(
 		default:
 			// TODO: This is terribly inefficient
 			// Do multiple chars at the same time dork
-			byte_dyn_array_push(vm, &formatted_string, (uint8_t*)ts->cur_char);
+			byte_dyn_array_push(state, &formatted_string, (uint8_t*)ts->cur_char);
 			break;
 		}
 	}
 endstring:
 	ts->cur_char++; // Skip the closing double quotes
 	token->info.string = create_istring(
-		vm->state,
+		state,
 		(const char*)formatted_string.buffer,
 		formatted_string.count
 	);
-	byte_dyn_array_clear(vm, &formatted_string);
+	byte_dyn_array_clear(state, &formatted_string);
 }
 
 static void read_base10_number(Tokenizer* ts, Token* token) {
@@ -862,7 +862,7 @@ static TokenType lex_token(Tokenizer* ts, Token* token) {
 		size_t length = ts->cur_char - ts->token_start;
 		sno_assert(length < UINT32_MAX);
 		token->info.string = create_istring(
-			ts->parent_vm->state,
+			ts->main_state,
 			ts->token_start,
 			length
 		);
@@ -928,16 +928,16 @@ void read_next_token(Tokenizer* ts) {
 
 
 static void print_source_code_throws(
-	sno_VMState* vm,
+	sno_State* state,
 	IString* source_code_name,
 	IString* source_code
 ) {
-	sno_assert_ptr(vm);
+	sno_assert_ptr(state);
 	sno_assert_ptr(source_code_name);
 	sno_assert_ptr(source_code);
 
 	Tokenizer ts = { 0 };
-	ts.parent_vm = vm;
+	ts.main_state = state;
 	ts.source_code_name = source_code_name;
 	ts.source_code = source_code;
 	ts.source_code_end = istring_chars(source_code) + source_code->length;
@@ -969,26 +969,26 @@ static void print_source_code_throws(
 }
 
 sno_Bool print_source_code_tokens(
-	sno_VMState* vm,
+	sno_State* state,
 	IString* source_code_name,
 	IString* source_code
 ) {
-	sno_assert_ptr(vm);
+	sno_assert_ptr(state);
 	sno_assert_ptr(source_code_name);
 	sno_assert_ptr(source_code);
 
 	sno_Bool success = sno_TRUE;
 	ExceptionJump exception_jump;
-	exception_jump.prev = vm->exception_jump;
-	vm->exception_jump = &exception_jump;
+	exception_jump.prev = state->exception_jump;
+	state->exception_jump = &exception_jump;
 	if (setjmp(exception_jump.buf) == EXCEPTION_NONE) {
-		print_source_code_throws(vm, source_code_name, source_code);
+		print_source_code_throws(state, source_code_name, source_code);
 	} else {
 		fprintf(stderr, "\n");
-		sno_print_error_message(vm);
+		sno_print_error_message(state);
 		success = sno_FALSE;
 	}
-	vm->exception_jump = vm->exception_jump->prev;
+	state->exception_jump = state->exception_jump->prev;
 	return success;
 }
 
@@ -1174,7 +1174,7 @@ sno_no_return void syntax_error_args(
 		sno_STACK_BUFFER_LENGTH - 1 - length,
 		ANSI_NORMAL "\n"
 	);
-	vm_throw(ts->parent_vm, EXCEPTION_SYNTAX_ERROR, buffer, length);
+	state_throw(ts->main_state, EXCEPTION_SYNTAX_ERROR, buffer, length);
 }
 
 sno_no_return void syntax_error(

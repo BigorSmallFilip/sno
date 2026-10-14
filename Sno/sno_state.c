@@ -5,8 +5,9 @@
 #include <string.h>
 #include <stdio.h>
 
-sno_API sno_GlobalState* sno_create_state(void) {
-	sno_GlobalState* state = malloc(sizeof(sno_GlobalState));
+sno_API sno_State* sno_create_state(void) {
+	sno_State* state = malloc(sizeof(sno_State));
+	memset(state, 0, sizeof(sno_State));
 	if (!state) {
 		return NULL;
 	}
@@ -16,79 +17,63 @@ sno_API sno_GlobalState* sno_create_state(void) {
 	return state;
 }
 
-sno_API void sno_free_state(sno_GlobalState* state) {
+sno_API void sno_free_state(sno_State* state) {
 	sno_assert_ptr(state);
 	free(state);
 }
 
-sno_API sno_VMState* sno_create_vm(sno_GlobalState* state) {
-	sno_assert_ptr(state);
-	sno_VMState* vm = state_alloc(state, sizeof(sno_VMState));
-	memset(vm, 0, sizeof(sno_VMState));
-	vm->state = state;
-	return vm;
-}
-
-sno_API void sno_free_vm(sno_VMState* vm) {
-	sno_assert_ptr(vm);
-	sno_GlobalState* state = vm->state;
-	sno_assert_ptr(state);
-
-	state_free(state, sizeof(sno_VMState), vm);
-}
 
 
-
-sno_no_return void vm_throw(
-	sno_VMState* vm,
+sno_no_return void state_throw(
+	sno_State* state,
 	ExceptionType type,
 	const char* const message,
 	size_t message_length
 ) {
-	sno_assert_ptr(vm);
+	sno_assert_ptr(state);
 	sno_assert_ptr(message);
 	sno_assert_ptr(type != EXCEPTION_NONE);
 	sno_assert_ptr(type < NUM_EXCEPTION_TYPES);
 
-	vm->exception_type = type;
-	vm->exception_message = create_istring(vm->state, message, message_length);
-	longjmp(vm->exception_jump->buf, type);
+	state->exception_type = type;
+	state->exception_message = create_istring(state, message, message_length);
+	longjmp(state->exception_jump->buf, type);
 }
 
 sno_API sno_no_return void sno_throw_runtime_error(
-	sno_VMState* vm,
+	sno_State* state,
 	const char* const message,
 	size_t message_length
 ) {
-	sno_assert_ptr(vm);
+	sno_assert_ptr(state);
 	sno_assert_ptr(message);
-	vm_throw(vm, EXCEPTION_RUNTIME_ERROR, message, message_length);
+	state_throw(state, EXCEPTION_RUNTIME_ERROR, message, message_length);
 }
 
-sno_API void sno_print_error_message(const sno_VMState* vm) {
-	sno_assert_ptr(vm);
-	if (vm->exception_type == EXCEPTION_NONE) {
+sno_API void sno_print_error_message(const sno_State* state) {
+	sno_assert_ptr(state);
+	if (state->exception_type == EXCEPTION_NONE) {
 		fprintf(stderr, "No exception\n");
 	} else {
 		fprintf(
 			stderr,
 			"%.*s\n",
-			(unsigned int)vm->exception_message->length,
-			istring_chars(vm->exception_message)
+			(unsigned int)state->exception_message->length,
+			istring_chars(state->exception_message)
 		);
 	}
 }
 
-sno_API void sno_clear_error(sno_VMState* vm) {
-	sno_assert(vm->exception_type != EXCEPTION_NONE);
-	vm->exception_message = NULL;
-	vm->exception_type = EXCEPTION_NONE;
+sno_API void sno_clear_error(sno_State* state) {
+	sno_assert(state->exception_type != EXCEPTION_NONE);
+	state->exception_message = NULL;
+	state->exception_type = EXCEPTION_NONE;
 }
 
 
 
-sno_API uint8_t sno_call(sno_VMState* vm, uint8_t argc) {
-	sno_assert_ptr(vm);
+sno_API uint8_t sno_call(sno_State* state, uint8_t argc) {
+	sno_assert_ptr(state);
 	sno_assert(argc <= MAX_EXPR_PER_STMT);
 	return 0;
 }
@@ -96,7 +81,7 @@ sno_API uint8_t sno_call(sno_VMState* vm, uint8_t argc) {
 
 
 static sno_Bool add_str_key_str_value(
-	sno_VMState* vm,
+	sno_State* state,
 	Table* table,
 	const char* const key,
 	const char* const value
@@ -104,39 +89,39 @@ static sno_Bool add_str_key_str_value(
 	Value vk;
 	Value vv;
 	vk.type = VT_STRING;
-	vk.u.string = create_istring(vm->state, key, strlen(key));
+	vk.u.string = create_istring(state, key, strlen(key));
 	vv.type = VT_STRING;
-	vv.u.string = create_istring(vm->state, value, strlen(value));
-	return table_set_key(vm, table, vk, vv);
+	vv.u.string = create_istring(state, value, strlen(value));
+	return table_set_key(state, table, vk, vv);
 }
 
 static sno_Bool remove_str_key(
-	sno_VMState* vm,
+	sno_State* state,
 	Table* table,
 	const char* const key
 ) {
 	Value vk;
 	vk.type = VT_STRING;
-	vk.u.string = create_istring(vm->state, key, strlen(key));
-	return table_remove_key(vm, table, vk);
+	vk.u.string = create_istring(state, key, strlen(key));
+	return table_remove_key(state, table, vk);
 }
 
-static void test_tables(sno_VMState* vm) {
-	Table* table = create_table(vm);
+static void test_tables(sno_State* state) {
+	Table* table = create_table(state);
 	Value table_value;
 	table_value.type = VT_TABLE;
 	table_value.u.table = table;
-	add_str_key_str_value(vm, table, "name1", "Alice");
-	add_str_key_str_value(vm, table, "name2", "Bob");
-	add_str_key_str_value(vm, table, "name3", "Corn");
-	add_str_key_str_value(vm, table, "name4", "Dale");
-	add_str_key_str_value(vm, table, "name5", "Eagle");
-	add_str_key_str_value(vm, table, "name6", "Falcone");
-	add_str_key_str_value(vm, table, "name7", "Group");
-	add_str_key_str_value(vm, table, "name8", "Ham");
-	add_str_key_str_value(vm, table, "name9", "Insides");
+	add_str_key_str_value(state, table, "name1", "Alice");
+	add_str_key_str_value(state, table, "name2", "Bob");
+	add_str_key_str_value(state, table, "name3", "Corn");
+	add_str_key_str_value(state, table, "name4", "Dale");
+	add_str_key_str_value(state, table, "name5", "Eagle");
+	add_str_key_str_value(state, table, "name6", "Falcone");
+	add_str_key_str_value(state, table, "name7", "Group");
+	add_str_key_str_value(state, table, "name8", "Ham");
+	add_str_key_str_value(state, table, "name9", "Insides");
 	//print_value(table_value); putchar('\n');
-	remove_str_key(vm, table, "name1");
+	remove_str_key(state, table, "name1");
 	//print_value(table_value); putchar('\n');
 
 	size_t final_count_expected = table->count;
@@ -144,23 +129,23 @@ static void test_tables(sno_VMState* vm) {
 		for (size_t i = 0; i < 1000; i++) {
 			char key[128];
 			snprintf(key, 128, "%i", (int)i);
-			add_str_key_str_value(vm, table, key, key);
+			add_str_key_str_value(state, table, key, key);
 		}
 		Value nk = { .type = VT_NUMBER };
 		nk.u.number = (sno_Number)j;
 		final_count_expected++;
-		table_set_key(vm, table, nk, nk);
+		table_set_key(state, table, nk, nk);
 		for (size_t i = 0; i < 1000; i++) {
 			char key[128];
 			snprintf(key, 128, "%i", (int)i);
-			remove_str_key(vm, table, key);
+			remove_str_key(state, table, key);
 		}
 		//print_value(table_value); putchar('\n');
 	}
 	sno_assert(table->count == final_count_expected);
 }
 
-sno_API void sno_run_test_thing(sno_GlobalState* state) {
+sno_API void sno_run_test_thing(sno_State* state) {
 	sno_assert_ptr(state);
 
 	(void)create_istring(state, sno_string_comma_length("What"));
@@ -170,7 +155,6 @@ sno_API void sno_run_test_thing(sno_GlobalState* state) {
 	(void)create_istring(state, sno_string_comma_length("On?"));
 	(void)create_istring(state, sno_string_comma_length("xyz"));
 
-	sno_VMState* vm = sno_create_vm(state);
 	IString* path = create_istring(state, sno_string_comma_length("test.sno"));
 	IString* source_code = load_istring_from_file(
 		state,
@@ -181,14 +165,14 @@ sno_API void sno_run_test_thing(sno_GlobalState* state) {
 		return;
 	}
 
-	Bytecode* bytecode = compile_source_code(vm, path, source_code);
+	Bytecode* bytecode = compile_source_code(state, path, source_code);
 	if (!bytecode) {
-		sno_print_error_message(vm);
-		sno_clear_error(vm);
+		sno_print_error_message(state);
+		sno_clear_error(state);
 	}
 
-	(void)print_source_code_tokens(vm, path, source_code);
+	(void)print_source_code_tokens(state, path, source_code);
 
-	//test_tables(vm);
+	//test_tables(state);
 	print_string_interning_table(state);
 }

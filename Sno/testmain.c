@@ -13,7 +13,7 @@ int main(int argc, char** argv) {
 		printf("Arg = \"%s\"\n", argv[1]);
 	}
 
-	sno_GlobalState* state = sno_create_state();
+	sno_State* state = sno_create_state();
 
 	sno_run_test_thing(state);
 

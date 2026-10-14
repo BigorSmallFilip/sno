@@ -61,15 +61,15 @@ static void expect_token_and_skip(
 
 
 
-static Bytecode* create_bytecode(sno_VMState* vm) {
-	Bytecode* bytecode = state_alloc(vm->state, sizeof(Bytecode));
+static Bytecode* create_bytecode(sno_State* state) {
+	Bytecode* bytecode = state_alloc(state, sizeof(Bytecode));
 	memset(bytecode, 0, sizeof(Bytecode));
 	return bytecode;
 }
 
 static void init_function_compiler(Tokenizer* ts, Compiler* cs, IString* name) {
 	sno_assert(ts);
-	//sno_VMState* vm = ts->parent_vm;
+	//sno_State* state = ts->parent_state;
 	byte_dyn_array_init(&cs->instructions);
 	pos_dyn_array_init(&cs->instruction_pos);
 	number_dyn_array_init(&cs->number_constants);
@@ -87,9 +87,9 @@ static void init_function_compiler(Tokenizer* ts, Compiler* cs, IString* name) {
 }
 
 static Bytecode* free_function_compiler(Tokenizer* ts, Compiler* cs) {
-	sno_GlobalState* state = ts->parent_vm->state;
+	sno_State* state = ts->main_state;
 
-	Bytecode* bytecode = create_bytecode(ts->parent_vm);
+	Bytecode* bytecode = create_bytecode(ts->main_state);
 	bytecode->name = cs->name;
 	bytecode->source_code_name = ts->source_code_name;
 	bytecode->source_code = ts->source_code;
@@ -106,7 +106,7 @@ static Bytecode* free_function_compiler(Tokenizer* ts, Compiler* cs) {
 		cs->instructions.buffer,
 		cs->instructions.count * sizeof(uint8_t)
 	);
-	byte_dyn_array_clear(ts->parent_vm, &cs->instructions);
+	byte_dyn_array_clear(ts->main_state, &cs->instructions);
 
 	bytecode->instruction_positions = state_alloc(
 		state,
@@ -118,7 +118,7 @@ static Bytecode* free_function_compiler(Tokenizer* ts, Compiler* cs) {
 		cs->instruction_pos.buffer,
 		cs->instruction_pos.count * sizeof(SourceCodePos)
 	);
-	pos_dyn_array_clear(ts->parent_vm, &cs->instruction_pos);
+	pos_dyn_array_clear(ts->main_state, &cs->instruction_pos);
 	
 	sno_assert(cs->number_constants.count < MAX_NUMBER_CONSTANTS);
 	bytecode->number_constants = state_alloc(
@@ -131,7 +131,7 @@ static Bytecode* free_function_compiler(Tokenizer* ts, Compiler* cs) {
 		cs->number_constants.buffer,
 		cs->number_constants.count * sizeof(sno_Number)
 	);
-	number_dyn_array_clear(ts->parent_vm, &cs->number_constants);
+	number_dyn_array_clear(ts->main_state, &cs->number_constants);
 
 	sno_assert(cs->string_constants.count < MAX_STRING_CONSTANTS);
 	bytecode->string_constants = state_alloc(
@@ -144,7 +144,7 @@ static Bytecode* free_function_compiler(Tokenizer* ts, Compiler* cs) {
 		cs->string_constants.buffer,
 		cs->string_constants.count * sizeof(sno_Number)
 	);
-	istring_dyn_array_clear(ts->parent_vm, &cs->string_constants);
+	istring_dyn_array_clear(ts->main_state, &cs->string_constants);
 
 	ts->cs = cs->parent_function;
 	return bytecode;
@@ -166,7 +166,7 @@ static void brace_block(Tokenizer* ts, sno_Bool is_loop);
 
 static ConstID add_number_constant(Compiler* cs, sno_Number number) {
 	sno_assert_ptr(cs);
-	sno_VMState* vm = cs->ts->parent_vm;
+	sno_State* state = cs->ts->main_state;
 	if (cs->number_constants.count > MAX_NUMBER_CONSTANTS) {
 		syntax_error_at_cur_token(
 			cs->ts,
@@ -179,14 +179,14 @@ static ConstID add_number_constant(Compiler* cs, sno_Number number) {
 		}
 	}
 	// Add new number constant
-	number_dyn_array_push(vm, &cs->number_constants, &number);
+	number_dyn_array_push(state, &cs->number_constants, &number);
 	return (ConstID)(cs->number_constants.count - 1);
 }
 
 static ConstID add_string_constant(Compiler* cs, const IString* string) {
 	sno_assert_ptr(cs);
 	sno_assert_ptr(string);
-	sno_VMState* vm = cs->ts->parent_vm;
+	sno_State* state = cs->ts->main_state;
 	if (cs->string_constants.count > MAX_STRING_CONSTANTS) {
 		syntax_error_at_cur_token(
 			cs->ts,
@@ -199,7 +199,7 @@ static ConstID add_string_constant(Compiler* cs, const IString* string) {
 		}
 	}
 	// Add new number constant
-	istring_dyn_array_push(vm, &cs->string_constants, &string);
+	istring_dyn_array_push(state, &cs->string_constants, &string);
 	return (ConstID)(cs->string_constants.count - 1);
 }
 
@@ -227,7 +227,7 @@ static void add_instruction_pos(
 	if (has_pos) {
 		sno_assert(pos != NO_POS);
 		pos_dyn_array_push(
-			ts->parent_vm,
+			ts->main_state,
 			&ts->cs->instruction_pos,
 			&pos
 		);
@@ -249,7 +249,7 @@ static void emit_direct(
 	size_t length
 ) {
 	byte_dyn_array_push_n(
-		ts->parent_vm,
+		ts->main_state,
 		&ts->cs->instructions,
 		data,
 		length
@@ -267,7 +267,7 @@ static PC emit_0(
 	PC pc = (PC)ts->cs->instructions.count;
 	ts->cs->last_instruction_pc = pc;
 	byte_dyn_array_push(
-		ts->parent_vm,
+		ts->main_state,
 		&ts->cs->instructions,
 		&opcode
 	);
@@ -289,7 +289,7 @@ static PC emit_1(
 	ordered[0] = opcode;
 	ordered[1] = arg;
 	byte_dyn_array_push_n(
-		ts->parent_vm,
+		ts->main_state,
 		&ts->cs->instructions,
 		ordered,
 		2
@@ -313,7 +313,7 @@ static PC emit_2(
 	ordered[1] = arg & 0xFF;
 	ordered[2] = arg >> 8;
 	byte_dyn_array_push_n(
-		ts->parent_vm,
+		ts->main_state,
 		&ts->cs->instructions,
 		ordered,
 		3
@@ -346,7 +346,7 @@ static PC emit_string(
 static void insert_copy(Tokenizer* ts, uint8_t back, OpCode copy_opcode) {
 	sno_assert(back < ts->cs->instructions.count);
 	uint8_t temp = 0;
-	byte_dyn_array_push(ts->parent_vm, &ts->cs->instructions, &temp);
+	byte_dyn_array_push(ts->main_state, &ts->cs->instructions, &temp);
 	PC pc = (PC)(ts->cs->instructions.count - 1 - back);
 	memmove(
 		&ts->cs->instructions.buffer[pc + 1],
@@ -405,7 +405,7 @@ static LocalSlot register_local_variable(Tokenizer* ts, IString* name) {
 	local.slot = ts->cs->num_active_local_slots;
 	local.start_pc = (PC)ts->cs->instructions.count;
 	local.end_pc = 0;
-	local_var_dyn_array_push(ts->parent_vm, &ts->cs->local_vars, &local);
+	local_var_dyn_array_push(ts->main_state, &ts->cs->local_vars, &local);
 	sno_assert(ts->cs->local_vars.count < MAX_ACTIVE_LOCAL_VARS);
 	return (LocalSlot)(ts->cs->local_vars.count - 1);
 }
@@ -612,7 +612,7 @@ static void function(Tokenizer* ts, IString* name) {
 
 	ConstID bytecode_const_id = (ConstID)ts->cs->bytecode_constants.count;
 	bytecode_dyn_array_push(
-		ts->parent_vm,
+		ts->main_state,
 		&ts->cs->bytecode_constants,
 		&bytecode
 	);
@@ -772,7 +772,7 @@ static void operand_primary(Tokenizer* ts) {
 		function(
 			ts,
 			create_istring(
-				ts->parent_vm->state,
+				ts->main_state,
 				sno_string_comma_length("<anonymous function>")
 			)
 		);
@@ -1212,7 +1212,7 @@ static void break_statement(Tokenizer* ts) {
 	read_next_token(ts);
 	PC jump = emit_2(ts, NO_POS, OP_JMP, 0);
 	pc_dyn_array_push(
-		ts->parent_vm,
+		ts->main_state,
 		&ts->cs->current_block->breaks_and_continues,
 		&jump
 	);
@@ -1222,7 +1222,7 @@ static void continue_statement(Tokenizer* ts) {
 	read_next_token(ts);
 	PC jump = emit_2(ts, NO_POS, OP_JMP_BACK, 0);
 	pc_dyn_array_push(
-		ts->parent_vm,
+		ts->main_state,
 		&ts->cs->current_block->breaks_and_continues,
 		&jump
 	);
@@ -1602,22 +1602,22 @@ static Bytecode* parse_global_scope(Tokenizer* ts) {
 }
 
 Bytecode* compile_source_code(
-	sno_VMState* vm,
+	sno_State* state,
 	IString* source_code_name,
 	IString* source_code
 ) {
-	sno_assert_ptr(vm);
+	sno_assert_ptr(state);
 	sno_assert_ptr(source_code_name);
 	sno_assert_ptr(source_code);
 
 	sno_Bool success = sno_TRUE;
 	Bytecode* bytecode = NULL;
 	ExceptionJump exception_jump;
-	exception_jump.prev = vm->exception_jump;
-	vm->exception_jump = &exception_jump;
+	exception_jump.prev = state->exception_jump;
+	state->exception_jump = &exception_jump;
 	if (setjmp(exception_jump.buf) == 0) {
 		Tokenizer ts = { 0 };
-		ts.parent_vm = vm;
+		ts.main_state = state;
 		ts.source_code_name = source_code_name;
 		ts.source_code = source_code;
 		ts.source_code_end = istring_chars(source_code) + source_code->length;
@@ -1630,7 +1630,7 @@ Bytecode* compile_source_code(
 		success = sno_FALSE;
 	}
 
-	vm->exception_jump = vm->exception_jump->prev;
+	state->exception_jump = state->exception_jump->prev;
 
 #ifdef DEBUG_PRINT_PARSER
 	print_bytecode(bytecode);

@@ -150,6 +150,6 @@ typedef struct Bytecode {
 
 void print_bytecode(const Bytecode* bytecode);
 
-uint8_t execute_bytecode(const sno_VMState* vm, uint8_t argc);
+uint8_t execute_bytecode(const sno_State* state, uint8_t argc);
 
 #endif

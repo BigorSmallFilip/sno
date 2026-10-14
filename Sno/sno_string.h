@@ -32,19 +32,19 @@ typedef struct StringInterningTable {
 	size_t capacity_mask; // Capacity - 1 since it is mainly used like a bitmask
 } StringInterningTable;
 
-void init_string_interning_table(struct sno_GlobalState* state, size_t capacity);
-void resize_string_interning_table(struct sno_GlobalState* state, size_t new_capacity);
-void free_string_interning_table(struct sno_GlobalState* state);
-void print_string_interning_table(const struct sno_GlobalState* state);
+void init_string_interning_table(struct sno_State* state, size_t capacity);
+void resize_string_interning_table(struct sno_State* state, size_t new_capacity);
+void free_string_interning_table(struct sno_State* state);
+void print_string_interning_table(const struct sno_State* state);
 
 IString* create_istring(
-	sno_GlobalState* state,
+	sno_State* state,
 	const char* const string,
 	size_t length
 );
 
 IString* load_istring_from_file(
-	struct sno_GlobalState* state,
+	struct sno_State* state,
 	const char* const path,
 	size_t path_length
 );

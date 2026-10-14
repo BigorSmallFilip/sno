@@ -9,14 +9,14 @@
 
 typedef uint32_t Hash;
 
-void* state_alloc(sno_GlobalState* state, size_t size);
+void* state_alloc(sno_State* state, size_t size);
 void* state_realloc(
-	sno_GlobalState* state,
+	sno_State* state,
 	size_t old_size,
 	void* block,
 	size_t new_size
 );
-void state_free(sno_GlobalState* state, size_t size, void* block);
+void state_free(sno_State* state, size_t size, void* block);
 
 
 
@@ -31,17 +31,17 @@ void snake_case##_dyn_array_init(			              \
 	name##DynArray* dyn_array							  \
 );														  \
 void snake_case##_dyn_array_clear(			              \
-	sno_VMState* vm,									  \
+	sno_State* state,									  \
 	name##DynArray* dyn_array							  \
 );														  \
 void snake_case##_dyn_array_push_n(			              \
-	sno_VMState* vm,									  \
+	sno_State* state,									  \
 	name##DynArray* dyn_array,							  \
 	const type* item,									  \
 	size_t num_items									  \
 );														  \
 void snake_case##_dyn_array_push(			              \
-	sno_VMState* vm,									  \
+	sno_State* state,									  \
 	name##DynArray* dyn_array,							  \
 	const type* item									  \
 )
@@ -58,14 +58,14 @@ void snake_case##_dyn_array_init(										 \
 }																		 \
 																		 \
 void snake_case##_dyn_array_clear(										 \
-	sno_VMState* vm,													 \
+	sno_State* state,													 \
 	name##DynArray* dyn_array											 \
 ) {																		 \
-	sno_assert_ptr(vm);													 \
+	sno_assert_ptr(state);		      									 \
 	sno_assert_ptr(dyn_array);											 \
 	if (!dyn_array->buffer) { return; }									 \
 	state_free(															 \
-        vm->state,														 \
+		state,      													 \
 		sizeof(type) * dyn_array->capacity,								 \
 		dyn_array->buffer												 \
 	);										 							 \
@@ -73,25 +73,25 @@ void snake_case##_dyn_array_clear(										 \
 }																		 \
 																		 \
 void snake_case##_dyn_array_push_n(										 \
-	sno_VMState* vm,													 \
+	sno_State* state,									     		     \
 	name##DynArray* dyn_array,											 \
 	const type* items,													 \
 	size_t num_items													 \
 ) {																		 \
-	sno_assert_ptr(vm);													 \
+	sno_assert_ptr(state);												 \
 	sno_assert_ptr(items);												 \
 	sno_assert_ptr(num_items > 0);										 \
 	sno_assert_ptr(dyn_array);											 \
 	if (dyn_array->buffer == NULL) {									 \
 		sno_assert(dyn_array->count == 0);								 \
 		sno_assert(dyn_array->capacity == 0);							 \
-		dyn_array->buffer = state_alloc(vm->state, sizeof(type) * 8);	 \
+		dyn_array->buffer = state_alloc(state, sizeof(type) * 8);	     \
 		dyn_array->capacity = 8;										 \
 	} else if (dyn_array->count + num_items > dyn_array->capacity) {	 \
 		sno_assert(sno_is_power_of_2(dyn_array->capacity));				 \
 		size_t new_capacity = dyn_array->capacity << 1;					 \
 		dyn_array->buffer = state_realloc(								 \
-			vm->state,													 \
+			state,			     										 \
 			sizeof(type) * dyn_array->capacity,							 \
 			dyn_array->buffer,											 \
 			sizeof(type) * new_capacity									 \
@@ -107,15 +107,15 @@ void snake_case##_dyn_array_push_n(										 \
 }																		 \
 																		 \
 void snake_case##_dyn_array_push(										 \
-	sno_VMState* vm,													 \
+	sno_State* state,							    					 \
 	name##DynArray* dyn_array,											 \
 	const type* item													 \
 ) {																		 \
-	sno_assert_ptr(vm);													 \
+	sno_assert_ptr(state);												 \
 	sno_assert_ptr(item);												 \
 	sno_assert_ptr(dyn_array);											 \
 	snake_case##_dyn_array_push_n(										 \
-		vm,																 \
+		state,														     \
 		dyn_array,														 \
 		item,															 \
 		1																 \

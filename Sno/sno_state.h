@@ -8,22 +8,6 @@
 
 
 
-typedef struct Module {
-	gc_object_header;
-	IString* name;
-
-	Table vars;
-} Module;
-
-typedef struct sno_GlobalState {
-	StringInterningTable string_table;
-	Table modules;
-	size_t mem_allocated;
-	size_t num_allocations;
-} sno_GlobalState;
-
-
-
 // Simple index of a character in some source code string
 typedef uint32_t SourceCodePos;
 
@@ -39,15 +23,20 @@ typedef struct ExceptionJump {
 	jmp_buf buf;
 } ExceptionJump;
 
-typedef struct sno_VMState {
-	sno_GlobalState* state;
+typedef struct sno_State {
+	Value* stack;
+	uint32_t stack_idx;
+
+	Table globals;
+
+	StringInterningTable string_table;
+	size_t mem_allocated;
+	size_t num_allocations;
+
 	ExceptionType exception_type;
 	ExceptionJump* exception_jump;
 	const IString* exception_message;
-	
-	Value* stack;
-	uint32_t stack_idx;
-} sno_VMState;
+} sno_State;
 
 typedef struct CallInfo {
 	union {
@@ -60,8 +49,8 @@ typedef struct CallInfo {
 
 
 
-sno_no_return void vm_throw(
-	sno_VMState* vm,
+sno_no_return void state_throw(
+	sno_State* state,
 	ExceptionType type,
 	const char* const message,
 	size_t message_length

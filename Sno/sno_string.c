@@ -18,7 +18,7 @@ static Hash hash_string(const char* string, size_t length) {
 	return hash;
 }
 
-void init_string_interning_table(sno_GlobalState* state, size_t capacity) {
+void init_string_interning_table(sno_State* state, size_t capacity) {
 	sno_assert_ptr(state);
 	sno_assert(capacity >= 8);
 	sno_assert(sno_is_power_of_2(capacity));
@@ -30,7 +30,7 @@ void init_string_interning_table(sno_GlobalState* state, size_t capacity) {
 	memset(string_table->strings, 0, sizeof(IString*) * capacity);
 }
 
-void resize_string_interning_table(sno_GlobalState* state, size_t new_capacity) {
+void resize_string_interning_table(sno_State* state, size_t new_capacity) {
 	sno_assert_ptr(state);
 	sno_assert_ptr(state->string_table.strings);
 	sno_assert(new_capacity >= 8);
@@ -68,7 +68,7 @@ void resize_string_interning_table(sno_GlobalState* state, size_t new_capacity) 
 	string_table->capacity_mask = new_capacity_mask;
 }
 
-void free_string_interning_table(sno_GlobalState* state) {
+void free_string_interning_table(sno_State* state) {
 	sno_assert_ptr(state);
 	sno_assert_ptr(state->string_table.strings);
 
@@ -88,7 +88,7 @@ void free_string_interning_table(sno_GlobalState* state) {
 	);
 }
 
-void print_string_interning_table(const sno_GlobalState* state) {
+void print_string_interning_table(const sno_State* state) {
 	sno_assert_ptr(state);
 	sno_assert_ptr(state->string_table.strings);
 
@@ -196,7 +196,7 @@ static void set_string_swizzling(IString* str) {
 }
 
 static IString* create_new_interned_string(
-	sno_GlobalState* state,
+	sno_State* state,
 	const char* string,
 	size_t length,
 	Hash hash,
@@ -249,7 +249,7 @@ static IString* create_new_interned_string(
 }
 
 IString* create_istring(
-	sno_GlobalState* state,
+	sno_State* state,
 	const char* const string,
 	size_t length
 ) {
@@ -278,7 +278,7 @@ IString* create_istring(
 }
 
 IString* load_istring_from_file(
-	sno_GlobalState* state,
+	sno_State* state,
 	const char* const path,
 	size_t path_length
 ) {

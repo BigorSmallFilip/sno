@@ -4,7 +4,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-void* state_alloc(sno_GlobalState* state, size_t size) {
+void* state_alloc(sno_State* state, size_t size) {
 	sno_assert_ptr(state);
 	state->mem_allocated += size;
 	state->num_allocations++;
@@ -16,7 +16,7 @@ void* state_alloc(sno_GlobalState* state, size_t size) {
 }
 
 void* state_realloc(
-	sno_GlobalState* state,
+	sno_State* state,
 	size_t old_size,
 	void* block,
 	size_t new_size
@@ -31,7 +31,7 @@ void* state_realloc(
 	return new_block;
 }
 
-void state_free(sno_GlobalState* state, size_t size, void* block) {
+void state_free(sno_State* state, size_t size, void* block) {
 	sno_assert_ptr(state);
 	sno_assert_ptr(block);
 	sno_assert(state->num_allocations > 0);
