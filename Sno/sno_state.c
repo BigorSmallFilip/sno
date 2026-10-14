@@ -95,28 +95,49 @@ sno_API uint8_t sno_call(sno_VMState* vm, uint8_t argc) {
 
 
 
+static sno_Bool add_str_key_str_value(
+	sno_VMState* vm,
+	Table* table,
+	const char* const key,
+	const char* const value
+) {
+	Value vk;
+	Value vv;
+	vk.type = VT_STRING;
+	vk.u.string = create_istring(vm->state, key, strlen(key));
+	vv.type = VT_STRING;
+	vv.u.string = create_istring(vm->state, value, strlen(value));
+	return table_set_key(vm, table, vk, vv);
+}
+
+static sno_Bool remove_str_key(
+	sno_VMState* vm,
+	Table* table,
+	const char* const key
+) {
+	Value vk;
+	vk.type = VT_STRING;
+	vk.u.string = create_istring(vm->state, key, strlen(key));
+	return table_remove_key(vm, table, vk);
+}
+
 static void test_tables(sno_VMState* vm) {
-	IString* k1 = create_istring(vm->state, sno_string_comma_length("name"));
-	IString* v1 = create_istring(vm->state, sno_string_comma_length("Alice"));
-	IString* k2 = create_istring(vm->state, sno_string_comma_length("other"));
-	IString* v2 = create_istring(vm->state, sno_string_comma_length("Bob"));
-	Value vk1;
-	Value vv1;
-	Value vk2;
-	Value vv2;
-	vk1.type = VT_STRING; vk1.u.string = k1;
-	vv1.type = VT_STRING; vv1.u.string = v1;
-	vk2.type = VT_STRING; vk2.u.string = k2;
-	vv2.type = VT_STRING; vv2.u.string = v2;
 	Table* table = create_table(vm);
-	sno_assert_ptr(table);
-	table_set_key(vm, table, vk1, vv1);
-	table_set_key(vm, table, vk2, vv2);
 	Value table_value;
 	table_value.type = VT_TABLE;
 	table_value.u.table = table;
-	print_value(table_value);
-
+	add_str_key_str_value(vm, table, "name1", "Alice");
+	add_str_key_str_value(vm, table, "name2", "Bob");
+	add_str_key_str_value(vm, table, "name3", "Corn");
+	add_str_key_str_value(vm, table, "name4", "Dale");
+	add_str_key_str_value(vm, table, "name5", "Eagle");
+	add_str_key_str_value(vm, table, "name6", "Falcone");
+	add_str_key_str_value(vm, table, "name7", "Group");
+	add_str_key_str_value(vm, table, "name8", "Ham");
+	add_str_key_str_value(vm, table, "name9", "Insides");
+	print_value(table_value); putchar('\n');
+	remove_str_key(vm, table, "name1");
+	print_value(table_value); putchar('\n');
 }
 
 sno_API void sno_run_test_thing(sno_GlobalState* state) {

@@ -30,25 +30,30 @@ static void print_table(Table* table) {
 	sno_assert_ptr(table);
 	sno_Bool first_entry = sno_TRUE;
 	printf("{");
-	for (uint32_t i = 0; i < table->capacity_mask + 1; i++) {
-		TableEntry* entry = &table->entries[i];
-		if (entry->key_type == VT_UNDEFINED || entry->key_type == VT_TOMBSTONE) {
-			continue;
+	if (table->capacity_mask > 0) {
+		for (uint32_t i = 0; i < table->capacity_mask + 1; i++) {
+			TableEntry* entry = &table->entries[i];
+			if (
+				entry->key_type == VT_UNDEFINED ||
+				entry->key_type == VT_TOMBSTONE
+			) {
+				continue;
+			}
+			if (first_entry) {
+				first_entry = sno_FALSE;
+			} else {
+				printf(", ");
+			}
+			Value entry_key;
+			Value entry_value;
+			entry_key.type = entry->key_type;
+			entry_key.u = entry->key_union;
+			entry_value.type = entry->value_type;
+			entry_value.u = entry->value_union;
+			print_value(entry_key);
+			printf(": ");
+			print_value(entry_value);
 		}
-		if (first_entry) {
-			first_entry = sno_FALSE;
-		} else {
-			printf(", ");
-		}
-		Value entry_key;
-		Value entry_value;
-		entry_key.type = entry->key_type;
-		entry_key.u = entry->key_union;
-		entry_value.type = entry->value_type;
-		entry_value.u = entry->value_union;
-		print_value(entry_key);
-		printf(": ");
-		print_value(entry_value);
 	}
 	printf("}");
 }
@@ -240,10 +245,17 @@ static void resize_table(
 		new_entries[i].key_type = VT_UNDEFINED;
 	}
 
+	TableEntry* old_entries = table->entries;
+	uint32_t old_capacity = table->capacity_mask + 1;
+	uint32_t old_count = table->count;
+	table->entries = new_entries;
+	table->capacity_mask = new_capacity - 1;
+	table->count = old_count;
+	
 	// Re-add the existing entries.
-	if (table->capacity_mask > 0) {
-		for (uint32_t i = 0; i < table->capacity_mask + 1; i++) {
-			TableEntry* entry = &table->entries[i];
+	if (old_count > 0) {
+		for (uint32_t i = 0; i < old_capacity; i++) {
+			TableEntry* entry = &old_entries[i];
 			// Don't copy empty entries or tombstones
 			if (entry->key_type < 0) {
 				continue;
@@ -257,17 +269,13 @@ static void resize_table(
 			table_insert_entry(table, entry_key, entry_value);
 		}
 	}
-
-	// Replace the array
-	if (table->capacity_mask > 0) {
+	if (old_entries) {
 		state_free(
 			vm->state,
 			(table->capacity_mask + 1) * sizeof(TableEntry),
-			table->entries
+			old_entries
 		);
 	}
-	table->entries = new_entries;
-	table->capacity_mask = new_capacity - 1;
 }
 
 sno_Bool table_set_key(
@@ -282,11 +290,11 @@ sno_Bool table_set_key(
 		table->count + 1 >
 		(table->capacity_mask + 1) * TABLE_RESIZE_LOAD_PERCENT / 100
 	) {
-		uint32_t new_capacity = (table->capacity_mask + 1) *
-			TABLE_GROWTH_FACTOR;
-		if (new_capacity < TABLE_MIN_CAPACITY) {
-			new_capacity = TABLE_MIN_CAPACITY;
-		}
+		uint32_t new_capacity = sno_max(
+			(table->capacity_mask + 1) *
+			TABLE_GROWTH_FACTOR,
+			TABLE_MIN_CAPACITY
+		);
 		resize_table(vm, table, new_capacity);
 	}
 	if (!table_insert_entry(table, key, value)) {
@@ -315,4 +323,36 @@ sno_Bool table_get_key(
 		return sno_TRUE;
 	}
 	return sno_FALSE;
+}
+
+sno_Bool table_remove_key(
+	sno_VMState* vm,
+	Table* table,
+	Value key
+) {
+	sno_assert_ptr(vm);
+	sno_assert_ptr(table);
+	if (table->count == 0) {
+		return sno_FALSE;
+	}
+	TableEntry* entry = NULL;
+	if (table_find_entry(table, key, &entry)) {
+		entry->key_type = VT_TOMBSTONE;
+		table->count--;
+	} else {
+		return sno_FALSE;
+	}
+	if (
+		table->capacity_mask + 1 >= TABLE_MIN_CAPACITY &&
+		table->count < (table->capacity_mask + 1) / TABLE_GROWTH_FACTOR *
+		TABLE_RESIZE_LOAD_PERCENT / 100
+	) {
+		uint32_t new_capacity = sno_max(
+			(table->capacity_mask + 1) /
+			TABLE_GROWTH_FACTOR,
+			TABLE_MIN_CAPACITY
+		);
+		resize_table(vm, table, new_capacity);
+	}
+	return sno_TRUE;
 }

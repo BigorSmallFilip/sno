@@ -81,5 +81,10 @@ sno_Bool table_get_key(
 	Value key,
 	Value* out_value
 );
+sno_Bool table_remove_key(
+	struct sno_VMState* vm,
+	Table* table,
+	Value key
+);
 
 #endif
