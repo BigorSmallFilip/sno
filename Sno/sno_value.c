@@ -90,7 +90,6 @@ Table* create_table(sno_State* state) {
 	sno_assert_ptr(state);
 	Table* table = state_alloc(state, sizeof(Table));
 	memset(table, 0, sizeof(Table));
-	
 	return table;
 }
 
