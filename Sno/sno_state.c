@@ -57,7 +57,17 @@ static void resize_stack(sno_State* state, uint32_t new_capacity) {
 
 sno_API void sno_reserve_stack(sno_State* state, uint32_t slots) {
 	sno_assert_ptr(state);
-	
+	uint32_t stack_top_idx = state->stack_top - state->stack;
+	uint32_t slots_needed = stack_top_idx + slots;
+	if (slots_needed >= sno_MAX_STACK) {
+		sno_throw_runtime_error(
+			state,
+			sno_string_comma_length(
+				"API stack too big. Likely due to recursion"
+			)
+		);
+	}
+	if (slots_needed > state->stack_capacity)
 }
 
 sno_API void sno_set_none(sno_State* state, uint32_t idx) {
