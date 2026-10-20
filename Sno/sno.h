@@ -225,8 +225,16 @@ typedef int32_t sno_NumberInt;
 
 typedef struct sno_State sno_State;
 
+#define sno_MAX_STACK 65536
+#define sno_MAX_RECURSION 1024
+
 sno_API sno_State* sno_create_state(void);
 sno_API void sno_free_state(sno_State* state);
+
+sno_API void sno_reserve_stack(sno_State* state, uint32_t slots);
+sno_API void sno_set_none(sno_State* state, uint32_t idx);
+sno_API void sno_set_bool(sno_State* state, uint32_t idx, sno_Bool b);
+sno_API void sno_set_number(sno_State* state, uint32_t idx, sno_Number n);
 
 sno_API sno_no_return void sno_throw_runtime_error(
 	sno_State* state,

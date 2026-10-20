@@ -5,6 +5,10 @@
 #include <string.h>
 #include <stdio.h>
 
+
+
+static void init_stack(sno_State* state);
+
 sno_API sno_State* sno_create_state(void) {
 	sno_State* state = malloc(sizeof(sno_State));
 	if (!state) {
@@ -17,12 +21,55 @@ sno_API sno_State* sno_create_state(void) {
 	state->mem_allocated = 0;
 	state->num_allocations = 0;
 	init_string_interning_table(state, 64);
+	init_stack(state);
 	return state;
 }
 
 sno_API void sno_free_state(sno_State* state) {
 	sno_assert_ptr(state);
 	free(state);
+}
+
+
+
+static void init_stack(sno_State* state) {
+	sno_assert_ptr(state);
+	state->stack = state_alloc(state, sizeof(Value) * 128);
+	state->stack_capacity = 128;
+	state->stack_top = state->stack;
+}
+
+static void resize_stack(sno_State* state, uint32_t new_capacity) {
+	sno_assert_ptr(state);
+	sno_assert(sno_is_power_of_2(new_capacity));
+	sno_assert(new_capacity >= 64 && new_capacity < sno_MAX_STACK);
+	sno_assert(new_capacity > state->stack_capacity);
+	uint32_t stack_top_idx = (uint32_t)(state->stack_top - state->stack);
+	state->stack = state_realloc(
+		state,
+		sizeof(Value) * state->stack_capacity,
+		state->stack,
+		sizeof(Value) * new_capacity
+	);
+	state->stack_capacity = new_capacity;
+	state->stack_top = state->stack + stack_top_idx;
+}
+
+sno_API void sno_reserve_stack(sno_State* state, uint32_t slots) {
+	sno_assert_ptr(state);
+	
+}
+
+sno_API void sno_set_none(sno_State* state, uint32_t idx) {
+	return sno_API void();
+}
+
+sno_API void sno_set_bool(sno_State* state, uint32_t idx, sno_Bool b) {
+	return sno_API void();
+}
+
+sno_API void sno_set_number(sno_State* state, uint32_t idx, sno_Number n) {
+	return sno_API void();
 }
 
 

@@ -25,7 +25,8 @@ typedef struct ExceptionJump {
 
 typedef struct sno_State {
 	Value* stack;
-	uint32_t stack_idx;
+	Value* stack_top;
+	uint32_t stack_capacity;
 
 	Table globals;
 
