@@ -3,6 +3,7 @@
 #include "sno_compiler.h"
 #include <stdio.h>
 #include <stdarg.h>
+#include <math.h>
 
 
 
@@ -278,6 +279,24 @@ static void vm_throw(
 	state_throw(state, EXCEPTION_RUNTIME_ERROR, msg, length);
 }
 
+static void arith(sno_State* state, const uint8_t* pc, BinOp op) {
+	sno_assert_ptr(state);
+	sno_assert_ptr(pc);
+	sno_assert_ptr(op >= 0 && op < NUM_BINOPS);
+}
+
+#define OP_ARITH(binop, name)										      \
+	state->stack_top--;												      \
+	if (state->stack_top[0].type == VT_NUMBER &&					      \
+		state->stack_top[-1].type == VT_NUMBER						      \
+		) {															      \
+		state->stack_top[-1].u.number binop state->stack_top[0].u.number; \
+	} else {														      \
+		arith(state, pc, BINOP_##name);								      \
+	}
+
+
+
 #define READ_U8() (*pc++)
 #define READ_U16() ((uint16_t)((pc[1] << 8) | pc[0]))
 #define READ_NUMBER_CONST \
@@ -321,7 +340,7 @@ uint8_t execute_bytecode(sno_State* state, uint8_t argc) {
 	Bytecode* bytecode = base->u.bytecode;
 	const uint8_t* pc = bytecode->instructions;
 	OpCode op = (OpCode)*pc;
-	Value* locals = base + 2;
+	Value* locals = base + 1;
 	state->stack_top += bytecode->num_local_slots;
 
 	VM_LOOP {
@@ -368,11 +387,14 @@ uint8_t execute_bytecode(sno_State* state, uint8_t argc) {
 		state->stack_top++;
 		VM_DISPATCH();
 	}
-	VM_CASE(OP_GET_LOCAL) {
+	VM_CASE(OP_GET_LOCAL)
 		*state->stack_top = locals[READ_U8()];
 		state->stack_top++;
 		VM_DISPATCH();
-	}
+	VM_CASE(OP_SET_LOCAL)
+		state->stack_top--;
+		locals[READ_U8()] = *state->stack_top;
+		VM_DISPATCH();
 	VM_CASE(OP_GET_GLOBAL) {
 		READ_STRING_CONST;
 		Value key;
@@ -418,9 +440,111 @@ uint8_t execute_bytecode(sno_State* state, uint8_t argc) {
 		}
 		VM_DISPATCH();
 	}
+	VM_CASE(OP_POP)
+		state->stack_top--;
+		VM_DISPATCH();
+	VM_CASE(OP_COPY_1)
+		state->stack_top++;
+		state->stack_top[-1] = state->stack_top[-2];
+		VM_DISPATCH();
+	VM_CASE(OP_COPY_2)
+		state->stack_top += 2;
+		state->stack_top[-1] = state->stack_top[-3];
+		state->stack_top[-2] = state->stack_top[-4];
+		VM_DISPATCH();
+	VM_CASE(OP_TO_BOOL)
+		state->stack_top[-1].u.number = value_to_bool(
+			state->stack_top[-1]
+		) ? NUMBER_TRUE : NUMBER_FALSE;
+		state->stack_top[-1].type = VT_BOOL;
+		VM_DISPATCH();
+	VM_CASE(OP_TO_BOOL_LNOT)
+		state->stack_top[-1].u.number = value_to_bool(
+			state->stack_top[-1]
+		) ? NUMBER_FALSE : NUMBER_TRUE;
+		state->stack_top[-1].type = VT_BOOL;
+		VM_DISPATCH();
+	VM_CASE(OP_NEG)
+		if (
+			state->stack_top[-1].type == VT_NUMBER ||
+			state->stack_top[-1].type == VT_BOOL
+		) {
+			set_number(state->stack_top[-1], -state->stack_top[-1].u.number);
+		} else {
+			vm_throw(state, pc,
+				"Tried to negate %s",
+				get_value_type_noun_phrase(state->stack_top[-1].type)
+			);
+		}
+		VM_DISPATCH();
+	VM_CASE(OP_BITFLIP)
+		if (
+			state->stack_top[-1].type == VT_NUMBER ||
+			state->stack_top[-1].type == VT_BOOL
+		) {
+			set_number(
+				state->stack_top[-1],
+				(sno_Number)(~(int32_t)(state->stack_top[-1].u.number))
+			);
+		} else {
+			vm_throw(state, pc,
+				"Tried to negate %s",
+				get_value_type_noun_phrase(state->stack_top[-1].type)
+			);
+		}
+		VM_DISPATCH();
+		
+	VM_CASE(OP_ADD)  OP_ARITH(+=, ADD)  VM_DISPATCH();
+	VM_CASE(OP_SUB)  OP_ARITH(-=, SUB)  VM_DISPATCH();
+	VM_CASE(OP_MUL)  OP_ARITH(*=, MUL)  VM_DISPATCH();
+	VM_CASE(OP_DIV)  OP_ARITH(/=, DIV)  VM_DISPATCH();
+	VM_CASE(OP_IDIV)
+		state->stack_top--;
+		if (state->stack_top[0].type == VT_NUMBER &&
+			state->stack_top[-1].type == VT_NUMBER
+			) {
+			state->stack_top[-1].u.number = (sno_Number)(
+				(int32_t)(state->stack_top[-1].u.number) /
+				(int32_t)(state->stack_top[0].u.number)
+			);
+		} else {
+			arith(state, pc, BINOP_IDIV);
+		}
+		VM_DISPATCH();
+	VM_CASE(OP_MOD)
+		state->stack_top--;
+		if (state->stack_top[0].type == VT_NUMBER &&
+			state->stack_top[-1].type == VT_NUMBER
+			) {
+			state->stack_top[-1].u.number = sno_mod(
+				state->stack_top[-1].u.number,
+				state->stack_top[-0].u.number
+			);
+		} else {
+			arith(state, pc, BINOP_MOD);
+		}
+		VM_DISPATCH();
+	VM_CASE(OP_POW)
+		state->stack_top--;
+		if (state->stack_top[0].type == VT_NUMBER &&
+			state->stack_top[-1].type == VT_NUMBER
+			) {
+			state->stack_top[-1].u.number = sno_pow(
+				state->stack_top[-1].u.number,
+				state->stack_top[-0].u.number
+			);
+		} else {
+			arith(state, pc, BINOP_POW);
+		}
+		VM_DISPATCH();
+	VM_CASE(OP_BAND) OP_ARITH(+=, BAND) VM_DISPATCH();
+	VM_CASE(OP_BOR)  OP_ARITH(+=, BOR)  VM_DISPATCH();
+	VM_CASE(OP_BXOR) OP_ARITH(+=, BXOR) VM_DISPATCH();
+	VM_CASE(OP_SHL)  OP_ARITH(+=, SHL)  VM_DISPATCH();
+	VM_CASE(OP_SHR)  OP_ARITH(+=, SHR)  VM_DISPATCH();
+
 	VM_CASE(OP_CALL) {
 		uint8_t arg = READ_U8();
-		//uint8_t call_retc = READ_U8();
 		uint8_t call_argc = arg & 0x0F;
 		uint8_t retc_expected = arg >> 4;
 		printf("Function call!!! argc = %i, retc = %i\n", (int)call_argc, (int)retc_expected);
@@ -431,11 +555,10 @@ uint8_t execute_bytecode(sno_State* state, uint8_t argc) {
 		) {
 			vm_throw(state, pc,
 				"Tried to perform a call on a %s",
-				"somethin"
+				get_value_type_noun_phrase(func_value->type)
 			);
 		}
-		uint8_t retc_found = sno_call(state, call_argc);
-		state->stack_top += retc_found + retc_expected;
+		uint8_t retc_found = sno_call(state, call_argc, retc_expected);
 		for (size_t i = retc_found; i < retc_expected; i++) {
 			state->stack_top[-retc_expected + i].type = VT_NONE;
 		}
@@ -445,8 +568,9 @@ uint8_t execute_bytecode(sno_State* state, uint8_t argc) {
 		VM_DISPATCH();
 	}
 	VM_CASE(OP_RETURN) {
+		return READ_U8();
 		//READ_U8();
-		break;
+		//break;
 	}
 		
 	default:

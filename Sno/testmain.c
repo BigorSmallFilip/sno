@@ -25,7 +25,7 @@ int main(int argc, char** argv) {
 	}
 	sno_reserve_stack(state, 1);
 	sno_set_none(state, 1);
-	sno_call(state, 0);
+	sno_call(state, 0, 0);
 
 	//sno_run_test_thing(state);
 

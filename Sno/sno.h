@@ -256,7 +256,7 @@ sno_API void sno_clear_error(sno_State* state);
 
 sno_API sno_Bool sno_compile(sno_State* state);
 
-sno_API uint8_t sno_call(sno_State* state, uint8_t argc);
+sno_API uint8_t sno_call(sno_State* state, uint8_t argc, uint8_t retc);
 
 
 

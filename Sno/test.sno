@@ -1,7 +1,7 @@
 
 function square(n) {
-	return n
+	return n * n
 }
 
-print(square(1))
+print(square(-3) ** 2)
 

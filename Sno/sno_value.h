@@ -41,6 +41,20 @@ typedef struct Value {
 	ValueUnion u;
 } Value;
 
+#define set_none(v) (v).type = VT_NONE
+#define set_false(v) (v).type = VT_BOOL; (v).u.number = NUMBER_FALSE
+#define set_true(v) (v).type = VT_BOOL; (v).u.number = NUMBER_TRUE
+#define set_bool(v, b) \
+	(v).type = VT_BOOL; (v).u.number = ((b) ? NUMBER_TRUE : NUMBER_FALSE)
+#define set_number(v, n) (v).type = VT_NUMBER; (v).u.number = (n)
+#define set_string(v, s) (v).type = VT_STRING; (v).u.string = (s)
+#define set_bytecode(v, b) (v).type = VT_BYTECODE; (v).u.bytecode = b
+
+const char* const get_value_type_name(ValueType type);
+const char* const get_value_type_noun_phrase(ValueType type);
+sno_Bool value_eq(Value a, Value b);
+sno_Bool value_to_bool(Value value);
+
 void print_value(Value value);
 
 DECLARE_GENERIC_DYN_ARRAY(Value, Value, value);

@@ -58,6 +58,66 @@ static void print_table(Table* table) {
 	printf("}");
 }
 
+
+
+const char* const value_type_names[] = {
+	"none",
+	"bool",
+	"number",
+	"",
+	"string",
+	"array",
+	"table",
+	"bytecode",
+	"foreign function",
+};
+
+const char* const get_value_type_name(ValueType type) {
+	sno_assert(type < NUM_VALUE_TYPES);
+	if (type != VT_LINALG) {
+		return value_type_names[type];
+	} else {
+		return "nope lol";
+	}
+}
+
+const char* const value_type_noun_phrases[] = {
+	"none",
+	"a bool",
+	"a number",
+	"",
+	"a string",
+	"an array",
+	"a table",
+	"a bytecode function",
+	"a foreign function",
+};
+
+const char* const get_value_type_noun_phrase(ValueType type) {
+	sno_assert(type < NUM_VALUE_TYPES);
+	if (type != VT_LINALG) {
+		return value_type_noun_phrases[type];
+	} else {
+		return "a nope lol";
+	}
+}
+
+sno_Bool value_eq(Value a, Value b) {
+	if (a.type != b.type) return sno_FALSE;
+	if (a.type == VT_NONE) return sno_TRUE;
+	if (a.type == VT_NUMBER) return a.u.number == b.u.number;
+	//if (a.type == VT_LINALG) return linalg_eq(a->v.u_linalg, b->v.u_linalg);
+	return a.u.i == b.u.i;
+}
+
+sno_Bool value_to_bool(Value value) {
+	if (value.type == VT_NUMBER) {
+		return value.u.number != 0.0;
+	} else {
+		return value.u.i != 0;
+	}
+}
+
 void print_value(Value value) {
 	sno_assert(value_type_is_valid(value.type));
 	switch (value.type) {
