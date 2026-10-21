@@ -232,25 +232,52 @@ sno_API sno_State* sno_create_state(void);
 sno_API void sno_free_state(sno_State* state);
 
 sno_API void sno_reserve_stack(sno_State* state, uint32_t slots);
+sno_API void sno_copy(sno_State* state, uint32_t idx_from, uint32_t idx_to);
 sno_API void sno_set_none(sno_State* state, uint32_t idx);
 sno_API void sno_set_bool(sno_State* state, uint32_t idx, sno_Bool b);
 sno_API void sno_set_number(sno_State* state, uint32_t idx, sno_Number n);
+sno_API void sno_create_string(
+	sno_State* state,
+	uint32_t idx,
+	const char* const string,
+	size_t length
+);
+sno_API sno_Bool sno_load_string_from_file(sno_State* state, uint32_t idx);
 
 sno_API sno_no_return void sno_throw_runtime_error(
 	sno_State* state,
-	const char* const message,
-	size_t message_length
+	const char* const format,
+	...
 );
 sno_API void sno_print_error_message(
 	const sno_State* state
 );
 sno_API void sno_clear_error(sno_State* state);
 
+sno_API sno_Bool sno_compile(sno_State* state);
+
 sno_API uint8_t sno_call(sno_State* state, uint8_t argc);
 
-sno_API void sno_run_test_thing(sno_State* state);
 
 
 typedef uint8_t(sno_ForeignFunction)(sno_State*, uint8_t);
+
+typedef struct sno_Library {
+	const char* const name;
+	size_t name_length;
+	sno_ForeignFunction* foreign_function;
+} sno_Library;
+
+#define sno_Fn(lib, name) { sno_string_comma_length(#name), lib##_##name }
+#define sno_FnEnd() { 0 }
+
+sno_API void sno_load_library_into_global_scope(
+	sno_State* state,
+	const sno_Library* library
+);
+
+
+
+sno_API void sno_run_test_thing(sno_State* state);
 
 #endif

@@ -292,6 +292,20 @@ sno_Bool table_set_key(
 ) {
 	sno_assert_ptr(state);
 	sno_assert_ptr(table);
+	if (table->count == 0) {
+		return sno_FALSE;
+	}
+	return table_insert_entry(table, key, value);
+}
+
+sno_Bool table_set_or_add_key(
+	sno_State* state,
+	Table* table,
+	Value key,
+	Value value
+) {
+	sno_assert_ptr(state);
+	sno_assert_ptr(table);
 	if (
 		table->count + 1 >
 		(table->capacity_mask + 1) * TABLE_RESIZE_LOAD_PERCENT / 100

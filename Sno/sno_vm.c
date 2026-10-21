@@ -2,14 +2,15 @@
 
 #include "sno_compiler.h"
 #include <stdio.h>
+#include <stdarg.h>
 
 
 
 const OpCodeInfo opcode_info[NUM_OPCODES] = {
 	{ 0, 1, "NONE" },
-	{ 0, 1, "TRUE" },
 	{ 0, 1, "FALSE" },
-	{ 0, 2, "NUMBER_IMM8" },
+	{ 0, 1, "TRUE" },
+	{ 0, 2, "NUMBER_I8" },
 	{ 0, 3, "NUMBER" },
 	{ 0, 3, "STRING" },
 	{ 0, 3, "BYTECODE" },
@@ -105,7 +106,7 @@ static void print_instructions(const Bytecode* bytecode) {
 		switch (opcode) {
 		case OP_CONCAT_ARRAY:
 		case OP_CONCAT_TABLE:
-		case OP_NUMBER_IMM8: {
+		case OP_NUMBER_I8: {
 			printf("%i", (int)((int8_t)arg));
 		} break;
 		case OP_NUMBER: {
@@ -207,9 +208,254 @@ void print_bytecode(const Bytecode* bytecode) {
 
 
 
-uint8_t execute_bytecode(const sno_State* state, uint8_t argc) {
+static SourceCodePos find_pos(
+	sno_State* state,
+	Bytecode* bytecode,
+	const uint8_t* pc
+) {
+	sno_assert_ptr(state);
+	sno_assert_ptr(bytecode);
+	sno_assert_ptr(pc);
+	const uint8_t* search_pc = bytecode->instructions;
+	if (search_pc == pc) {
+		sno_assert(*pc < NUM_OPCODES);
+		sno_assert(opcode_info[*pc].has_pos);
+		sno_assert(bytecode->num_instruction_positions > 0);
+		return bytecode->instruction_positions[0];
+	}
+	SourceCodePos* pos = &bytecode->instruction_positions[0];
+	while (search_pc < bytecode->instructions + bytecode->instructions_size) {
+		sno_assert(search_pc <= pc);
+		OpCode op = *search_pc;
+		sno_assert(op < NUM_OPCODES);
+		const OpCodeInfo* info = &opcode_info[op];
+		search_pc += info->length;
+		if (search_pc == pc) {
+			return *pos;
+		}
+		if (info->has_pos) {
+			pos++;
+			sno_assert(
+				pos - bytecode->instruction_positions <
+				bytecode->num_instruction_positions
+			);
+		}
+	}
+	sno_unreachable;
+	return 0;
+}
+
+static void vm_throw(
+	sno_State* state,
+	const uint8_t* pc,
+	const char* const format,
+	...
+) {
+	sno_assert_ptr(state);
+	sno_assert_ptr(pc);
+	sno_assert_ptr(format);
+	sno_assert(state->call_stack.count > 0);
+	const CallInfo* call_info = &state->call_stack.buffer[
+		state->call_stack.count - 1
+	];
+	char msg[sno_STACK_BUFFER_LENGTH];
+	size_t length = 0;
+	length += sprint_source_code_context(
+		msg + length,
+		sno_STACK_BUFFER_LENGTH - length,
+		call_info->function.bytecode->source_code,
+		find_pos(state, call_info->function.bytecode, pc)
+	);
+	va_list args;
+	va_start(args, format);
+	length += (size_t)vsnprintf(
+		msg + length,
+		sno_STACK_BUFFER_LENGTH - length,
+		format,
+		args
+	);
+	va_end(args);
+	state_throw(state, EXCEPTION_RUNTIME_ERROR, msg, length);
+}
+
+#define READ_U8() (*pc++)
+#define READ_U16() ((uint16_t)((pc[1] << 8) | pc[0]))
+#define READ_NUMBER_CONST \
+	ConstID const_id = READ_U16(); \
+	pc += 2; \
+	sno_assert(const_id < bytecode->num_number_constants); \
+	sno_Number number_const = bytecode->number_constants[const_id]
+#define READ_STRING_CONST \
+	ConstID const_id = READ_U16(); \
+	pc += 2; \
+	sno_assert(const_id < bytecode->num_string_constants); \
+	IString* string_const = bytecode->string_constants[const_id]
+#define READ_BYTECODE_CONST \
+	ConstID const_id = READ_U16(); \
+	pc += 2; \
+	sno_assert(const_id < bytecode->num_bytecode_constants); \
+	Bytecode* bytecode_const = bytecode->bytecode_constants[const_id]
+
+
+#define VM_LOOP \
+	loop: \
+	switch (op = (OpCode)READ_U8())
+
+#define VM_CASE(opcode) case opcode:
+#define VM_DISPATCH() goto loop
+
+
+
+uint8_t execute_bytecode(sno_State* state, uint8_t argc) {
 	sno_assert_ptr(state);
 	sno_assert(argc <= MAX_EXPR_PER_STMT);
-	//Bytecode* bytecode = NULL;
+	sno_assert_msg(
+		state->stack_top - state->stack >= argc + 2,
+		"Too many arguments underflowing the stack"
+	);
+	Value* base = state->stack_top - (argc + 2);
+	sno_assert_msg(
+		base->type == VT_BYTECODE,
+		"Tried to call something which wasn't a function"
+	);
+	Bytecode* bytecode = base->u.bytecode;
+	const uint8_t* pc = bytecode->instructions;
+	OpCode op = (OpCode)*pc;
+	Value* locals = base + 2;
+	state->stack_top += bytecode->num_local_slots;
+
+	VM_LOOP {
+	VM_CASE(OP_NONE)
+		state->stack_top->type = VT_NONE;
+		state->stack_top++;
+		VM_DISPATCH();
+	VM_CASE(OP_FALSE)
+		state->stack_top->type = VT_BOOL;
+		state->stack_top->u.number = NUMBER_FALSE;
+		state->stack_top++;
+		VM_DISPATCH();
+	VM_CASE(OP_TRUE)
+		state->stack_top->type = VT_BOOL;
+		state->stack_top->u.number = NUMBER_TRUE;
+		state->stack_top++;
+		VM_DISPATCH();
+	VM_CASE(OP_NUMBER_I8)
+		state->stack_top->type = VT_NUMBER;
+		state->stack_top->u.number = (sno_Number)(int8_t)(READ_U8());
+		state->stack_top++;
+		VM_DISPATCH();
+	VM_CASE(OP_NUMBER) {
+		READ_NUMBER_CONST;
+		state->stack_top->type = VT_NUMBER;
+		state->stack_top->u.number = number_const;
+		state->stack_top++;
+		VM_DISPATCH();
+	}
+	VM_CASE(OP_STRING) {
+		READ_STRING_CONST;
+		state->stack_top->type = VT_STRING;
+		state->stack_top->u.string = string_const;
+		state->stack_top++;
+		VM_DISPATCH();
+	}
+	VM_CASE(OP_BYTECODE) {
+		ConstID const_id = READ_U16();
+		pc += 2;
+		sno_assert(const_id < bytecode->num_bytecode_constants);
+		Bytecode* bytecode_const = bytecode->bytecode_constants[const_id];
+		state->stack_top->type = VT_BYTECODE;
+		state->stack_top->u.bytecode = bytecode_const;
+		state->stack_top++;
+		VM_DISPATCH();
+	}
+	VM_CASE(OP_GET_LOCAL) {
+		*state->stack_top = locals[READ_U8()];
+		state->stack_top++;
+		VM_DISPATCH();
+	}
+	VM_CASE(OP_GET_GLOBAL) {
+		READ_STRING_CONST;
+		Value key;
+		key.type = VT_STRING;
+		key.u.string = string_const;
+		if (!table_get_key(state, state->globals, key, state->stack_top)) {
+			vm_throw(state, pc,
+				"There is no global variable named \"%.*s\"",
+				(unsigned int)string_const->length,
+				istring_chars(string_const)
+			);
+		}
+		state->stack_top++;
+		VM_DISPATCH();
+	}
+	VM_CASE(OP_SET_GLOBAL) {
+		READ_STRING_CONST;
+		state->stack_top--;
+		Value key;
+		key.type = VT_STRING;
+		key.u.string = string_const;
+		if (!table_set_key(state, state->globals, key, *state->stack_top)) {
+			vm_throw(state, pc,
+				"There is no global variable named \"%.*s\"",
+				(unsigned int)string_const->length,
+				istring_chars(string_const)
+			);
+		}
+		VM_DISPATCH();
+	}
+	VM_CASE(OP_SET_NEW_GLOBAL) {
+		READ_STRING_CONST;
+		state->stack_top--;
+		Value key;
+		key.type = VT_STRING;
+		key.u.string = string_const;
+		if (table_set_or_add_key(state, state->globals, key, *state->stack_top)) {
+			vm_throw(state, pc,
+				"A global variable named \"%.*s\" already exists",
+				(unsigned int)string_const->length,
+				istring_chars(string_const)
+			);
+		}
+		VM_DISPATCH();
+	}
+	VM_CASE(OP_CALL) {
+		uint8_t arg = READ_U8();
+		//uint8_t call_retc = READ_U8();
+		uint8_t call_argc = arg & 0x0F;
+		uint8_t call_retc = arg >> 4;
+		printf("Function call!!! argc = %i, retc = %i\n", (int)call_argc, (int)call_retc);
+		Value* func_value = state->stack_top - (call_argc + 2);
+		if (
+			func_value->type != VT_BYTECODE &&
+			func_value->type != VT_FOREIGN_FUNCTION
+		) {
+			if (func_value->type == VT_NONE) {
+				printf("PRINTING!!!\n");
+				for (size_t i = 0; i < call_argc; i++) {
+					print_value(func_value[i + 2]);
+					putchar('\n');
+				}
+				VM_DISPATCH();
+			} else
+			vm_throw(state, pc,
+				"Tried to perform a call on a %s",
+				"somethin"
+			);
+		}
+		sno_call(state, argc);
+		VM_DISPATCH();
+	}
+	VM_CASE(OP_RETURN) {
+		//READ_U8();
+		break;
+	}
+		
+	default:
+		// Invalid instruction
+		sno_assert(op != 0xFF);
+		sno_unreachable;
+		break;
+	}
+	
 	return 0;
 }

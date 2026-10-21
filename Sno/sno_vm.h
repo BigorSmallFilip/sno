@@ -45,9 +45,9 @@ extern const char* const unop_names[];
 
 enum {
 	OP_NONE,
-	OP_TRUE,
 	OP_FALSE,
-	OP_NUMBER_IMM8,
+	OP_TRUE,
+	OP_NUMBER_I8,
 	OP_NUMBER,
 	OP_STRING,
 	OP_BYTECODE,
@@ -141,6 +141,7 @@ typedef struct Bytecode {
 	ConstID num_number_constants;
 	ConstID num_string_constants;
 	ConstID num_bytecode_constants;
+	LocalID num_local_slots;
 	uint8_t* instructions;
 	SourceCodePos* instruction_positions;
 	sno_Number* number_constants;
@@ -150,6 +151,6 @@ typedef struct Bytecode {
 
 void print_bytecode(const Bytecode* bytecode);
 
-uint8_t execute_bytecode(const sno_State* state, uint8_t argc);
+uint8_t execute_bytecode(sno_State* state, uint8_t argc);
 
 #endif

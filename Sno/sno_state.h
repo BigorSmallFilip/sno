@@ -6,7 +6,7 @@
 #include "sno_value.h"
 #include <setjmp.h>
 
-
+#define INITIAL_STACK_SIZE (128)
 
 // Simple index of a character in some source code string
 typedef uint32_t SourceCodePos;
@@ -23,12 +23,25 @@ typedef struct ExceptionJump {
 	jmp_buf buf;
 } ExceptionJump;
 
+typedef struct CallInfo {
+	union {
+		struct Bytecode* bytecode;
+		sno_ForeignFunction* foreign;
+	} function;
+	sno_Bool is_foreign_function;
+} CallInfo;
+
+DECLARE_GENERIC_DYN_ARRAY(CallInfo, CallInfo, call_info);
+
 typedef struct sno_State {
 	Value* stack;
+	Value* stack_base;
 	Value* stack_top;
 	uint32_t stack_capacity;
 
-	Table globals;
+	CallInfoDynArray call_stack;
+
+	Table* globals;
 
 	StringInterningTable string_table;
 	size_t mem_allocated;
@@ -39,16 +52,7 @@ typedef struct sno_State {
 	const IString* exception_message;
 } sno_State;
 
-typedef struct CallInfo {
-	union {
-		struct Bytecode* bytecode;
-		sno_ForeignFunction* foreign;
-	} function;
-	sno_Bool is_c_function;
-
-} CallInfo;
-
-
+void create_new_global(sno_State* state, Value name, Value value);
 
 sno_no_return void state_throw(
 	sno_State* state,

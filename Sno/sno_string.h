@@ -20,7 +20,7 @@ typedef struct IString {
 	size_t length;
 } IString;
 
-#define istring_chars(istring) ((const char* const)(istring + 1))
+#define istring_chars(istring) ((const char* const)((istring) + 1))
 
 DECLARE_GENERIC_DYN_ARRAY(IString*, IString, istring);
 

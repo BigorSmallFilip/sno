@@ -9,6 +9,9 @@
 
 typedef uint32_t Hash;
 
+// Smallest power of 2 greater than or equal to n
+size_t pow2_ge(size_t n);
+
 void* state_alloc(sno_State* state, size_t size);
 void* state_realloc(
 	sno_State* state,

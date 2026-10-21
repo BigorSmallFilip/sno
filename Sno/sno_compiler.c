@@ -146,6 +146,19 @@ static Bytecode* free_function_compiler(Tokenizer* ts, Compiler* cs) {
 	);
 	istring_dyn_array_clear(ts->main_state, &cs->string_constants);
 
+	sno_assert(cs->bytecode_constants.count < MAX_BYTECODE_CONSTANTS);
+	bytecode->bytecode_constants = state_alloc(
+		state,
+		cs->bytecode_constants.count * sizeof(Bytecode*)
+	);
+	bytecode->num_bytecode_constants = (ConstID)cs->bytecode_constants.count;
+	memcpy(
+		bytecode->bytecode_constants,
+		cs->bytecode_constants.buffer,
+		cs->bytecode_constants.count * sizeof(Bytecode*)
+	);
+	bytecode_dyn_array_clear(ts->main_state, &cs->bytecode_constants);
+
 	ts->cs = cs->parent_function;
 	return bytecode;
 }
@@ -330,7 +343,7 @@ static PC emit_number(
 	sno_assert_ptr(ts);
 	if (sno_number_is_valid_i8(number)) {
 		int8_t i8 = (int8_t)number;
-		return emit_1(ts, NO_POS, OP_NUMBER_IMM8, i8);
+		return emit_1(ts, NO_POS, OP_NUMBER_I8, i8);
 	}
 	return emit_2(ts, NO_POS, OP_NUMBER, add_number_constant(ts->cs, number));
 }

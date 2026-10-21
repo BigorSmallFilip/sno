@@ -1,30 +1,6 @@
 
-const PersonPrototype = {
-	function identify(self) {
-		print("Hello. I am ", self.name, ". My age is ", self.age, " units.")
-	}
-
-	function greet(self, other) {
-		print("Greetings, ", other.name, "! I am ", self.name, ".")
-	}
-
-	function age_up(self, units) {
-		self.age += units
-	}
+function square(n) {
+	return n
 }
 
-const Person = {
-	function new(name, age) {
-		return {
-			name: name
-			age: age
-		}.set_prototype(PersonPrototype)
-	}
-}
-
-var alice = Person.new("Alice", 30)
-var bob = Person.new("Bob", -1 / 12)
-alice.identify()
-bob.greet(alice)
-bob.identify()
-
+print("Hello")

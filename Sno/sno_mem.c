@@ -4,6 +4,19 @@
 #include <stdlib.h>
 #include <stdio.h>
 
+size_t pow2_ge(size_t n) {
+	n += (n == 0);
+	n--;
+	n |= n >> 1;
+	n |= n >> 2;
+	n |= n >> 4;
+	n |= n >> 8;
+	n |= n >> 16;
+	n |= n >> 32;
+	n++;
+	return n;
+}
+
 void* state_alloc(sno_State* state, size_t size) {
 	sno_assert_ptr(state);
 	state->mem_allocated += size;

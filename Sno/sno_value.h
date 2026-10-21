@@ -22,6 +22,9 @@ typedef enum ValueType {
 #define value_type_is_valid(type) \
 	((type) >= VT_NONE && (type) < NUM_VALUE_TYPES)
 
+#define NUMBER_FALSE ((sno_Number)0)
+#define NUMBER_TRUE ((sno_Number)1)
+
 typedef union ValueUnion {
 	uint64_t i;
 	void* ptr;
@@ -29,6 +32,8 @@ typedef union ValueUnion {
 	struct IString* string;
 	struct Array* arr;
 	struct Table* table;
+	struct Bytecode* bytecode;
+	sno_ForeignFunction* foreign_function;
 } ValueUnion;
 
 typedef struct Value {
@@ -70,6 +75,12 @@ typedef struct Table {
 
 Table* create_table(struct sno_State* state);
 sno_Bool table_set_key(
+	struct sno_State* state,
+	Table* table,
+	Value key,
+	Value value
+);
+sno_Bool table_set_or_add_key(
 	struct sno_State* state,
 	Table* table,
 	Value key,
