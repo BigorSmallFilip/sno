@@ -242,8 +242,7 @@ static SourceCodePos find_pos(
 			);
 		}
 	}
-	sno_unreachable;
-	return 0;
+	return NO_POS;
 }
 
 static void vm_throw(
@@ -543,6 +542,21 @@ uint8_t execute_bytecode(sno_State* state, uint8_t argc) {
 	VM_CASE(OP_SHL)  OP_ARITH(+=, SHL)  VM_DISPATCH();
 	VM_CASE(OP_SHR)  OP_ARITH(+=, SHR)  VM_DISPATCH();
 
+	VM_CASE(OP_EQ)
+		state->stack_top--;
+		set_bool(state->stack_top[-1], value_eq(
+			state->stack_top[0],
+			state->stack_top[-1]
+		));
+		VM_DISPATCH();
+	VM_CASE(OP_NEQ)
+		state->stack_top--;
+		set_bool(state->stack_top[-1], !value_eq(
+			state->stack_top[0],
+			state->stack_top[-1]
+		));
+		VM_DISPATCH();
+
 	VM_CASE(OP_CALL) {
 		uint8_t arg = READ_U8();
 		uint8_t call_argc = arg & 0x0F;
@@ -579,6 +593,4 @@ uint8_t execute_bytecode(sno_State* state, uint8_t argc) {
 		sno_unreachable;
 		break;
 	}
-	
-	return 0;
 }
