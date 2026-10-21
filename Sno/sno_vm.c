@@ -422,27 +422,26 @@ uint8_t execute_bytecode(sno_State* state, uint8_t argc) {
 		uint8_t arg = READ_U8();
 		//uint8_t call_retc = READ_U8();
 		uint8_t call_argc = arg & 0x0F;
-		uint8_t call_retc = arg >> 4;
-		printf("Function call!!! argc = %i, retc = %i\n", (int)call_argc, (int)call_retc);
+		uint8_t retc_expected = arg >> 4;
+		printf("Function call!!! argc = %i, retc = %i\n", (int)call_argc, (int)retc_expected);
 		Value* func_value = state->stack_top - (call_argc + 2);
 		if (
 			func_value->type != VT_BYTECODE &&
 			func_value->type != VT_FOREIGN_FUNCTION
 		) {
-			if (func_value->type == VT_NONE) {
-				printf("PRINTING!!!\n");
-				for (size_t i = 0; i < call_argc; i++) {
-					print_value(func_value[i + 2]);
-					putchar('\n');
-				}
-				VM_DISPATCH();
-			} else
 			vm_throw(state, pc,
 				"Tried to perform a call on a %s",
 				"somethin"
 			);
 		}
-		sno_call(state, argc);
+		uint8_t retc_found = sno_call(state, call_argc);
+		state->stack_top += retc_found + retc_expected;
+		for (size_t i = retc_found; i < retc_expected; i++) {
+			state->stack_top[-retc_expected + i].type = VT_NONE;
+		}
+		if (retc_found > retc_expected) { // Pop values that won't be used
+			
+		}
 		VM_DISPATCH();
 	}
 	VM_CASE(OP_RETURN) {

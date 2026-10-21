@@ -1,6 +1,7 @@
 #include "sno_value.h"
 
 #include "sno_state.h"
+#include "sno_vm.h"
 
 #include <stdio.h>
 
@@ -73,6 +74,14 @@ void print_value(Value value) {
 	); return;
 	case VT_ARRAY: print_array(value.u.arr); return;
 	case VT_TABLE: print_table(value.u.table); return;
+	case VT_BYTECODE: printf(
+		"<Sno function \"%.*s\">",
+		(unsigned int)value.u.bytecode->name->length,
+		istring_chars(value.u.bytecode->name)
+	); return;
+	case VT_FOREIGN_FUNCTION:
+		printf("<Foreign function>");
+		return;
 	default:
 		sno_not_implemented;
 		break;

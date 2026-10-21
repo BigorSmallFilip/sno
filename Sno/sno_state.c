@@ -275,6 +275,9 @@ sno_API uint8_t sno_call(sno_State* state, uint8_t argc) {
 	CallInfo call_info;
 
 	uint8_t retc;
+	call_info.caller_base_idx = (uint32_t)(state->stack_base - state->stack);
+	state->stack_base = state->stack_top - (argc + 2);
+	call_info.argc = argc;
 	if (func_value->type == VT_BYTECODE) {
 		call_info.is_foreign_function = sno_FALSE;
 		call_info.function.bytecode = func_value->u.bytecode;
@@ -287,6 +290,8 @@ sno_API uint8_t sno_call(sno_State* state, uint8_t argc) {
 		sno_ForeignFunction* ff = func_value->u.foreign_function;
 		retc = ff(state, argc);
 	}
+	state->stack_base = state->stack + call_info.caller_base_idx;
+	state->call_stack.count--; // Pop the call info
 	return retc;
 }
 

@@ -29,6 +29,8 @@ typedef struct CallInfo {
 		sno_ForeignFunction* foreign;
 	} function;
 	sno_Bool is_foreign_function;
+	uint8_t argc;
+	uint32_t caller_base_idx;
 } CallInfo;
 
 DECLARE_GENERIC_DYN_ARRAY(CallInfo, CallInfo, call_info);

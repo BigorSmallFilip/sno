@@ -847,7 +847,7 @@ static void call(Tokenizer* ts, SourceCodePos pos) {
 		syntax_error_at_cur_token(ts, "Too many arguments");
 	}
 	sno_assert(num_args >= 0 && num_args <= MAX_EXPR_PER_STMT);
-	emit_1(ts, pos, OP_CALL, (uint8_t)num_args);
+	emit_1(ts, pos, OP_CALL, (uint8_t)num_args | (1 << 4));
 }
 
 static void operand_postfix(Tokenizer* ts) {

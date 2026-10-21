@@ -3,4 +3,5 @@ function square(n) {
 	return n
 }
 
-print("Hello")
+print(square(1))
+
