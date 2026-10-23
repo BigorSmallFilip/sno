@@ -45,7 +45,7 @@ typedef struct sno_State {
 
 	Table* globals;
 
-	StringInterningTable string_table;
+	StringInterningSet string_set;
 	size_t mem_allocated;
 	size_t num_allocations;
 

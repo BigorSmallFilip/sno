@@ -23,7 +23,7 @@ sno_API sno_State* sno_create_state(void) {
 	}
 	state->mem_allocated = 0;
 	state->num_allocations = 0;
-	init_string_interning_table(state, 64);
+	init_string_interning_set(state, 64);
 	init_stack(state);
 	state->globals = create_table(state);
 	sno_load_library_into_global_scope(state, lib_core);
@@ -403,6 +403,16 @@ sno_API void sno_load_library_into_global_scope(
 
 
 
+
+
+static void test_string_set(sno_State* state) {
+	for (size_t i = 0; i < 1000; i++) {
+		char str[128];
+		int length = snprintf(str, 128, "%i", (int)i);
+		create_istring(state, str, (size_t)length);
+	}
+}
+
 sno_API void sno_run_test_thing(sno_State* state) {
 	sno_assert_ptr(state);
 
@@ -431,6 +441,7 @@ sno_API void sno_run_test_thing(sno_State* state) {
 
 	(void)print_source_code_tokens(state, path, source_code);
 
+	test_string_set(state);
 	//test_tables(state);
-	print_string_interning_table(state);
+	print_string_interning_set(state);
 }

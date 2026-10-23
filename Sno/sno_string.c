@@ -18,122 +18,162 @@ static Hash hash_string(const char* string, size_t length) {
 	return hash;
 }
 
-void init_string_interning_table(sno_State* state, size_t capacity) {
+void init_string_interning_set(sno_State* state, uint32_t capacity) {
 	sno_assert_ptr(state);
 	sno_assert(capacity >= 8);
 	sno_assert(sno_is_power_of_2(capacity));
 
-	StringInterningTable* string_table = &state->string_table;
-	string_table->capacity_mask = capacity - 1;
-	string_table->num_strings = 0;
-	string_table->strings = (IString**)state_alloc(state, sizeof(IString*) * capacity);
-	memset(string_table->strings, 0, sizeof(IString*) * capacity);
+	StringInterningSet* string_set = &state->string_set;
+	string_set->capacity_mask = capacity - 1;
+	string_set->num_strings = 0;
+	string_set->strings = (IString**)state_alloc(state, sizeof(IString*) * capacity);
+	memset(string_set->strings, 0, sizeof(IString*) * capacity);
 }
 
-void resize_string_interning_table(sno_State* state, size_t new_capacity) {
+
+
+static IString** find_string_set_entry(
+	StringInterningSet* string_set,
+	Hash hash,
+	const char* string,
+	size_t length
+) {
+	sno_assert_ptr(string_set);
+	sno_assert_ptr(string);
+	uint32_t start_index = hash & string_set->capacity_mask;
+	uint32_t index = start_index;
+	IString** first_tombstone = NULL;
+	while (1) {
+		IString** set_ptr = &string_set->strings[index];
+		if (*set_ptr == NULL) {
+			if (first_tombstone) {
+				return first_tombstone;
+			} else {
+				return set_ptr;
+			}
+		} else if ((uintptr_t)(*set_ptr) == STRING_SET_TOMBSTONE) {
+			if (!first_tombstone) {
+				first_tombstone = set_ptr;
+			}
+		} else {
+			IString* check_string = *set_ptr;
+			sno_assert_ptr(check_string);
+			if (
+				check_string->length == length &&
+				check_string->hash == hash &&
+				memcmp(istring_chars(check_string), string, length) == 0
+			) {
+				return set_ptr;
+			}
+		}
+		index++;
+		index &= string_set->capacity_mask;
+		if (index == start_index) {
+			break;
+		}
+	}
+	// Table was all tombstones
+	sno_assert_ptr(first_tombstone);
+	return first_tombstone;
+}
+
+void resize_string_interning_set(sno_State* state, uint32_t new_capacity) {
 	sno_assert_ptr(state);
-	sno_assert_ptr(state->string_table.strings);
+	sno_assert_ptr(state->string_set.strings);
 	sno_assert(new_capacity >= 8);
 	sno_assert(sno_is_power_of_2(new_capacity));
 
-	StringInterningTable* string_table = &state->string_table;
-	IString** new_array = (IString**)state_alloc(state, sizeof(IString*) * new_capacity);
+	StringInterningSet* string_set = &state->string_set;
+	IString** new_array = (IString**)state_alloc(
+		state,
+		sizeof(IString*) * new_capacity
+	);
 	memset(new_array, 0, sizeof(IString*) * new_capacity);
-	size_t new_capacity_mask = new_capacity - 1;
-	size_t iter_count = 0;
-	for (size_t i = 0; i < string_table->capacity_mask + 1; i++) {
-		IString* str = string_table->strings[i];
-		while (str != NULL) {
-			IString* next = str->next;
-			if (!new_array[str->hash & new_capacity_mask]) {
-				str->next = NULL;
-				new_array[str->hash & new_capacity_mask] = str;
-			} else {
-				// Insert at front
-				IString* old_first = new_array[str->hash & new_capacity_mask];
-				str->next = old_first;
-				new_array[str->hash & new_capacity_mask] = str;
+	uint32_t new_capacity_mask = new_capacity - 1;
+	uint32_t iter_count = 0;
+	for (uint32_t i = 0; i < string_set->capacity_mask + 1; i++) {
+		IString* str = string_set->strings[i];
+		if (str != NULL && (uintptr_t)str != STRING_SET_TOMBSTONE) {
+			uint32_t new_i = str->hash & new_capacity_mask;
+			while (1) {
+				if (new_array[new_i] == NULL) {
+					new_array[new_i] = str;
+					break;
+				}
+				new_i++;
+				new_i &= new_capacity_mask;
+				sno_assert(new_i != (str->hash & new_capacity_mask));
 			}
-			str = next;
 			iter_count++;
 		}
 	}
-	sno_assert(iter_count == string_table->num_strings);
+	sno_assert(iter_count == string_set->num_strings);
 	state_free(
 		state,
-		(string_table->capacity_mask + 1) * sizeof(IString*),
-		string_table->strings
+		(string_set->capacity_mask + 1) * sizeof(IString*),
+		string_set->strings
 	);
-	string_table->strings = new_array;
-	string_table->capacity_mask = new_capacity_mask;
+	string_set->strings = new_array;
+	string_set->capacity_mask = new_capacity_mask;
 }
 
-void free_string_interning_table(sno_State* state) {
+void free_string_interning_set(sno_State* state) {
 	sno_assert_ptr(state);
-	sno_assert_ptr(state->string_table.strings);
+	sno_assert_ptr(state->string_set.strings);
 
-	StringInterningTable* string_table = &state->string_table;
-	for (size_t i = 0; i < string_table->capacity_mask + 1; i++) {
-		IString* iter = string_table->strings[i];
-		while (iter != NULL) {
-			IString* next = iter->next;
-			state_free(state, sizeof(IString) + iter->length, iter);
-			iter = next;
+	StringInterningSet* string_set = &state->string_set;
+	for (uint32_t i = 0; i < string_set->capacity_mask + 1; i++) {
+		IString* string = string_set->strings[i];
+		while (string != NULL && (uintptr_t)string != STRING_SET_TOMBSTONE) {
+			state_free(state, sizeof(IString) + string->length, string);
 		};
 	}
 	state_free(
 		state,
-		(string_table->capacity_mask + 1) * sizeof(IString*),
-		string_table->strings
+		(string_set->capacity_mask + 1) * sizeof(IString*),
+		string_set->strings
 	);
 }
 
-void print_string_interning_table(const sno_State* state) {
+void print_string_interning_set(const sno_State* state) {
 	sno_assert_ptr(state);
-	sno_assert_ptr(state->string_table.strings);
+	sno_assert_ptr(state->string_set.strings);
 
-	const StringInterningTable* string_table = &state->string_table;
-	size_t num_filled_buckets = 0;
-	size_t num_lone_strings = 0;
-	for (size_t i = 0; i < string_table->capacity_mask + 1; i++) {
-		IString* str_iter = string_table->strings[i];
-		if (str_iter) {
-			num_filled_buckets++;
-			if (str_iter->next == NULL) {
-				num_lone_strings++;
-			}
-		}
-		while (str_iter != NULL) {
+	const StringInterningSet* string_set = &state->string_set;
+	uint32_t num_filled_buckets = 0;
+	uint32_t num_lone_strings = 0;
+	for (uint32_t i = 0; i < string_set->capacity_mask + 1; i++) {
+		IString* str = string_set->strings[i];
+		if (str != NULL && (uintptr_t)str != STRING_SET_TOMBSTONE) {
 			printf(
 				"{ modhash = %6u, hash = %08X, len = %3u, \"%.*s\"",
 				(unsigned int)i,
-				(unsigned int)str_iter->hash,
-				(unsigned int)str_iter->length,
-				(unsigned int)str_iter->length,
-				istring_chars(str_iter)
+				(unsigned int)str->hash,
+				(unsigned int)str->length,
+				(unsigned int)str->length,
+				istring_chars(str)
 			);
 			printf(" }\n");
-			str_iter = str_iter->next;
 		}
 	}
-	printf("Num strings = %u\n", (unsigned int)string_table->num_strings);
-	printf("Num buckets = %u\n", (unsigned int)(string_table->capacity_mask + 1));
+	printf("Num strings = %u\n", (unsigned int)string_set->num_strings);
+	printf("Num buckets = %u\n", (unsigned int)(string_set->capacity_mask + 1));
 	printf("Num used buckets = %u\n", (unsigned int)num_filled_buckets);
 	printf(
 		"Bucket usage = %g%%\n",
-		100.0 * (double)num_filled_buckets / (double)(string_table->capacity_mask + 1)
+		100.0 * (double)num_filled_buckets / (double)(string_set->capacity_mask + 1)
 	);
 	printf(
 		"Ratio of strings to buckets = %g%%\n",
-		100.0 * (double)string_table->num_strings / (double)(string_table->capacity_mask + 1)
+		100.0 * (double)string_set->num_strings / (double)(string_set->capacity_mask + 1)
 	);
 	printf(
 		"%% of strings in buckets alone = %g%%\n",
-		100.0 * (double)num_lone_strings / (double)string_table->num_strings
+		100.0 * (double)num_lone_strings / (double)string_set->num_strings
 	);
 	printf(
 		"%% of strings in top buckets = %g%%\n",
-		100.0 * (double)num_filled_buckets / (double)string_table->num_strings
+		100.0 * (double)num_filled_buckets / (double)string_set->num_strings
 	);
 }
 
@@ -195,27 +235,22 @@ static void set_string_swizzling(IString* str) {
 	}
 }
 
-static IString* create_new_interned_string(
+static IString* create_new_istring(
 	sno_State* state,
 	const char* string,
 	size_t length,
 	Hash hash,
-	IString* iter
+	IString** set_ptr
 ) {
 	sno_assert_ptr(state);
-	sno_assert_ptr(state->string_table.strings);
+	sno_assert_ptr(state->string_set.strings);
 	sno_assert_ptr(string);
 
-	StringInterningTable* string_table = &state->string_table;
+	StringInterningSet* string_set = &state->string_set;
 	IString* string_obj = (IString*)state_alloc(state, sizeof(IString) + length);
-	// Check if GC happened maybe?
-	iter = state->string_table.strings[hash & state->string_table.capacity_mask];
-	if (iter) {
-		while (iter->next) {
-			iter = (IString*)iter->next;
-		}
-	}
-
+	// TODO: If a GC happens during this alloc, then the set_ptr argument
+	// will be invalidated and needs to be recalculated
+	
 	sno_assert_ptr(string);
 	string_obj->hash = hash;
 	string_obj->length = length;
@@ -224,25 +259,15 @@ static IString* create_new_interned_string(
 	string_obj->gc_type = OT_STRING;
 	memcpy((char*)istring_chars(string_obj), string, length);
 	set_string_swizzling(string_obj);
-	if (iter == NULL) {
-		// No existing string in bucket
-		sno_assert(
-			string_table->strings[hash & string_table->capacity_mask] == NULL
-		);
-		string_table->strings[hash & string_table->capacity_mask] = string_obj;
-	} else {
-		// Insert at the end
-		sno_assert(iter->next == NULL);
-		iter->next = string_obj;
-	}
-	string_table->num_strings++;
-	if (string_table->num_strings > string_table->capacity_mask) {
-		if (string_table->capacity_mask >= 1000000) {
+	*set_ptr = string_obj;
+	string_set->num_strings++;
+	if (string_set->num_strings > string_set->capacity_mask) {
+		if (string_set->capacity_mask >= 1000000) {
 			
 		}
-		resize_string_interning_table(
+		resize_string_interning_set(
 			state,
-			(string_table->capacity_mask + 1) << 1
+			(string_set->capacity_mask + 1) << 1
 		);
 	}
 	return string_obj;
@@ -254,27 +279,23 @@ IString* create_istring(
 	size_t length
 ) {
 	sno_assert_ptr(state);
-	sno_assert_ptr(state->string_table.strings);
+	sno_assert_ptr(state->string_set.strings);
 	sno_assert_ptr(string);
 
-	StringInterningTable* string_table = &state->string_table;
+	StringInterningSet* string_set = &state->string_set;
 	Hash hash = hash_string(string, length);
-	IString* iter = string_table->strings[hash & string_table->capacity_mask];
-	while (iter != NULL) {
-		if (
-			iter->length == length &&
-			iter->hash == hash &&
-			memcmp(istring_chars(iter), string, length) == 0
-		) {
-			return iter;
-		}
-		if (iter->next) {
-			iter = (IString*)iter->next;
-		} else {
-			break;
-		}
+	IString** set_ptr = find_string_set_entry(
+		string_set,
+		hash,
+		string,
+		length
+	);
+	sno_assert_ptr(set_ptr);
+	if (*set_ptr != NULL && (uintptr_t)(*set_ptr) != STRING_SET_TOMBSTONE) {
+		return *set_ptr;
+	} else {
+		return create_new_istring(state, string, length, hash, set_ptr);
 	}
-	return create_new_interned_string(state, string, length, hash, iter);
 }
 
 IString* load_istring_from_file(

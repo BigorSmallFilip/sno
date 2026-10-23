@@ -24,18 +24,19 @@ typedef struct IString {
 
 DECLARE_GENERIC_DYN_ARRAY(IString*, IString, istring);
 
+#define STRING_SET_TOMBSTONE ((uintptr_t)1)
+#define STRING_SET_MAX_CAPACITY ((UINT32_MAX >> 1) + 1)
 
-
-typedef struct StringInterningTable {
+typedef struct StringInterningSet {
 	IString** strings;
-	size_t num_strings;
-	size_t capacity_mask; // Capacity - 1 since it is mainly used like a bitmask
-} StringInterningTable;
+	uint32_t num_strings;
+	uint32_t capacity_mask; // Capacity - 1 since it is mainly used like a bitmask
+} StringInterningSet;
 
-void init_string_interning_table(struct sno_State* state, size_t capacity);
-void resize_string_interning_table(struct sno_State* state, size_t new_capacity);
-void free_string_interning_table(struct sno_State* state);
-void print_string_interning_table(const struct sno_State* state);
+void init_string_interning_set(struct sno_State* state, uint32_t capacity);
+void resize_string_interning_set(struct sno_State* state, uint32_t new_capacity);
+void free_string_interning_set(struct sno_State* state);
+void print_string_interning_set(const struct sno_State* state);
 
 IString* create_istring(
 	sno_State* state,

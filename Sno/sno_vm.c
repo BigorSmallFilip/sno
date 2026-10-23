@@ -593,4 +593,8 @@ uint8_t execute_bytecode(sno_State* state, uint8_t argc) {
 		sno_unreachable;
 		break;
 	}
+#ifdef sno_DEBUG
+	sno_unreachable;
+	return 0;
+#endif
 }
