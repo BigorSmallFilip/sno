@@ -142,8 +142,7 @@ void print_string_interning_set(const sno_State* state) {
 	sno_assert_ptr(state->string_set.strings);
 
 	const StringInterningSet* string_set = &state->string_set;
-	uint32_t num_filled_buckets = 0;
-	uint32_t num_lone_strings = 0;
+	uint32_t num_direct = 0;
 	for (uint32_t i = 0; i < string_set->capacity_mask + 1; i++) {
 		IString* str = string_set->strings[i];
 		if (str != NULL && (uintptr_t)str != STRING_SET_TOMBSTONE) {
@@ -156,27 +155,24 @@ void print_string_interning_set(const sno_State* state) {
 				istring_chars(str)
 			);
 			printf(" }\n");
+			if ((str->hash & string_set->capacity_mask) == i) {
+				num_direct++;
+			}
 		}
 	}
 	printf("Num strings = %u\n", (unsigned int)string_set->num_strings);
 	printf("Num buckets = %u\n", (unsigned int)(string_set->capacity_mask + 1));
-	printf("Num used buckets = %u\n", (unsigned int)num_filled_buckets);
 	printf(
-		"Bucket usage = %g%%\n",
-		100.0 * (double)num_filled_buckets / (double)(string_set->capacity_mask + 1)
+		"Usage = %g%%\n",
+		100.0 * (double)string_set->num_strings /
+		(double)(string_set->capacity_mask + 1)
 	);
-	printf(
-		"Ratio of strings to buckets = %g%%\n",
-		100.0 * (double)string_set->num_strings / (double)(string_set->capacity_mask + 1)
+	printf("Num direct = %u\n", (unsigned int)num_direct);
+	printf("Direct = %g%%\n", 
+		(double)num_direct /
+		(double)string_set->num_strings * 100.0
 	);
-	printf(
-		"%% of strings in buckets alone = %g%%\n",
-		100.0 * (double)num_lone_strings / (double)string_set->num_strings
-	);
-	printf(
-		"%% of strings in top buckets = %g%%\n",
-		100.0 * (double)num_filled_buckets / (double)string_set->num_strings
-	);
+
 }
 
 
