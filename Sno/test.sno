@@ -3,5 +3,13 @@ function square(n) {
 	return n * n
 }
 
+function many(a, b, c) {
+	return a + 1, b + 1, c + 1
+}
+
+var ga, gb = many(10, 20, 30)
+
+print(ga, ", ", gb)
+
 print(square(-3) ** 2)
 
