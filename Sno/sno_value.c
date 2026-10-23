@@ -376,8 +376,8 @@ sno_Bool table_set_or_add_key(
 	sno_assert_ptr(state);
 	sno_assert_ptr(table);
 	if (
-		table->count + 1 >
-		(table->capacity_mask + 1) * TABLE_RESIZE_LOAD_PERCENT / 100
+		(size_t)table->count + 1 >
+		(size_t)(table->capacity_mask + 1) * TABLE_RESIZE_LOAD_PERCENT / 100
 	) {
 		uint32_t new_capacity = sno_max(
 			(table->capacity_mask + 1) *

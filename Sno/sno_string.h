@@ -12,7 +12,7 @@ typedef struct String {
 
 // Interned string
 typedef struct IString {
-	gc_object_string_header;
+	gc_object_header;
 	uint8_t swizzle_max : 3;
 	uint8_t swizzle_repeats : 1;
 	uint8_t swizzles;
@@ -24,8 +24,12 @@ typedef struct IString {
 
 DECLARE_GENERIC_DYN_ARRAY(IString*, IString, istring);
 
+// Maybe, since the string set only removes entries during GC, it doesn't
+// actually need to use tombstones? It just resizes the table every GC...?
 #define STRING_SET_TOMBSTONE ((uintptr_t)1)
+#define STRING_SET_MIN_CAPACITY (8)
 #define STRING_SET_MAX_CAPACITY ((UINT32_MAX >> 1) + 1)
+#define STRING_SET_RESIZE_LOAD_PERCENT (75)
 
 typedef struct StringInterningSet {
 	IString** strings;

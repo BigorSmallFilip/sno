@@ -20,8 +20,9 @@ static Hash hash_string(const char* string, size_t length) {
 
 void init_string_interning_set(sno_State* state, uint32_t capacity) {
 	sno_assert_ptr(state);
-	sno_assert(capacity >= 8);
 	sno_assert(sno_is_power_of_2(capacity));
+	sno_assert(capacity >= STRING_SET_MIN_CAPACITY);
+	sno_assert(capacity <= STRING_SET_MAX_CAPACITY);
 
 	StringInterningSet* string_set = &state->string_set;
 	string_set->capacity_mask = capacity - 1;
@@ -80,8 +81,9 @@ static IString** find_string_set_entry(
 void resize_string_interning_set(sno_State* state, uint32_t new_capacity) {
 	sno_assert_ptr(state);
 	sno_assert_ptr(state->string_set.strings);
-	sno_assert(new_capacity >= 8);
 	sno_assert(sno_is_power_of_2(new_capacity));
+	sno_assert(new_capacity >= STRING_SET_MIN_CAPACITY);
+	sno_assert(new_capacity <= STRING_SET_MAX_CAPACITY);
 
 	StringInterningSet* string_set = &state->string_set;
 	IString** new_array = (IString**)state_alloc(
@@ -254,17 +256,19 @@ static IString* create_new_istring(
 	sno_assert_ptr(string);
 	string_obj->hash = hash;
 	string_obj->length = length;
-	string_obj->next = NULL;
+	string_obj->gc_next = NULL;
 	string_obj->gc_mark = 0;
 	string_obj->gc_type = OT_STRING;
 	memcpy((char*)istring_chars(string_obj), string, length);
 	set_string_swizzling(string_obj);
+	
 	*set_ptr = string_obj;
 	string_set->num_strings++;
-	if (string_set->num_strings > string_set->capacity_mask) {
-		if (string_set->capacity_mask >= 1000000) {
-			
-		}
+	if (
+		(size_t)string_set->num_strings + 1 >
+		(size_t)(string_set->capacity_mask + 1) *
+			STRING_SET_RESIZE_LOAD_PERCENT / 100
+	) {
 		resize_string_interning_set(
 			state,
 			(string_set->capacity_mask + 1) << 1

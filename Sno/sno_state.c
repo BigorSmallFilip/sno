@@ -23,7 +23,7 @@ sno_API sno_State* sno_create_state(void) {
 	}
 	state->mem_allocated = 0;
 	state->num_allocations = 0;
-	init_string_interning_set(state, 64);
+	init_string_interning_set(state, STRING_SET_MIN_CAPACITY);
 	init_stack(state);
 	state->globals = create_table(state);
 	sno_load_library_into_global_scope(state, lib_core);

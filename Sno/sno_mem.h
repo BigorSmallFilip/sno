@@ -148,7 +148,5 @@ typedef struct GCObject {
 } GCObject;
 #define gc_object_header \
 	struct GCObject* gc_next; uint8_t gc_mark; GCObjectType gc_type
-#define gc_object_string_header \
-	struct IString* next; uint8_t gc_mark; GCObjectType gc_type
 
 #endif
