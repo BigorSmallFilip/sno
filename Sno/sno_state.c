@@ -406,10 +406,13 @@ sno_API void sno_load_library_into_global_scope(
 
 
 static void test_string_set(sno_State* state) {
-	for (size_t i = 0; i < 1000; i++) {
+	for (size_t i = 0; i < 1600; i++) {
 		char str[128];
-		int length = snprintf(str, 128, "%i", (int)i);
-		create_istring(state, str, (size_t)length);
+		size_t length = rand() % 20;
+		for (size_t c = 0; c < length; c++) {
+			str[c] = 'a' + (rand() % 26);
+		}
+		create_istring(state, str, length);
 	}
 }
 
