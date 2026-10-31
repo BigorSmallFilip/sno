@@ -561,7 +561,7 @@ uint8_t execute_bytecode(sno_State* state, uint8_t argc) {
 		uint8_t arg = READ_U8();
 		uint8_t call_argc = arg & 0x0F;
 		uint8_t retc_expected = arg >> 4;
-		printf("Function call!!! argc = %i, retc = %i\n", (int)call_argc, (int)retc_expected);
+		//printf("Function call!!! argc = %i, retc = %i\n", (int)call_argc, (int)retc_expected);
 		Value* func_value = state->stack_top - (call_argc + 2);
 		if (
 			func_value->type != VT_BYTECODE &&

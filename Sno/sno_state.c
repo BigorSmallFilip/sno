@@ -291,7 +291,6 @@ sno_API uint8_t sno_call(sno_State* state, uint8_t argc, uint8_t retc) {
 		return_values_recieved = ff(state, argc);
 	}
 	return_values = state->stack_top - return_values_recieved;
-	state->stack_base = state->stack + call_info.caller_base_idx;
 	state->stack_top = state->stack_base + retc;
 	for (size_t i = 0; i < retc; i++) {
 		if (i >= return_values_recieved) {
@@ -300,6 +299,7 @@ sno_API uint8_t sno_call(sno_State* state, uint8_t argc, uint8_t retc) {
 			state->stack_base[i] = return_values[i];
 		}
 	}
+	state->stack_base = state->stack + call_info.caller_base_idx;
 	state->call_stack.count--; // Pop the call info
 	return return_values_recieved;
 }
