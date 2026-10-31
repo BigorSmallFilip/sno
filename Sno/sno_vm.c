@@ -386,6 +386,26 @@ uint8_t execute_bytecode(sno_State* state, uint8_t argc) {
 		state->stack_top++;
 		VM_DISPATCH();
 	}
+	VM_CASE(OP_NEW_ARRAY) {
+		Array* arr = create_array(state);
+		sno_assert(arr);
+		state->stack_top->type = VT_ARRAY;
+		state->stack_top->u.arr = arr;
+		state->stack_top++;
+		VM_DISPATCH();
+	}
+	VM_CASE(OP_CONCAT_ARRAY) {
+		uint8_t count = READ_U8();
+		sno_assert(state->stack_top[-count - 1].type == VT_ARRAY);
+		Array* arr = state->stack_top[-count - 1].u.arr;
+		sno_assert(arr);
+		Value* items = state->stack_top - count;
+		for (size_t i = 0; i < count; i++) {
+			array_push(state, arr, items[i]);
+		}
+		state->stack_top -= count;
+		VM_DISPATCH();
+	}
 	VM_CASE(OP_GET_LOCAL)
 		*state->stack_top = locals[READ_U8()];
 		state->stack_top++;

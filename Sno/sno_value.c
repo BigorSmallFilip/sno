@@ -152,7 +152,27 @@ void print_value(Value value) {
 
 Array* create_array(sno_State* state) {
 	sno_assert_ptr(state);
-	return NULL;
+	Array* arr = state_alloc(state, sizeof(Array));
+	memset(arr, 0, sizeof(Array));
+	return arr;
+}
+
+void array_push(sno_State* state, Array* arr, Value item) {
+	sno_assert_ptr(state);
+	sno_assert_ptr(arr);
+	value_dyn_array_push(state, &arr->values, &item);
+}
+
+Value array_pop(sno_State* state, Array* arr) {
+	sno_assert_ptr(state);
+	sno_assert_ptr(arr);
+	if (arr->values.count == 0) {
+		sno_throw_runtime_error(
+			state,
+			"Tried to pop from an empty array"
+		);
+	}
+	return arr->values.buffer[--arr->values.count];
 }
 
 Table* create_table(sno_State* state) {

@@ -65,6 +65,8 @@ typedef struct Array {
 } Array;
 
 Array* create_array(struct sno_State* state);
+void array_push(struct sno_State* state, Array* arr, Value item);
+Value array_pop(struct sno_State* state, Array* arr);
 
 
 
