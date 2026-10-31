@@ -1252,7 +1252,7 @@ static void declaration_statement(Tokenizer* ts) {
 	Token name_tokens[MAX_EXPR_PER_STMT];
 	sno_Bool is_consts[MAX_EXPR_PER_STMT];
 	size_t num_declarations = 0;
-	SourceCodePos assignment_token_pos = ts->token.pos;
+	SourceCodePos assign_pos = ts->token.pos;
 	while (1) {
 		if (ts->token.type != TK_IDENTIFIER) {
 			syntax_error_at_cur_token(
@@ -1276,7 +1276,7 @@ static void declaration_statement(Tokenizer* ts) {
 			break;
 		}
 		if (ts->token.type == TK_ASSIGN) {
-			assignment_token_pos = ts->token.pos;
+			assign_pos = ts->token.pos;
 			read_next_token(ts);
 			no_assignment = sno_FALSE;
 			break;
@@ -1303,6 +1303,7 @@ static void declaration_statement(Tokenizer* ts) {
 			emit_0(ts, NO_POS, OP_NONE);
 		}
 	} else {
+		sno_assert(assign_pos != NO_POS);
 		sno_assert(
 			num_declarations >= 1 &&
 			num_declarations <= MAX_EXPR_PER_STMT
@@ -1312,12 +1313,25 @@ static void declaration_statement(Tokenizer* ts) {
 		if (num_expressions > (int)num_declarations) {
 			syntax_error(
 				ts,
-				assignment_token_pos,
+				assign_pos,
 				"There %s %i item%s on the left but %i items on the right",
 				num_declarations == 1 ? "is" : "are",
 				(int)num_declarations,
 				num_declarations == 1 ? "" : "s",
 				num_expressions
+			);
+		}
+		OpCode* last_op = &ts->cs->instructions.buffer[
+			ts->cs->last_instruction_pc
+		];
+		if (*last_op == OP_CALL) {
+			last_op[1] &= ~0b11110000;
+			last_op[1] |= (num_declarations - num_expressions + 1) << 4;
+		} else if (num_expressions != (int)num_declarations) {
+			syntax_error(
+				ts,
+				assign_pos,
+				"There are more expressions on the left than on the right"
 			);
 		}
 	}
@@ -1398,7 +1412,7 @@ static void multiple_assignment_statement(Tokenizer* ts) {
 	}
 	OpCode* last_op = &ts->cs->instructions.buffer[ts->cs->last_instruction_pc];
 	if (*last_op == OP_CALL) {
-		last_op[1] &= 0b00001111;
+		last_op[1] &= ~0b11110000;
 		last_op[1] |= (num_identifiers - num_expressions + 1) << 4;
 	} else if (num_expressions != num_identifiers) {
 		syntax_error(

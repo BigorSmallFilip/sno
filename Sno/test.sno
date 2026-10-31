@@ -1,15 +1,10 @@
 
-function square(n) {
-	return n * n
+function what(a, b) {
+	return a + 1, b + 1, 69
 }
 
-function many(a, b, c) {
-	return a + 1, b + 1, c + 1
-}
+var a, b, c = what(10, 20)
 
-var ga, gb = many(10, 20, 30)
-
-print(ga, ", ", gb)
-
-print(square(-3) ** 2)
-
+print(a)
+print(b)
+print(c)

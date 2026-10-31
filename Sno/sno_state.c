@@ -273,7 +273,8 @@ sno_API uint8_t sno_call(sno_State* state, uint8_t argc, uint8_t retc) {
 		"Tried to call something which wasn't a function"
 	);
 	CallInfo call_info;
-	uint8_t retc_found;
+	Value* return_values;
+	uint8_t return_values_recieved;
 	call_info.caller_base_idx = (uint32_t)(state->stack_base - state->stack);
 	state->stack_base = state->stack_top - (argc + 2);
 	call_info.argc = argc;
@@ -281,27 +282,26 @@ sno_API uint8_t sno_call(sno_State* state, uint8_t argc, uint8_t retc) {
 		call_info.is_foreign_function = sno_FALSE;
 		call_info.function.bytecode = func_value->u.bytecode;
 		call_info_dyn_array_push(state, &state->call_stack, &call_info);
-		retc_found = execute_bytecode(state, argc);
-		for (size_t i = 0; i < retc; i++) {
-			if (i >= retc_found) {
-				state->stack_base[i].type = VT_NONE;
-			} else {
-				state->stack_base[i] = state->stack_top[-retc_found + i];
-			}
-		}
-		state->stack_top = state->stack_base + retc;
-		state->stack_base = state->stack + call_info.caller_base_idx;
+		return_values_recieved = execute_bytecode(state, argc);
 	} else {
 		call_info.is_foreign_function = sno_TRUE;
 		call_info.function.foreign = func_value->u.foreign_function;
 		call_info_dyn_array_push(state, &state->call_stack, &call_info);
 		sno_ForeignFunction* ff = func_value->u.foreign_function;
-		retc_found = ff(state, argc);
-		state->stack_base = state->stack + call_info.caller_base_idx;
+		return_values_recieved = ff(state, argc);
 	}
-	
+	return_values = state->stack_top - return_values_recieved;
+	state->stack_base = state->stack + call_info.caller_base_idx;
+	state->stack_top = state->stack_base + retc;
+	for (size_t i = 0; i < retc; i++) {
+		if (i >= return_values_recieved) {
+			state->stack_base[i].type = VT_NONE;
+		} else {
+			state->stack_base[i] = return_values[i];
+		}
+	}
 	state->call_stack.count--; // Pop the call info
-	return retc_found;
+	return return_values_recieved;
 }
 
 

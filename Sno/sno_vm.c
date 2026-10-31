@@ -572,15 +572,7 @@ uint8_t execute_bytecode(sno_State* state, uint8_t argc) {
 				get_value_type_noun_phrase(func_value->type)
 			);
 		}
-		uint8_t retc_found = sno_call(state, call_argc, retc_expected);
-		if (retc_found > retc_expected) { // Pop values that won't be used
-			state->stack_top -= (retc_found - retc_expected);
-		} else {
-			for (size_t i = retc_found; i < retc_expected; i++) {
-				state->stack_top[-retc_expected + i].type = VT_NONE;
-			}
-
-		}
+		sno_call(state, call_argc, retc_expected);
 		VM_DISPATCH();
 	}
 	VM_CASE(OP_RETURN) {
