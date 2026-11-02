@@ -57,6 +57,22 @@ sno_Bool value_to_bool(Value value);
 
 void print_value(Value value);
 
+
+
+enum {
+	LA_VEC2,
+	LA_VEC3,
+	LA_VEC4,
+	LA_QUAT,
+	LA_MAT2,
+	LA_MAT3,
+	LA_MAT4,
+};
+
+typedef struct LinAlg {
+	gc_object_header;
+} LinAlg;
+
 DECLARE_GENERIC_DYN_ARRAY(Value, Value, value);
 
 typedef struct Array {
@@ -66,6 +82,12 @@ typedef struct Array {
 
 Array* create_array(struct sno_State* state);
 void array_push(struct sno_State* state, Array* arr, Value item);
+void array_push_n(
+	struct sno_State* state,
+	Array* arr,
+	Value* items,
+	size_t count
+);
 Value array_pop(struct sno_State* state, Array* arr);
 
 
@@ -86,6 +108,7 @@ typedef struct Table {
 	gc_object_header;
 	uint32_t capacity_mask; // Capacity - 1 to be used as a bit mask
 	uint32_t count;
+	struct Table* prototype;
 	TableEntry* entries;
 } Table;
 

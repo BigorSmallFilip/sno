@@ -163,6 +163,18 @@ void array_push(sno_State* state, Array* arr, Value item) {
 	value_dyn_array_push(state, &arr->values, &item);
 }
 
+void array_push_n(
+	struct sno_State* state,
+	Array* arr,
+	Value* items,
+	size_t count
+) {
+	sno_assert_ptr(state);
+	sno_assert_ptr(arr);
+	sno_assert_ptr(items);
+	value_dyn_array_push_n(state, &arr->values, items, count);
+}
+
 Value array_pop(sno_State* state, Array* arr) {
 	sno_assert_ptr(state);
 	sno_assert_ptr(arr);

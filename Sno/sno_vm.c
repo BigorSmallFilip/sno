@@ -296,6 +296,63 @@ static void arith(sno_State* state, const uint8_t* pc, BinOp op) {
 
 
 
+static Value get_field(
+	sno_State* state,
+	const OpCode* pc,
+	IString* name
+) {
+	sno_assert_ptr(state);
+	sno_assert_ptr(pc);
+	Value out;
+	Value key;
+	key.type = VT_STRING;
+	key.u.string = name;
+	if (state->stack_top[-1].type == VT_STRING) {
+		if (!table_get_key(state, state->string_prototype, key, &out)) {
+			vm_throw(
+				state, pc,
+				"String has no field named %.*s",
+				(unsigned int)name->length,
+				istring_chars(name)
+			);
+		}
+	} else if (state->stack_top[-1].type == VT_ARRAY) {
+		if (!table_get_key(state, state->array_prototype, key, &out)) {
+			vm_throw(
+				state, pc,
+				"Array has no field named %.*s",
+				(unsigned int)name->length,
+				istring_chars(name)
+			);
+		}
+	} else if (state->stack_top[-1].type == VT_TABLE) {
+		Table* table = state->stack_top[-1].u.table;
+		Table* prototype = table->prototype;
+		if (!prototype) {
+			prototype = state->table_prototype;
+		}
+		if (!table_get_key(state, prototype, key, &out)) {
+			if (!table_get_key(state, table, key, &out)) {
+				vm_throw(
+					state, pc,
+					"Table has no field named %.*s",
+					(unsigned int)name->length,
+					istring_chars(name)
+				);
+			}
+		}
+	} else {
+		vm_throw(
+			state, pc,
+			"Cannot get fields on %s",
+			get_value_type_noun_phrase(state->stack_top[-1].type)
+		);
+	}
+	return out;
+}
+
+
+
 #define READ_U8() (*pc++)
 #define READ_U16() ((uint16_t)((pc[1] << 8) | pc[0]))
 #define READ_NUMBER_CONST \
@@ -386,6 +443,14 @@ uint8_t execute_bytecode(sno_State* state, uint8_t argc) {
 		state->stack_top++;
 		VM_DISPATCH();
 	}
+	VM_CASE(OP_NEW_LINALG) {
+		Array* arr = create_array(state);
+		sno_assert(arr);
+		state->stack_top->type = VT_ARRAY;
+		state->stack_top->u.arr = arr;
+		state->stack_top++;
+		VM_DISPATCH();
+	}
 	VM_CASE(OP_NEW_ARRAY) {
 		Array* arr = create_array(state);
 		sno_assert(arr);
@@ -400,10 +465,40 @@ uint8_t execute_bytecode(sno_State* state, uint8_t argc) {
 		Array* arr = state->stack_top[-count - 1].u.arr;
 		sno_assert(arr);
 		Value* items = state->stack_top - count;
-		for (size_t i = 0; i < count; i++) {
-			array_push(state, arr, items[i]);
-		}
+		array_push_n(state, arr, items, count);
 		state->stack_top -= count;
+		VM_DISPATCH();
+	}
+	VM_CASE(OP_NEW_TABLE) {
+		Table* table = create_table(state);
+		sno_assert(table);
+		state->stack_top->type = VT_TABLE;
+		state->stack_top->u.table = table;
+		state->stack_top++;
+		VM_DISPATCH();
+	}
+	VM_CASE(OP_CONCAT_TABLE) {
+		uint8_t count = READ_U8();
+		sno_assert(state->stack_top[-count * 2 - 1].type == VT_TABLE);
+		Table* table = state->stack_top[-count * 2 - 1].u.table;
+		sno_assert(table);
+		Value* items = state->stack_top - count * 2;
+		for (size_t i = 0; i < count; i++) {
+			if (table_set_or_add_key(
+				state,
+				table,
+				items[i * 2],
+				items[i * 2 + 1]
+			)) {
+				// Key already existed
+				vm_throw(
+					state,
+					pc,
+					"Repeated key in table constructor"
+				);
+			}
+		}
+		state->stack_top -= count * 2;
 		VM_DISPATCH();
 	}
 	VM_CASE(OP_GET_LOCAL)
@@ -444,6 +539,11 @@ uint8_t execute_bytecode(sno_State* state, uint8_t argc) {
 		}
 		VM_DISPATCH();
 	}
+	VM_CASE(OP_GET_FIELD) {
+		READ_STRING_CONST;
+		state->stack_top[-1] = get_field(state, pc, string_const);
+		VM_DISPATCH();
+	}
 	VM_CASE(OP_SET_NEW_GLOBAL) {
 		READ_STRING_CONST;
 		state->stack_top--;
@@ -459,6 +559,22 @@ uint8_t execute_bytecode(sno_State* state, uint8_t argc) {
 		}
 		VM_DISPATCH();
 	}
+	VM_CASE(OP_GET_METHOD) {
+		READ_STRING_CONST;
+		state->stack_top++;
+		Value key;
+		key.type = VT_STRING;
+		key.u.string = string_const;
+		if (table_set_or_add_key(state, state->globals, key, *state->stack_top)) {
+			vm_throw(state, pc,
+				"A global variable named \"%.*s\" already exists",
+				(unsigned int)string_const->length,
+				istring_chars(string_const)
+			);
+		}
+		VM_DISPATCH();
+	}
+
 	VM_CASE(OP_POP)
 		state->stack_top--;
 		VM_DISPATCH();
@@ -588,7 +704,7 @@ uint8_t execute_bytecode(sno_State* state, uint8_t argc) {
 			func_value->type != VT_FOREIGN_FUNCTION
 		) {
 			vm_throw(state, pc,
-				"Tried to perform a call on a %s",
+				"Tried to perform a call on %s",
 				get_value_type_noun_phrase(func_value->type)
 			);
 		}

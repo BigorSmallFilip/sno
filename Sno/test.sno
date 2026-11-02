@@ -1,3 +1,23 @@
 
-var numbers = [1, 3, 7, 5]
+var numbers = [1, 3, 5]
 print(numbers)
+
+var what = {
+	"what": 10
+	"yes": "no"
+	none: true
+	false: false
+}
+print(what)
+
+const Person = {
+	function new(name, age, position) {
+		return {
+			name,
+			age,
+			position
+		}
+	}
+}
+
+print(Person.new)

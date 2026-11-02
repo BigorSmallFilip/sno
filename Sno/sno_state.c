@@ -27,6 +27,7 @@ sno_API sno_State* sno_create_state(void) {
 	init_stack(state);
 	state->globals = create_table(state);
 	sno_load_library_into_global_scope(state, lib_core);
+	
 	return state;
 }
 
@@ -188,6 +189,13 @@ sno_no_return void state_throw(
 		);
 		exit(EXIT_FAILURE);
 	}
+}
+
+void push_table(sno_State* state, Table* table) {
+	sno_assert_ptr(state);
+	sno_assert_ptr(table);
+	sno_reserve_stack(state, 1);
+	// I don't know how to do this...
 }
 
 sno_API sno_no_return void sno_throw_runtime_error(
@@ -399,6 +407,41 @@ sno_API void sno_load_library_into_global_scope(
 		i++;
 	}
 	return;
+}
+
+sno_API void sno_load_library_into_table(sno_State* state, const sno_Library* library) {
+	sno_assert_ptr(state);
+	sno_assert_ptr(library);
+	int i = 0;
+	Table* table = create_table(state);
+	sno_reserve_stack(state, 1);
+	state->stack_top[-1].type = VT_TABLE;
+	state->stack_top[-1].u.table = table;
+	while (1) {
+		const sno_Library* lib_func = &library[i];
+		if (!lib_func->foreign_function) {
+			break;
+		}
+		Value name;
+		name.type = VT_STRING;
+		name.u.string = create_istring(
+			state,
+			lib_func->name,
+			lib_func->name_length
+		);
+		Value v;
+		v.type = VT_FOREIGN_FUNCTION;
+		v.u.foreign_function = lib_func->foreign_function;
+		if (table_set_or_add_key(state, table, name, v)) {
+			sno_throw_runtime_error(
+				state,
+				"Library defines \"%.*s\" twice",
+				(unsigned int)lib_func->name_length,
+				lib_func->name
+			);
+		}
+		i++;
+	}
 }
 
 

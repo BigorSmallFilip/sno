@@ -276,6 +276,11 @@ sno_API void sno_load_library_into_global_scope(
 	const sno_Library* library
 );
 
+sno_API void sno_load_library_into_table(
+	sno_State* state,
+	const sno_Library* library
+);
+
 
 
 sno_API void sno_run_test_thing(sno_State* state);

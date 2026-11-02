@@ -44,6 +44,9 @@ typedef struct sno_State {
 	CallInfoDynArray call_stack;
 
 	Table* globals;
+	Table* string_prototype;
+	Table* array_prototype;
+	Table* table_prototype;
 
 	StringInterningSet string_set;
 	size_t mem_allocated;
@@ -62,6 +65,10 @@ sno_no_return void state_throw(
 	const char* const message,
 	size_t message_length
 );
+
+
+
+void push_table(sno_State* state, Table* table);
 
 
 
