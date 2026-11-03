@@ -57,6 +57,13 @@ typedef struct sno_State {
 	const IString* exception_message;
 } sno_State;
 
+extern const sno_Library lib_core[];
+extern const sno_Library lib_string[];
+extern const sno_Library lib_array[];
+extern const sno_Library lib_table[];
+
+
+
 void create_new_global(sno_State* state, Value name, Value value);
 
 sno_no_return void state_throw(

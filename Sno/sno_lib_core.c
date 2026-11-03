@@ -1,9 +1,7 @@
-#include "sno_lib.h"
-
 #include "sno_state.h"
 #include "sno_value.h"
 
-static uint8_t core_print(sno_State* state, uint8_t argc) {
+static uint8_t lib_core_print(sno_State* state, uint8_t argc) {
 	sno_assert_ptr(state);
 	for (size_t i = 0; i < argc; i++) {
 		print_value(state->stack_base[i + 2]);

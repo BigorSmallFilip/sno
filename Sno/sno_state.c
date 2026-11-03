@@ -1,7 +1,6 @@
 #include "sno_state.h"
 
 #include "sno_compiler.h"
-#include "sno_lib.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -11,6 +10,7 @@ DEFINE_GENERIC_DYN_ARRAY(CallInfo, CallInfo, call_info);
 
 
 static void init_stack(sno_State* state);
+static Table* load_library_into_table(sno_State* state, const sno_Library* library);
 
 sno_API sno_State* sno_create_state(void) {
 	sno_State* state = malloc(sizeof(sno_State));
@@ -27,6 +27,9 @@ sno_API sno_State* sno_create_state(void) {
 	init_stack(state);
 	state->globals = create_table(state);
 	sno_load_library_into_global_scope(state, lib_core);
+	state->string_prototype = load_library_into_table(state, lib_string);
+	state->array_prototype = load_library_into_table(state, lib_array);
+	state->table_prototype = load_library_into_table(state, lib_table);
 	
 	return state;
 }
@@ -62,6 +65,13 @@ static void resize_stack(sno_State* state, uint32_t new_capacity) {
 	state->stack_base = state->stack + stack_base_idx;
 	state->stack_top = state->stack + stack_top_idx;
 	state->stack_capacity = new_capacity;
+}
+
+sno_API uint32_t sno_stack_top_idx(const sno_State* state) {
+	sno_assert_ptr(state);
+	sno_assert(state->stack_top >= state->stack_base);
+	sno_assert(state->stack_top - state->stack_base < sno_MAX_STACK);
+	return (uint32_t)(state->stack_top - state->stack_base);
 }
 
 sno_API void sno_reserve_stack(sno_State* state, uint32_t slots) {
@@ -143,6 +153,19 @@ sno_API sno_Bool sno_load_string_from_file(sno_State* state, uint32_t idx) {
 	} else {
 		state->stack_base[idx].u.string = string;
 		return sno_TRUE;
+	}
+}
+
+sno_API void sno_check_argc(sno_State* state, uint8_t argc, uint8_t expected) {
+	sno_assert_ptr(state);
+	if (argc != expected) {
+		sno_throw_runtime_error(
+			state,
+			"Call expected %i argument%s but recieved %i",
+			(int)expected,
+			expected == 1 ? "" : "s",
+			(int)argc
+		);
 	}
 }
 
@@ -409,12 +432,11 @@ sno_API void sno_load_library_into_global_scope(
 	return;
 }
 
-sno_API void sno_load_library_into_table(sno_State* state, const sno_Library* library) {
+static Table* load_library_into_table(sno_State* state, const sno_Library* library) {
 	sno_assert_ptr(state);
 	sno_assert_ptr(library);
 	int i = 0;
 	Table* table = create_table(state);
-	sno_reserve_stack(state, 1);
 	state->stack_top[-1].type = VT_TABLE;
 	state->stack_top[-1].u.table = table;
 	while (1) {
@@ -442,6 +464,16 @@ sno_API void sno_load_library_into_table(sno_State* state, const sno_Library* li
 		}
 		i++;
 	}
+	return table;
+}
+
+sno_API void sno_load_library_into_table(sno_State* state, const sno_Library* library) {
+	sno_assert_ptr(state);
+	sno_assert_ptr(library);
+	Table* table = load_library_into_table(state, library);
+	sno_reserve_stack(state, 1);
+	state->stack_top[-1].type = VT_TABLE;
+	state->stack_top[-1].u.table = table;
 }
 
 
