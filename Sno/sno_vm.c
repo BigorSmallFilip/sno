@@ -210,11 +210,9 @@ void print_bytecode(const Bytecode* bytecode) {
 
 
 static SourceCodePos find_pos(
-	sno_State* state,
 	Bytecode* bytecode,
 	const uint8_t* pc
 ) {
-	sno_assert_ptr(state);
 	sno_assert_ptr(bytecode);
 	sno_assert_ptr(pc);
 	const uint8_t* search_pc = bytecode->instructions;
@@ -264,7 +262,7 @@ static void vm_throw(
 		msg + length,
 		sno_STACK_BUFFER_LENGTH - length,
 		call_info->function.bytecode->source_code,
-		find_pos(state, call_info->function.bytecode, pc)
+		find_pos(call_info->function.bytecode, pc)
 	);
 	va_list args;
 	va_start(args, format);

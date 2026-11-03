@@ -457,8 +457,6 @@ static Table* load_library_into_table(sno_State* state, const sno_Library* libra
 	sno_assert_ptr(library);
 	int i = 0;
 	Table* table = create_table(state);
-	state->stack_top[-1].type = VT_TABLE;
-	state->stack_top[-1].u.table = table;
 	while (1) {
 		const sno_Library* lib_func = &library[i];
 		if (!lib_func->foreign_function) {

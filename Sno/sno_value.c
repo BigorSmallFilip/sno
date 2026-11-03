@@ -233,6 +233,7 @@ static Hash hash_value(Value value) {
 		sno_unreachable;
 	}
 #ifdef sno_USE_ASSERT
+	sno_unreachable;
 	return sno_FALSE;
 #endif
 }
@@ -251,6 +252,7 @@ static sno_Bool value_union_equals(ValueUnion a, ValueUnion b, ValueType type) {
 		sno_unreachable;
 	}
 #ifdef sno_USE_ASSERT
+	sno_unreachable;
 	return sno_FALSE;
 #endif
 }

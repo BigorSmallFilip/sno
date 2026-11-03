@@ -2,7 +2,7 @@
 #include <sno.h>
 
 int main() {
-	printf("Hello\n");
+	printf("Hello this is SnoUser\n");
 
 	sno_State* state = sno_create_state();
 	sno_run_test_thing(state);
