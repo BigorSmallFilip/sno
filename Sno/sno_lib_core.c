@@ -4,7 +4,7 @@
 static uint8_t lib_core_print(sno_State* state, uint8_t argc) {
 	sno_assert_ptr(state);
 	for (size_t i = 0; i < argc; i++) {
-		print_value(state->stack_base[i + 2]);
+		print_value(state->stack_base[i + 1]);
 	}
 	putchar('\n');
 	return 0;

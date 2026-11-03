@@ -169,9 +169,28 @@ sno_API void sno_check_argc(sno_State* state, uint8_t argc, uint8_t expected) {
 	}
 }
 
-
-
-
+void check_arg_type(sno_State* state, uint32_t idx, ValueType type) {
+	sno_assert_ptr(state);
+	sno_assert(idx < state->stack_top - state->stack_base);
+	if (state->stack_base[idx].type != type) {
+		if (idx == 0) {
+			sno_throw_runtime_error(
+				state,
+				"Expected 'self' argument to be %s, but it was %s",
+				get_value_type_noun_phrase(type),
+				get_value_type_noun_phrase(state->stack_base[idx].type)
+			);
+		} else {
+			sno_throw_runtime_error(
+				state,
+				"Expected argument %i to be %s, but it was %s",
+				idx,
+				get_value_type_noun_phrase(type),
+				get_value_type_noun_phrase(state->stack_base[idx].type)
+			);
+		}
+	}
+}
 
 void create_new_global(sno_State* state, Value name, Value value) {
 	sno_assert_ptr(state);
@@ -307,7 +326,8 @@ sno_API uint8_t sno_call(sno_State* state, uint8_t argc, uint8_t retc) {
 	Value* return_values;
 	uint8_t return_values_recieved;
 	call_info.caller_base_idx = (uint32_t)(state->stack_base - state->stack);
-	state->stack_base = state->stack_top - (argc + 2);
+	// Move the stack_base to the slot after the function being called
+	state->stack_base = state->stack_top - (argc + 2) + 1;
 	call_info.argc = argc;
 	if (func_value->type == VT_BYTECODE) {
 		call_info.is_foreign_function = sno_FALSE;

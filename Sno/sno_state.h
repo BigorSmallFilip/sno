@@ -64,6 +64,8 @@ extern const sno_Library lib_table[];
 
 
 
+void check_arg_type(sno_State* state, uint32_t idx, ValueType type);
+
 void create_new_global(sno_State* state, Value name, Value value);
 
 sno_no_return void state_throw(

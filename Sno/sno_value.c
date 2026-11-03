@@ -64,42 +64,46 @@ const char* const value_type_names[] = {
 	"none",
 	"bool",
 	"number",
-	"",
 	"string",
 	"array",
 	"table",
 	"bytecode",
 	"foreign function",
+	"vec2",
+	"vec3",
+	"vec4",
+	"quat",
+	"mat2",
+	"mat3",
+	"mat4",
 };
 
 const char* const get_value_type_name(ValueType type) {
 	sno_assert(type < NUM_VALUE_TYPES);
-	if (type != VT_LINALG) {
-		return value_type_names[type];
-	} else {
-		return "nope lol";
-	}
+	return value_type_names[type];
 }
 
 const char* const value_type_noun_phrases[] = {
 	"none",
 	"a bool",
 	"a number",
-	"",
 	"a string",
 	"an array",
 	"a table",
 	"a bytecode function",
 	"a foreign function",
+	"a vec2",
+	"a vec3",
+	"a vec4",
+	"a quat",
+	"a mat2",
+	"a mat3",
+	"a mat4",
 };
 
 const char* const get_value_type_noun_phrase(ValueType type) {
 	sno_assert(type < NUM_VALUE_TYPES);
-	if (type != VT_LINALG) {
-		return value_type_noun_phrases[type];
-	} else {
-		return "a nope lol";
-	}
+	return value_type_noun_phrases[type];
 }
 
 sno_Bool value_eq(Value a, Value b) {

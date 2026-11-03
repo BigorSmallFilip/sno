@@ -388,15 +388,16 @@ uint8_t execute_bytecode(sno_State* state, uint8_t argc) {
 		state->stack_top - state->stack >= argc + 2,
 		"Too many arguments underflowing the stack"
 	);
-	Value* base = state->stack_top - (argc + 2);
+	Value* base = state->stack_top - (argc + 2) + 1;
+	sno_assert(state->stack_base == base);
 	sno_assert_msg(
-		base->type == VT_BYTECODE,
+		base[-1].type == VT_BYTECODE,
 		"Tried to call something which wasn't a function"
 	);
-	Bytecode* bytecode = base->u.bytecode;
+	Bytecode* bytecode = base[-1].u.bytecode;
 	const uint8_t* pc = bytecode->instructions;
 	OpCode op = (OpCode)*pc;
-	Value* locals = base + 1;
+	Value* locals = base;
 	state->stack_top += bytecode->num_local_slots;
 
 	VM_LOOP {
@@ -561,17 +562,10 @@ uint8_t execute_bytecode(sno_State* state, uint8_t argc) {
 	}
 	VM_CASE(OP_GET_METHOD) {
 		READ_STRING_CONST;
+		Value self = state->stack_top[-1];
+		state->stack_top[-1] = get_field(state, pc, string_const);
 		state->stack_top++;
-		Value key;
-		key.type = VT_STRING;
-		key.u.string = string_const;
-		if (table_set_or_add_key(state, state->globals, key, *state->stack_top)) {
-			vm_throw(state, pc,
-				"A global variable named \"%.*s\" already exists",
-				(unsigned int)string_const->length,
-				istring_chars(string_const)
-			);
-		}
+		state->stack_top[-1] = self;
 		VM_DISPATCH();
 	}
 
