@@ -1211,7 +1211,10 @@ static void for_statement(Tokenizer* ts) {
 
 
 	uint16_t offset_out = (uint16_t)(end - start);
-	uint16_t offset_back = (uint16_t)(end - start + 1);
+	uint16_t offset_back = (uint16_t)(end - start);
+	if (is_numeric_for_loop) {
+		offset_back++;
+	}
 	ts->cs->instructions.buffer[start + 1] = offset_out & 0xFF;
 	ts->cs->instructions.buffer[start + 2] = offset_out >> 8;
 	ts->cs->instructions.buffer[end + 1] = offset_back & 0xFF;

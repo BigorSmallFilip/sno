@@ -398,7 +398,7 @@ uint8_t execute_bytecode(sno_State* state, uint8_t argc) {
 	Value* locals = base;
 	state->stack_top += bytecode->num_local_slots;
 
-	VM_LOOP {
+	VM_LOOP{
 	VM_CASE(OP_NONE)
 		state->stack_top->type = VT_NONE;
 		state->stack_top++;
@@ -501,7 +501,7 @@ uint8_t execute_bytecode(sno_State* state, uint8_t argc) {
 		VM_DISPATCH();
 	}
 	VM_CASE(OP_GET_LOCAL)
-		*state->stack_top = locals[READ_U8()];
+		* state->stack_top = locals[READ_U8()];
 		state->stack_top++;
 		VM_DISPATCH();
 	VM_CASE(OP_SET_LOCAL)
@@ -620,7 +620,7 @@ uint8_t execute_bytecode(sno_State* state, uint8_t argc) {
 			);
 		}
 		VM_DISPATCH();
-		
+
 	VM_CASE(OP_ADD)  OP_ARITH(+=, ADD)  VM_DISPATCH();
 	VM_CASE(OP_SUB)  OP_ARITH(-=, SUB)  VM_DISPATCH();
 	VM_CASE(OP_MUL)  OP_ARITH(*=, MUL)  VM_DISPATCH();
@@ -720,6 +720,94 @@ uint8_t execute_bytecode(sno_State* state, uint8_t argc) {
 		start->u.number += step->u.number;
 		uint16_t jump = READ_U16();
 		pc -= jump;
+		VM_DISPATCH();
+	}
+	VM_CASE(OP_START_CONTAINER_FOR_LOOP) {
+		state->stack_top++;
+		Value* container = state->stack_top - 2;
+		Value* index = state->stack_top - 1;
+		index->type = VT_NUMBER; // Make sure the GC ignores this integer
+		uint32_t jump = READ_U16();
+		pc += 2;
+		if (container->type == VT_ARRAY) {
+			Array* arr = container->u.arr;
+			index->u.i = 0;
+			if (index->u.i < arr->values.count) {
+				// Push the key and value for the STORE_LOCAL instructions after this
+				state->stack_top += 2;
+				state->stack_top[-2] = arr->values.buffer[index->u.i];
+				set_number(state->stack_top[-1], (sno_Number)index->u.i);
+			} else {
+				pc += jump; // Exit out of the loop
+				state->stack_top -= 2; // Remove loop frame
+			}
+		} else if (container->type == VT_TABLE) {
+			Table* table = container->u.table;
+			if (table->count == 0) {
+				pc += jump; // Exit out of the loop
+				state->stack_top -= 2; // Remove loop frame
+			}
+			TableEntry* first = table->entries;
+			index->u.ptr = table->entries;
+			while (first->key_type < 0) {
+				first++;
+				sno_assert_msg(
+					first < table->entries + table->count,
+					"The index should never overflow the array\n"
+					"That would mean it doesn't find a single entry\n"
+					"in a non-empty table"
+				);
+			}
+			// Push the key and value for the STORE_LOCAL instructions after this
+			state->stack_top += 2;
+			state->stack_top[-2].type = first->value_type;
+			state->stack_top[-2].u.i = first->value_union.i;
+			state->stack_top[-1].type = first->key_type;
+			state->stack_top[-1].u.i = first->key_union.i;
+			index->u.ptr = first;
+		}
+		VM_DISPATCH();
+	}
+	VM_CASE(OP_END_CONTAINER_FOR_LOOP) {
+		Value* container = state->stack_top - 2;
+		Value* index = state->stack_top - 1;
+		uint32_t jump = READ_U16();
+		pc += 2;
+		if (container->type == VT_ARRAY) {
+			Array* arr = container->u.arr;
+			index->u.i++;
+			if (index->u.i < arr->values.count) {
+				// Push the key and value for the STORE_LOCAL instructions after this
+				state->stack_top += 2;
+				state->stack_top[-2] = arr->values.buffer[index->u.i];
+				set_number(state->stack_top[-1], (sno_Number)index->u.i);
+			} else {
+				// Exit out of the loop
+				state->stack_top -= 2; // Remove loop frame
+				goto end;
+			}
+		} else if (container->type == VT_TABLE) {
+			Table* table = container->u.table;
+			TableEntry* entry = index->u.ptr;
+			do { // Find the next entry
+				entry++;
+				if (entry >= table->entries + table->capacity_mask + 1) {
+					// Reached end of entries list
+					// Exit out of the loop
+					state->stack_top -= 2; // Remove loop frame
+					goto end;
+				}
+			} while (entry->key_type < 0);
+			// Push the key and value for the STORE_LOCAL instructions after this
+			state->stack_top += 2;
+			state->stack_top[-2].type = entry->value_type;
+			state->stack_top[-2].u.i = entry->value_union.i;
+			state->stack_top[-1].type = entry->key_type;
+			state->stack_top[-1].u.i = entry->key_union.i;
+			index->u.ptr = entry;
+		}
+		pc -= (uint16_t)jump;
+	end:
 		VM_DISPATCH();
 	}
 

@@ -344,11 +344,12 @@ sno_API uint8_t sno_call(sno_State* state, uint8_t argc, uint8_t retc) {
 	}
 	return_values = state->stack_top - return_values_recieved;
 	state->stack_top = state->stack + caller_results_idx + retc;
+	Value* return_values_dst = state->stack_top - retc;
 	for (size_t i = 0; i < retc; i++) {
 		if (i >= return_values_recieved) {
-			state->stack_base[i].type = VT_NONE;
+			return_values_dst[i].type = VT_NONE;
 		} else {
-			state->stack_base[i] = return_values[i];
+			return_values_dst[i] = return_values[i];
 		}
 	}
 	state->stack_base = state->stack + call_info.caller_base_idx;

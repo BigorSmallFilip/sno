@@ -1,8 +1,10 @@
 
-var size = 0
-for y = 1, 11 {
-	for x = 1, 11 {
-		printnl(x * y, ",\t")
-	}
-	print()
+var names = {
+	"a": 1
+	"b": 2
+	"c": 3
+}
+
+for k, v in names {
+	print("k[", k, "] = ", v)
 }
