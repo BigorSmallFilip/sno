@@ -33,7 +33,7 @@ sno_API sno_State* sno_create_state(void) {
 	state->count_builtin_string = create_istring(
 		state, sno_string_comma_length("count")
 	);
-
+	
 	return state;
 }
 

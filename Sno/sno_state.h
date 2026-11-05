@@ -67,6 +67,7 @@ extern const sno_Library lib_table[];
 
 
 void check_arg_type(sno_State* state, uint32_t idx, ValueType type);
+#define set_retc(retc) state->stack_top = state->stack_base + retc; return retc
 
 void create_new_global(sno_State* state, Value name, Value value);
 

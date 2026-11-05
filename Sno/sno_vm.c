@@ -308,6 +308,12 @@ static Value get_field(
 	key.type = VT_STRING;
 	key.u.string = name;
 	if (container->type == VT_STRING) {
+		if (name == state->count_builtin_string) {
+			IString* string = container->u.string;
+			Value v;
+			set_number(v, (sno_Number)string->length);
+			return v;
+		}
 		if (!table_get_key(state, state->string_prototype, key, &out)) {
 			vm_throw(
 				state, pc,
