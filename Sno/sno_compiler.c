@@ -93,6 +93,7 @@ static Bytecode* free_function_compiler(Tokenizer* ts, Compiler* cs) {
 	bytecode->name = cs->name;
 	bytecode->source_code_name = ts->source_code_name;
 	bytecode->source_code = ts->source_code;
+	bytecode->num_local_slots = cs->max_active_local_slots;
 
 	sno_assert(cs->instructions.count < MAX_BYTECODE_INSTRUCTIONS);
 	sno_assert(cs->instruction_pos.count <= cs->instructions.count);
@@ -1210,7 +1211,7 @@ static void for_statement(Tokenizer* ts) {
 
 
 	uint16_t offset_out = (uint16_t)(end - start);
-	uint16_t offset_back = (uint16_t)(end - start);
+	uint16_t offset_back = (uint16_t)(end - start + 1);
 	ts->cs->instructions.buffer[start + 1] = offset_out & 0xFF;
 	ts->cs->instructions.buffer[start + 2] = offset_out >> 8;
 	ts->cs->instructions.buffer[end + 1] = offset_back & 0xFF;

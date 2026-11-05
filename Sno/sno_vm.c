@@ -685,6 +685,44 @@ uint8_t execute_bytecode(sno_State* state, uint8_t argc) {
 		));
 		VM_DISPATCH();
 
+	VM_CASE(OP_START_NUMERIC_FOR_LOOP) {
+		Value* start = state->stack_top - 3;
+		Value* stop = state->stack_top - 2;
+		Value* step = state->stack_top - 1;
+		if (start->type != VT_NUMBER ||
+			stop->type != VT_NUMBER ||
+			step->type != VT_NUMBER
+		) {
+			vm_throw(
+				state, pc,
+				"For loop was given non number arguments"
+			);
+		}
+		uint16_t jump = READ_U16();
+		pc += 2;
+		if (start->u.number < stop->u.number) {
+			// Push the iter number for the STORE_LOCAL instruction after this
+			set_number(*state->stack_top, start->u.number);
+			state->stack_top++;
+		} else {
+			state->stack_top -= 3; // Discard the loop variables
+			pc += jump; // Jump out
+		}
+		VM_DISPATCH();
+	}
+	VM_CASE(OP_END_NUMERIC_FOR_LOOP) {
+		Value* start = state->stack_top - 3;
+		Value* stop = state->stack_top - 2;
+		Value* step = state->stack_top - 1;
+		sno_assert(start->type == VT_NUMBER);
+		sno_assert(stop->type == VT_NUMBER);
+		sno_assert(step->type == VT_NUMBER);
+		start->u.number += step->u.number;
+		uint16_t jump = READ_U16();
+		pc -= jump;
+		VM_DISPATCH();
+	}
+
 	VM_CASE(OP_CALL) {
 		uint8_t arg = READ_U8();
 		uint8_t call_argc = arg & 0x0F;

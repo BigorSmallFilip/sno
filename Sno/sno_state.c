@@ -325,6 +325,7 @@ sno_API uint8_t sno_call(sno_State* state, uint8_t argc, uint8_t retc) {
 	CallInfo call_info;
 	Value* return_values;
 	uint8_t return_values_recieved;
+	uint32_t caller_results_idx = (uint32_t)(func_value - state->stack);
 	call_info.caller_base_idx = (uint32_t)(state->stack_base - state->stack);
 	// Move the stack_base to the slot after the function being called
 	state->stack_base = state->stack_top - (argc + 2) + 1;
@@ -342,7 +343,7 @@ sno_API uint8_t sno_call(sno_State* state, uint8_t argc, uint8_t retc) {
 		return_values_recieved = ff(state, argc);
 	}
 	return_values = state->stack_top - return_values_recieved;
-	state->stack_top = state->stack_base + retc;
+	state->stack_top = state->stack + caller_results_idx + retc;
 	for (size_t i = 0; i < retc; i++) {
 		if (i >= return_values_recieved) {
 			state->stack_base[i].type = VT_NONE;

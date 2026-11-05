@@ -1,5 +1,8 @@
 
-var numbers = [1, 3, 5, 7]
-print(numbers)
-numbers.push(1000)
-print(numbers)
+var size = 0
+for y = 1, 11 {
+	for x = 1, 11 {
+		printnl(x * y, ",\t")
+	}
+	print()
+}
