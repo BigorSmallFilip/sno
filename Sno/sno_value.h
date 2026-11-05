@@ -137,6 +137,10 @@ sno_Bool table_get_key(
 	Value key,
 	Value* out_value
 );
+sno_Bool table_has_key(
+	Table* table,
+	Value key
+);
 sno_Bool table_remove_key(
 	struct sno_State* state,
 	Table* table,

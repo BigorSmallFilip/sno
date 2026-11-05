@@ -9,4 +9,4 @@
 #include "sno_tokenizer.c"
 #include "sno_value.c"
 #include "sno_vm.c"
-#include "testmain.c"
+#include "sno_cli_app_main.c"

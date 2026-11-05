@@ -188,7 +188,7 @@
     <ClCompile Include="sno_tokenizer.c" />
     <ClCompile Include="sno_value.c" />
     <ClCompile Include="sno_vm.c" />
-    <ClCompile Include="testmain.c" />
+    <ClCompile Include="sno_cli_app_main.c" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="sno.h" />

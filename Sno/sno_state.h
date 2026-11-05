@@ -55,6 +55,8 @@ typedef struct sno_State {
 	ExceptionType exception_type;
 	ExceptionJump* exception_jump;
 	const IString* exception_message;
+
+	const IString* count_builtin_string;
 } sno_State;
 
 extern const sno_Library lib_core[];

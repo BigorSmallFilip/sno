@@ -1,10 +1,57 @@
 
-var names = {
-	"a": 1
-	"b": 2
-	"c": 3
+var numbers = []
+for i = 0, 100 {
+	numbers.push(i)
+	print(numbers.count)
+}
+print(numbers)
+
+
+var lettering = {
+    "alfa": "a"
+    "bravo": "b"
+    "charlie": "c"
+    "delta": "d"
+    "echo": "e"
+    "foxtrot": "f"
+    "golf": "g"
+    "hotel": "h"
+    "india": "i"
+    "juliett": "j"
+    "kilo": "k"
+    "lima": "l"
+    "mike": "m"
+    "november": "n"
+    "oscar": "o"
+    "papa": "p"
+    "quebec": "q"
+    "romeo": "r"
+    "sierra": "s"
+    "tango": "t"
+    "uniform": "u"
+    "victor": "v"
+    "whiskey": "w"
+    "x-ray": "x"
+    "yankee": "y"
+    "zulu": "z"
 }
 
-for k, v in names {
-	print("k[", k, "] = ", v)
+print(lettering.has("alfa"))
+lettering["why"] = 10
+
+print(lettering)
+
+for key, value in lettering {
+    print(key, " = ", value)
 }
+
+print(lettering["why"])
+
+
+
+print("\nThe strings\n")
+
+var name = "Jone"
+print(name)
+name[0] = "B"
+print(name)

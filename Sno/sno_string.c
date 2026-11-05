@@ -298,6 +298,31 @@ IString* create_istring(
 	}
 }
 
+IString* get_index_istring(sno_State* state, IString* string, size_t index) {
+	sno_assert_ptr(state);
+	sno_assert_ptr(string);
+	sno_assert(index < string->length);
+	const char* const chars = istring_chars(string);
+	return create_istring(state, &chars[index], 1);
+}
+
+IString* set_index_istring(
+	sno_State* state,
+	IString* string,
+	size_t index,
+	char c
+) {
+	sno_assert_ptr(state);
+	sno_assert_ptr(string);
+	sno_assert(index < string->length);
+	char* buf = state_alloc(state, string->length);
+	memcpy(buf, istring_chars(string), string->length);
+	buf[index] = c;
+	IString* new_string = create_istring(state, buf, string->length);
+	state_free(state, string->length, buf);
+	return new_string;
+}
+
 IString* load_istring_from_file(
 	sno_State* state,
 	const char* const path,

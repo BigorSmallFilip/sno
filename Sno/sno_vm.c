@@ -301,11 +301,13 @@ static Value get_field(
 ) {
 	sno_assert_ptr(state);
 	sno_assert_ptr(pc);
+	sno_assert_ptr(name);
+	Value* container = &state->stack_top[-1];
 	Value out;
 	Value key;
 	key.type = VT_STRING;
 	key.u.string = name;
-	if (state->stack_top[-1].type == VT_STRING) {
+	if (container->type == VT_STRING) {
 		if (!table_get_key(state, state->string_prototype, key, &out)) {
 			vm_throw(
 				state, pc,
@@ -314,7 +316,13 @@ static Value get_field(
 				istring_chars(name)
 			);
 		}
-	} else if (state->stack_top[-1].type == VT_ARRAY) {
+	} else if (container->type == VT_ARRAY) {
+		if (name == state->count_builtin_string) {
+			Array* arr = container->u.arr;
+			Value v;
+			set_number(v, (sno_Number)arr->values.count);
+			return v;
+		}
 		if (!table_get_key(state, state->array_prototype, key, &out)) {
 			vm_throw(
 				state, pc,
@@ -323,10 +331,15 @@ static Value get_field(
 				istring_chars(name)
 			);
 		}
-	} else if (state->stack_top[-1].type == VT_TABLE) {
-		Table* table = state->stack_top[-1].u.table;
+	} else if (container->type == VT_TABLE) {
+		Table* table = container->u.table;
 		Table* prototype = table->prototype;
 		if (!prototype) {
+			if (name == state->count_builtin_string) {
+				Value v;
+				set_number(v, (sno_Number)table->count);
+				return v;
+			}
 			prototype = state->table_prototype;
 		}
 		if (!table_get_key(state, prototype, key, &out)) {
@@ -343,10 +356,175 @@ static Value get_field(
 		vm_throw(
 			state, pc,
 			"Cannot get fields on %s",
-			get_value_type_noun_phrase(state->stack_top[-1].type)
+			get_value_type_noun_phrase(container->type)
 		);
 	}
 	return out;
+}
+
+
+
+static void set_field(
+	sno_State* state,
+	const OpCode* pc,
+	IString* name
+) {
+	sno_assert_ptr(state);
+	sno_assert_ptr(pc);
+	sno_assert_ptr(name);
+	Value* container = &state->stack_top[-2];
+	Value* value = &state->stack_top[-1];
+	Value key;
+	key.type = VT_STRING;
+	key.u.string = name;
+	if (container->type == VT_TABLE) {
+		Table* table = container->u.table;
+		Table* prototype = table->prototype;
+		if (!prototype) {
+			if (name == state->count_builtin_string) {
+				vm_throw(state, pc, "Cannot set the count of a table");
+			}
+			prototype = state->table_prototype;
+		}
+		if (!table_set_key(state, prototype, key, *value)) {
+			if (!table_set_key(state, table, key, *value)) {
+				vm_throw(
+					state, pc,
+					"Table has no field named %.*s",
+					(unsigned int)name->length,
+					istring_chars(name)
+				);
+			}
+		}
+	} else {
+		vm_throw(
+			state, pc,
+			"Cannot set fields on %s",
+			get_value_type_noun_phrase(container->type)
+		);
+	}
+}
+
+
+
+static size_t valid_int_index(
+	sno_State* state,
+	const OpCode* pc,
+	size_t max,
+	Value* index
+) {
+	if (index->type != VT_NUMBER) {
+		vm_throw(
+			state, pc, "Expected an integer index, but found %s",
+			get_value_type_noun_phrase(index->type)
+		);
+	}
+	sno_Number n = index->u.number;
+	if (!sno_number_is_valid_i64(n)) {
+		vm_throw(state, pc, "Index %g isn't an integer", n);
+	}
+	if (n < 0) {
+		vm_throw(state, pc, "Index %g can't be negative", n);
+	}
+	size_t i = (size_t)n;
+	if (i >= max) {
+		vm_throw(state, pc, "Index %llu is out of bounds", i);
+	}
+	return i;
+}
+
+static Value get_index(
+	sno_State* state,
+	const OpCode* pc,
+	Value* container,
+	Value* key
+) {
+	sno_assert_ptr(state);
+	sno_assert_ptr(pc);
+	sno_assert_ptr(container);
+	sno_assert_ptr(key);
+	Value out;
+	if (container->type == VT_STRING) {
+		IString* string = container->u.string;
+		size_t index = valid_int_index(state, pc, string->length, key);
+		set_string(out, get_index_istring(state, string, index));
+	} else if (container->type == VT_ARRAY) {
+		Array* arr = container->u.arr;
+		size_t index = valid_int_index(state, pc, arr->values.count, key);
+		out = arr->values.buffer[index];
+	} else if (container->type == VT_TABLE) {
+		Table* table = container->u.table;
+		if (table->prototype) {
+			vm_throw(
+				state, pc, "Cannot index into a table with a prototype"
+			);
+		}
+		if (!table_get_key(state, table, *key, &out)) {
+			set_none(out);
+		}
+	} else {
+		vm_throw(
+			state, pc,
+			"Cannot index into %s",
+			get_value_type_noun_phrase(container->type)
+		);
+	}
+	return out;
+}
+
+
+
+static void set_index(
+	sno_State* state,
+	const OpCode* pc,
+	Value* container,
+	Value* key,
+	Value* value
+) {
+	sno_assert_ptr(state);
+	sno_assert_ptr(pc);
+	sno_assert_ptr(container);
+	sno_assert_ptr(key);
+	sno_assert_ptr(value);
+	if (container->type == VT_STRING) {
+		IString* string = container->u.string;
+		size_t index = valid_int_index(state, pc, string->length, key);
+		if (value->type != VT_STRING) {
+			vm_throw(
+				state, pc,
+				"Expected to set using a 1 character string, not %s",
+				get_value_type_noun_phrase(value->type)
+			);
+		}
+		IString* set_value = value->u.string;
+		if (set_value->length != 1) {
+			vm_throw(
+				state, pc,
+				"Expected to set using a 1 character string, "
+				"but its length was %i",
+				set_value->length
+			);
+		}
+		set_index_istring(state, string, index, istring_chars(set_value)[0]);
+	} else if (container->type == VT_ARRAY) {
+		Array* arr = container->u.arr;
+		size_t index = valid_int_index(state, pc, arr->values.count, key);
+		arr->values.buffer[index] = *value;
+	} else if (container->type == VT_TABLE) {
+		Table* table = container->u.table;
+		if (table->prototype) {
+			vm_throw(
+				state, pc, "Cannot index into a table with a prototype"
+			);
+		}
+		(void)table_set_or_add_key(state, table, *key, *value);
+	} else {
+		vm_throw(
+			state, pc,
+			"Cannot index into %s",
+			get_value_type_noun_phrase(container->type)
+		);
+	}
 }
 
 
@@ -541,6 +719,26 @@ uint8_t execute_bytecode(sno_State* state, uint8_t argc) {
 	VM_CASE(OP_GET_FIELD) {
 		READ_STRING_CONST;
 		state->stack_top[-1] = get_field(state, pc, string_const);
+		VM_DISPATCH();
+	}
+	VM_CASE(OP_SET_FIELD) {
+		READ_STRING_CONST;
+		set_field(state, pc, string_const);
+		VM_DISPATCH();
+	}
+	VM_CASE(OP_GET_INDEX) {
+		Value* container = &state->stack_top[-2];
+		Value* key = &state->stack_top[-1];
+		state->stack_top--;
+		state->stack_top[-1] = get_index(state, pc, container, key);
+		VM_DISPATCH();
+	}
+	VM_CASE(OP_SET_INDEX) {
+		Value* container = &state->stack_top[-3];
+		Value* key = &state->stack_top[-2];
+		Value* value = &state->stack_top[-1];
+		state->stack_top -= 3;
+		set_index(state, pc, container, key, value);
 		VM_DISPATCH();
 	}
 	VM_CASE(OP_SET_NEW_GLOBAL) {

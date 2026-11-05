@@ -459,6 +459,11 @@ sno_Bool table_get_key(
 	return sno_FALSE;
 }
 
+sno_Bool table_has_key(Table* table, Value key) {
+	TableEntry* unused;
+	return table_find_entry(table, key, &unused);
+}
+
 sno_Bool table_remove_key(
 	sno_State* state,
 	Table* table,

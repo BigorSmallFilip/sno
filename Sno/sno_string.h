@@ -47,6 +47,13 @@ IString* create_istring(
 	const char* const string,
 	size_t length
 );
+IString* get_index_istring(sno_State* state, IString* string, size_t index);
+IString* set_index_istring(
+	sno_State* state,
+	IString* string,
+	size_t index,
+	char c
+);
 
 IString* load_istring_from_file(
 	struct sno_State* state,

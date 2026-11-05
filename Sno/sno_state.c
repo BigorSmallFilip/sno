@@ -30,7 +30,10 @@ sno_API sno_State* sno_create_state(void) {
 	state->string_prototype = load_library_into_table(state, lib_string);
 	state->array_prototype = load_library_into_table(state, lib_array);
 	state->table_prototype = load_library_into_table(state, lib_table);
-	
+	state->count_builtin_string = create_istring(
+		state, sno_string_comma_length("count")
+	);
+
 	return state;
 }
 
