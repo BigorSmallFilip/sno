@@ -984,7 +984,6 @@ static BinOp subexpression(
 			uint16_t offset = (uint16_t)(jump_to - jump_from);
 			ts->cs->instructions.buffer[jump_from + 1] = offset & 0xFF;
 			ts->cs->instructions.buffer[jump_from + 2] = offset >> 8;
-			next_binop = NOT_BINOP;
 		} else {
 			next_binop = subexpression(ts, operator_precedence[binop].right);
 			emit_0(
@@ -1088,14 +1087,14 @@ static void if_statement(Tokenizer* ts) {
 		if (else_jump_to - else_jump_from > UINT16_MAX) {
 			syntax_error(ts, else_pos, "Jumps too far");
 		}
-		uint16_t else_jump_offset = (uint16_t)(else_jump_to - else_jump_from);
+		uint16_t else_jump_offset = (uint16_t)(else_jump_to - else_jump_from - 1);
 		ts->cs->instructions.buffer[else_jump_from + 1] = else_jump_offset & 0xFF;
 		ts->cs->instructions.buffer[else_jump_from + 2] = else_jump_offset >> 8;
 	}
 	if (jump_to - jump_from > UINT16_MAX) {
 		syntax_error(ts, lbrace_pos, "Jumps too far");
 	}
-	uint16_t jump_offset = (uint16_t)(jump_to - jump_from);
+	uint16_t jump_offset = (uint16_t)(jump_to - jump_from - 3);
 	ts->cs->instructions.buffer[jump_from + 1] = jump_offset & 0xFF;
 	ts->cs->instructions.buffer[jump_from + 2] = jump_offset >> 8;
 }
@@ -1110,7 +1109,7 @@ static void while_statement(Tokenizer* ts) {
 	PC back_from = emit_2(ts, NO_POS, OP_JMP_BACK, 0);
 	PC out_to = back_from;
 
-	uint16_t back_offset = (uint16_t)(back_from - back_to + 3);
+	uint16_t back_offset = (uint16_t)(back_from - back_to);
 	uint16_t out_offset = (uint16_t)(out_to - out_from);
 	ts->cs->instructions.buffer[back_from + 1] = back_offset & 0xFF;
 	ts->cs->instructions.buffer[back_from + 2] = back_offset >> 8;

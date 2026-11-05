@@ -888,6 +888,38 @@ uint8_t execute_bytecode(sno_State* state, uint8_t argc) {
 			state->stack_top[-1]
 		));
 		VM_DISPATCH();
+	VM_CASE(OP_AND)
+	VM_CASE(OP_OR) {
+		uint16_t jump = READ_U16();
+		pc += 2;
+		sno_Bool b = value_to_bool(state->stack_top[-1]);
+		if (b == (op == OP_OR)) {
+			set_bool(state->stack_top[-1], b);
+			pc += jump;
+		} else {
+			state->stack_top--;
+		}
+		VM_DISPATCH();
+	}
+	VM_CASE(OP_JMP_IF_FALSE) {
+		uint16_t jump = READ_U16();
+		pc += 2;
+		if (!value_to_bool(state->stack_top[-1])) {
+			pc += jump;
+		}
+		state->stack_top--;
+		VM_DISPATCH();
+	}
+	VM_CASE(OP_JMP) {
+		uint16_t jump = READ_U16();
+		pc += jump;
+		VM_DISPATCH();
+	}
+	VM_CASE(OP_JMP_BACK) {
+		uint16_t jump = READ_U16();
+		pc -= jump;
+		VM_DISPATCH();
+	}
 
 	VM_CASE(OP_START_NUMERIC_FOR_LOOP) {
 		Value* start = state->stack_top - 3;

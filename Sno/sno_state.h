@@ -82,6 +82,6 @@ sno_no_return void state_throw(
 
 void push_table(sno_State* state, Table* table);
 
-
+double perftimer(void);
 
 #endif

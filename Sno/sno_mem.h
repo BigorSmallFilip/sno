@@ -88,11 +88,14 @@ void snake_case##_dyn_array_push_n(										 \
 	if (dyn_array->buffer == NULL) {									 \
 		sno_assert(dyn_array->count == 0);								 \
 		sno_assert(dyn_array->capacity == 0);							 \
-		dyn_array->buffer = state_alloc(state, sizeof(type) * 8);	     \
-		dyn_array->capacity = 8;										 \
+		dyn_array->capacity = sno_max(pow2_ge(num_items), 8);            \
+		dyn_array->buffer = state_alloc(								 \
+			state,                                                       \
+			sizeof(type) * dyn_array->capacity							 \
+		);                                        	                     \
 	} else if (dyn_array->count + num_items > dyn_array->capacity) {	 \
 		sno_assert(sno_is_power_of_2(dyn_array->capacity));				 \
-		size_t new_capacity = dyn_array->capacity << 1;					 \
+		size_t new_capacity = pow2_ge(dyn_array->count + num_items);	 \
 		dyn_array->buffer = state_realloc(								 \
 			state,			     										 \
 			sizeof(type) * dyn_array->capacity,							 \

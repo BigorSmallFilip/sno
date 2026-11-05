@@ -236,6 +236,8 @@ sno_no_return void state_throw(
 	}
 }
 
+
+
 void push_table(sno_State* state, Table* table) {
 	sno_assert_ptr(state);
 	sno_assert_ptr(table);
@@ -546,3 +548,23 @@ sno_API void sno_run_test_thing(sno_State* state) {
 	//test_tables(state);
 	print_string_interning_set(state);
 }
+
+
+
+#ifdef sno_WINDOWS
+
+#define WIN32_LEAN_AND_MEAN
+#include <Windows.h>
+double perftimer(void) {
+	uint64_t time = 0;
+	QueryPerformanceCounter((LARGE_INTEGER*)&time);
+	return (double)time / 10000000.0;
+}
+
+#else
+
+double perftimer(void) {
+	return 0.0;
+}
+
+#endif

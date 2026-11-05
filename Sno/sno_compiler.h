@@ -160,7 +160,7 @@ DECLARE_GENERIC_DYN_ARRAY(PC, PC, pc);
 DECLARE_GENERIC_DYN_ARRAY(Bytecode*, Bytecode, bytecode);
 DECLARE_GENERIC_DYN_ARRAY(LocalVar, LocalVar, local_var);
 
-#define MAX_BLOCK_DEPTH 3
+#define MAX_BLOCK_DEPTH 100
 
 typedef struct Block {
 	struct Block* prev;

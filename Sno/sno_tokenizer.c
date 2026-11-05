@@ -760,13 +760,14 @@ static TokenType lex_token(Tokenizer* ts, Token* token) {
 	case 'n': {
 		ts->cur_char++;
 		if (check_next(ts, 'o')) {
-			if (!check_next(ts, 'n')) goto identifier;
-			if (!check_next(ts, 'e')) goto identifier;
-			if (check_next_alphanumeric(ts)) goto identifier;
-			return TK_NONE;
-		} else if (check_next(ts, 't')) {
-			if (check_next_alphanumeric(ts)) goto identifier;
-			return TK_LNOT;
+			if (check_next(ts, 'n')) {
+				if (!check_next(ts, 'e')) goto identifier;
+				if (check_next_alphanumeric(ts)) goto identifier;
+				return TK_NONE;
+			} else if (check_next(ts, 't')) {
+				if (check_next_alphanumeric(ts)) goto identifier;
+				return TK_LNOT;
+			}
 		}
 		goto identifier;
 	}
