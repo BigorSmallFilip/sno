@@ -323,6 +323,28 @@ IString* set_index_istring(
 	return new_string;
 }
 
+IString* istring_to_upper(sno_State* state, IString* string) {
+	char* buf = state_alloc(state, string->length);
+	for (uint32_t i = 0; i < string->length; i++) {
+		char c = istring_chars(string)[i];
+		buf[i] = c + (c >= 'a' && c <= 'z') * ('A' - 'a');
+	}
+	IString* new_string = create_istring(state, buf, string->length);
+	state_free(state, string->length, buf);
+	return new_string;
+}
+
+IString* istring_to_lower(sno_State* state, IString* string) {
+	char* buf = state_alloc(state, string->length);
+	for (uint32_t i = 0; i < string->length; i++) {
+		char c = istring_chars(string)[i];
+		buf[i] = c + (c >= 'A' && c <= 'Z') * ('a' - 'A');
+	}
+	IString* new_string = create_istring(state, buf, string->length);
+	state_free(state, string->length, buf); // TODO: Change the order of these args!
+	return new_string;
+}
+
 IString* load_istring_from_file(
 	sno_State* state,
 	const char* const path,

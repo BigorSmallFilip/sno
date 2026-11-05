@@ -26,8 +26,26 @@ static uint8_t lib_table_has(sno_State* state, uint8_t argc) {
 	return 1;
 }
 
+static uint8_t lib_table_set_prototype(sno_State* state, uint8_t argc) {
+	sno_assert_ptr(state);
+	sno_check_argc(state, argc, 1);
+	check_arg_type(state, 0, VT_TABLE);
+	check_arg_type(state, 1, VT_TABLE);
+	Table* table = state->stack_base[0].u.table;
+	sno_assert_msg(
+		table->prototype == NULL,
+		"You shouldn't be able to change a table's prototype"
+	);
+	Table* prototype = state->stack_base[1].u.table;
+	table->prototype = prototype;
+	state->stack_top = state->stack_base + 1;
+	set_table(state->stack_base[0], table);
+	return 1;
+}
+
 const sno_Library lib_table[] = {
 	sno_Fn(table, insert),
 	sno_Fn(table, has),
+	sno_Fn(table, set_prototype),
 	sno_FnEnd(),
 };

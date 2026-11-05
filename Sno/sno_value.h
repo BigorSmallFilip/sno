@@ -54,6 +54,8 @@ typedef struct Value {
 	(v).type = VT_BOOL; (v).u.number = ((b) ? NUMBER_TRUE : NUMBER_FALSE)
 #define set_number(v, n) (v).type = VT_NUMBER; (v).u.number = (n)
 #define set_string(v, s) (v).type = VT_STRING; (v).u.string = (s)
+#define set_array(v, a) (v).type = VT_ARRAY; (v).u.table = (a)
+#define set_table(v, t) (v).type = VT_TABLE; (v).u.table = (t)
 #define set_bytecode(v, b) (v).type = VT_BYTECODE; (v).u.bytecode = b
 
 const char* const get_value_type_name(ValueType type);

@@ -54,6 +54,8 @@ IString* set_index_istring(
 	size_t index,
 	char c
 );
+IString* istring_to_upper(sno_State* state, IString* string);
+IString* istring_to_lower(sno_State* state, IString* string);
 
 IString* load_istring_from_file(
 	struct sno_State* state,
