@@ -554,9 +554,19 @@ static void set_index(
 	Bytecode* bytecode_const = bytecode->bytecode_constants[const_id]
 
 
+#define VM_DEBUG_OP \
+    printf( \
+        sno_ANSI_BLUE "pc=% 5u % 22s > sp=%u\n" sno_ANSI_NORMAL, \
+        (unsigned int)(pc - bytecode->instructions), \
+        opcode_info[op].name, \
+        (unsigned int)(state->stack_top - state->stack) \
+	)
+
 #define VM_LOOP \
-	loop: \
-	switch (op = (OpCode)READ_U8())
+	loop: {} \
+    op = (OpCode)READ_U8(); \
+    VM_DEBUG_OP; \
+	switch (op)
 
 #define VM_CASE(opcode) case opcode:
 #define VM_DISPATCH() goto loop
@@ -582,7 +592,7 @@ uint8_t execute_bytecode(sno_State* state, uint8_t argc) {
 	Value* locals = base;
 	state->stack_top += bytecode->num_local_slots;
 
-	VM_LOOP{
+	VM_LOOP {
 	VM_CASE(OP_NONE)
 		state->stack_top->type = VT_NONE;
 		state->stack_top++;

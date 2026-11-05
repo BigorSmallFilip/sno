@@ -27,7 +27,7 @@
 #ifdef sno_MSVC
 
 //#define sno_BUILD_LIB
-
+//#define sno_WINDOWS
 #define sno_USE_DEBUG_BREAK
 #define sno_USE_ANSI_COLOR
 //#define sno_USE_32BIT_FLOAT_NUMBERS

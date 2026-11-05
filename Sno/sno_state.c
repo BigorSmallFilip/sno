@@ -563,8 +563,9 @@ double perftimer(void) {
 
 #else
 
+#include <time.h>
 double perftimer(void) {
-	return 0.0;
+	return (double)clock() / 1000.0;
 }
 
 #endif

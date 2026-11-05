@@ -100,7 +100,7 @@
       <EnforceTypeConversionRules>true</EnforceTypeConversionRules>
       <CompileAs>CompileAsC</CompileAs>
       <UseFullPaths>false</UseFullPaths>
-      <DisableSpecificWarnings>4100;4710;4711;4820;4324;5045;4019;4777;</DisableSpecificWarnings>
+      <DisableSpecificWarnings>4224;4100;4710;4711;4820;4324;5045;4019;4777;</DisableSpecificWarnings>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -123,7 +123,7 @@
       <EnforceTypeConversionRules>true</EnforceTypeConversionRules>
       <CompileAs>CompileAsC</CompileAs>
       <UseFullPaths>false</UseFullPaths>
-      <DisableSpecificWarnings>4100;4710;4711;4820;4324;5045;4019;4777;</DisableSpecificWarnings>
+      <DisableSpecificWarnings>4224;4100;4710;4711;4820;4324;5045;4019;4777;</DisableSpecificWarnings>
       <Optimization>MinSpace</Optimization>
     </ClCompile>
     <Link>
@@ -145,7 +145,7 @@
       <EnforceTypeConversionRules>true</EnforceTypeConversionRules>
       <CompileAs>CompileAsC</CompileAs>
       <UseFullPaths>false</UseFullPaths>
-      <DisableSpecificWarnings>4100;4710;4711;4820;4324;5045;4019;</DisableSpecificWarnings>
+      <DisableSpecificWarnings>4224;4100;4710;4711;4820;4324;5045;4019;</DisableSpecificWarnings>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -168,7 +168,7 @@
       <EnforceTypeConversionRules>true</EnforceTypeConversionRules>
       <CompileAs>CompileAsC</CompileAs>
       <UseFullPaths>false</UseFullPaths>
-      <DisableSpecificWarnings>4100;4710;4711;4820;4324;5045;4019;</DisableSpecificWarnings>
+      <DisableSpecificWarnings>4224;4100;4710;4711;4820;4324;5045;4019;</DisableSpecificWarnings>
       <Optimization>MinSpace</Optimization>
     </ClCompile>
     <Link>
