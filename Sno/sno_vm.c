@@ -636,8 +636,11 @@ uint8_t execute_bytecode(sno_State* state, uint8_t argc) {
 	VM_CASE(OP_INTERPOLATE_STRING) {
 		uint8_t concats = READ_U8();
 		sno_assert(concats > 0);
-		state->stack_top->type = VT_STRING;
-		state->stack_top->u.string = create_istring(state, "interpolated lol haha", 21);
+		state->stack_top -= concats;
+		IString* result = interpolate_istring(
+			state, state->stack_top, concats
+		);
+		set_string(state->stack_top[0], result);
 		state->stack_top++;
 		VM_DISPATCH();
 	}

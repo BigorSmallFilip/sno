@@ -62,6 +62,12 @@ const char* const get_value_type_name(ValueType type);
 const char* const get_value_type_noun_phrase(ValueType type);
 sno_Bool value_eq(Value a, Value b);
 sno_Bool value_to_bool(Value value);
+void value_to_buffer_string(
+	sno_State* state,
+	Value value,
+	ByteDynArray* buffer,
+	size_t recursion_depth
+);
 
 void print_value(Value value);
 

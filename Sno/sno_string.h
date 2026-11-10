@@ -3,6 +3,7 @@
 
 #include "sno.h"
 #include "sno_mem.h"
+#include "sno_value.h"
 
 // Non null terminated string
 typedef struct String {
@@ -56,6 +57,12 @@ IString* set_index_istring(
 );
 IString* istring_to_upper(sno_State* state, IString* string);
 IString* istring_to_lower(sno_State* state, IString* string);
+
+IString* interpolate_istring(
+	sno_State* state,
+	const Value* values,
+	uint8_t count
+);
 
 IString* load_istring_from_file(
 	struct sno_State* state,

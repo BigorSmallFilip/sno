@@ -1,6 +1,7 @@
 #include "sno_string.h"
 
 #include "sno_state.h"
+#include "sno_value.h"
 #include <string.h>
 #include <stdio.h>
 
@@ -343,6 +344,20 @@ IString* istring_to_lower(sno_State* state, IString* string) {
 	IString* new_string = create_istring(state, buf, string->length);
 	state_free(state, string->length, buf); // TODO: Change the order of these args!
 	return new_string;
+}
+
+IString* interpolate_istring(
+	sno_State* state,
+	const Value* values,
+	uint8_t count
+) {
+	sno_assert_ptr(state);
+	sno_assert_ptr(values);
+	ByteDynArray buffer = { 0 };
+	for (size_t i = 0; i < (size_t)count; i++) {
+		value_to_buffer_string(state, values[i], &buffer, 4);
+	}
+	return create_istring(state, (char*)buffer.buffer, buffer.count);
 }
 
 IString* load_istring_from_file(

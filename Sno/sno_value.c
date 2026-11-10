@@ -122,6 +122,92 @@ sno_Bool value_to_bool(Value value) {
 	}
 }
 
+void value_to_buffer_string(
+	sno_State* state,
+	Value value,
+	ByteDynArray* buffer,
+	size_t recursion_depth
+) {
+	sno_assert_ptr(state);
+	sno_assert_ptr(buffer);
+	sno_assert(value_type_is_valid(value.type));
+	switch (value.type) {
+	case VT_NONE:
+		byte_dyn_array_push_n(
+			state, buffer,
+			(uint8_t*)sno_string_comma_length("none")
+		);
+		return;
+	case VT_BOOL:
+		if (value.u.number != 0) {
+			byte_dyn_array_push_n(
+				state, buffer,
+				(uint8_t*)sno_string_comma_length("true")
+			);
+		} else {
+			byte_dyn_array_push_n(
+				state, buffer,
+				(uint8_t*)sno_string_comma_length("false")
+			);
+		}
+		return;
+	case VT_NUMBER: {
+		char buf[512] = { 0 };
+		int len = snprintf(buf, 511, "%g", value.u.number);
+		byte_dyn_array_push_n(
+			state, buffer,
+			(uint8_t*)buf, (size_t)len
+		);
+		return;
+	}
+	case VT_STRING: 
+		byte_dyn_array_push_n(
+			state, buffer,
+			(uint8_t*)istring_chars(value.u.string),
+			(unsigned int)value.u.string->length
+		);
+		return;
+	case VT_ARRAY: {
+		Array* arr = value.u.arr;
+		if (recursion_depth == 0) {
+			byte_dyn_array_push_n(
+				state, buffer,
+				(uint8_t*)sno_string_comma_length("[...]")
+			);
+		} else {
+			byte_dyn_array_push(state, buffer, (uint8_t*)"[");
+			for (size_t i = 0; i < arr->values.count; i++) {
+				value_to_buffer_string(
+					state,
+					arr->values.buffer[i],
+					buffer,
+					recursion_depth - 1
+				);
+				if (i != arr->values.count - 1) {
+					byte_dyn_array_push_n(
+						state, buffer,
+						(uint8_t*)sno_string_comma_length(", ")
+					);
+				}
+			}
+			byte_dyn_array_push(state, buffer, (uint8_t*)"]");
+		}
+	} return;
+	case VT_TABLE: print_table(value.u.table); return;
+	case VT_BYTECODE: printf(
+		"<Sno function \"%.*s\">",
+		(unsigned int)value.u.bytecode->name->length,
+		istring_chars(value.u.bytecode->name)
+	); return;
+	case VT_FOREIGN_FUNCTION:
+		printf("<Foreign function>");
+		return;
+	default:
+		sno_not_implemented;
+		break;
+	}
+}
+
 void print_value(Value value) {
 	sno_assert(value_type_is_valid(value.type));
 	switch (value.type) {
