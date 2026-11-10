@@ -20,6 +20,7 @@ typedef enum ValueType {
 	VT_MAT2,
 	VT_MAT3,
 	VT_MAT4,
+	VT_RANGE,
 	NUM_VALUE_TYPES,
 	VT_UNDEFINED = -1,
 	VT_TOMBSTONE = -2,

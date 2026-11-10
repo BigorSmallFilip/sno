@@ -160,12 +160,14 @@ void value_to_buffer_string(
 		);
 		return;
 	}
-	case VT_STRING: 
-		byte_dyn_array_push_n(
-			state, buffer,
-			(uint8_t*)istring_chars(value.u.string),
-			(unsigned int)value.u.string->length
-		);
+	case VT_STRING:
+		if (value.u.string->length > 0) {
+			byte_dyn_array_push_n(
+				state, buffer,
+				(uint8_t*)istring_chars(value.u.string),
+				(unsigned int)value.u.string->length
+			);
+		}
 		return;
 	case VT_ARRAY: {
 		Array* arr = value.u.arr;
@@ -193,7 +195,44 @@ void value_to_buffer_string(
 			byte_dyn_array_push(state, buffer, (uint8_t*)"]");
 		}
 	} return;
-	case VT_TABLE: print_table(value.u.table); return;
+	case VT_TABLE: {
+		Table* table = value.u.table;
+		if (recursion_depth == 0) {
+			byte_dyn_array_push_n(
+				state, buffer,
+				(uint8_t*)sno_string_comma_length("{...}")
+			);
+		} else {
+			byte_dyn_array_push(state, buffer, (uint8_t*)"{");
+			sno_Bool first = sno_TRUE;
+			for (size_t i = 0; i < table->capacity_mask + 1; i++) {
+				const TableEntry* entry = &table->entries[i];
+				if (entry->key_type >= 0) {
+					if (first) {
+						first = sno_FALSE;
+					} else {
+						byte_dyn_array_push_n(
+							state, buffer,
+							(uint8_t*)sno_string_comma_length(", ")
+						);
+					}
+					Value k;
+					k.type = entry->key_type;
+					k.u = entry->key_union;
+					Value v;
+					v.type = entry->value_type;
+					v.u = entry->value_union;
+					value_to_buffer_string(state, k, buffer, recursion_depth - 1);
+					byte_dyn_array_push_n(
+						state, buffer,
+						(uint8_t*)sno_string_comma_length(": ")
+					);
+					value_to_buffer_string(state, v, buffer, recursion_depth - 1);
+				}
+			}
+			byte_dyn_array_push(state, buffer, (uint8_t*)"}");
+		}
+	} return;
 	case VT_BYTECODE: printf(
 		"<Sno function \"%.*s\">",
 		(unsigned int)value.u.bytecode->name->length,

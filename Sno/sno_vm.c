@@ -556,6 +556,7 @@ static void set_index(
 	Bytecode* bytecode_const = bytecode->bytecode_constants[const_id]
 
 
+#define DEBUG_EVERY_VM_INSTRUCTION
 #ifdef DEBUG_EVERY_VM_INSTRUCTION
 #define VM_DEBUG_OP \
     printf( \
@@ -901,6 +902,16 @@ uint8_t execute_bytecode(sno_State* state, uint8_t argc) {
 	VM_CASE(OP_BXOR) OP_ARITH(+=, BXOR) VM_DISPATCH();
 	VM_CASE(OP_SHL)  OP_ARITH(+=, SHL)  VM_DISPATCH();
 	VM_CASE(OP_SHR)  OP_ARITH(+=, SHR)  VM_DISPATCH();
+
+	VM_CASE(OP_LT) {
+		state->stack_top--;
+		Value lhs = state->stack_top[-1];
+		Value rhs = state->stack_top[0];
+		if (lhs.type != VT_NUMBER || rhs.type != VT_NUMBER) {
+			
+		}
+		VM_DISPATCH();
+	}
 
 	VM_CASE(OP_EQ)
 		state->stack_top--;

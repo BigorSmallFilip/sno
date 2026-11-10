@@ -26,7 +26,7 @@ static uint8_t lib_string_is_upper(sno_State* state, uint8_t argc) {
 	const char* chars = istring_chars(string);
 	sno_Bool result = sno_TRUE;
 	for (size_t i = 0; i < string->length; i++) {
-		if (chars[i] >= 'A' && chars[i] <= 'Z') {
+		if (chars[i] >= 'a' && chars[i] <= 'z') {
 			result = sno_FALSE;
 			break;
 		}
@@ -42,7 +42,7 @@ static uint8_t lib_string_is_lower(sno_State* state, uint8_t argc) {
 	const char* chars = istring_chars(string);
 	sno_Bool result = sno_TRUE;
 	for (size_t i = 0; i < string->length; i++) {
-		if (chars[i] >= 'a' && chars[i] <= 'z') {
+		if (chars[i] >= 'A' && chars[i] <= 'Z') {
 			result = sno_FALSE;
 			break;
 		}
