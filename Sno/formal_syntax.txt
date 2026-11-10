@@ -13,12 +13,13 @@ stmt ::= if_stmt |
          declaration_stmt |
          expr_stmt
 
-if_stmt ::= 'if' expr block [ 'else' ( if_stmt | block ) ]
+if_stmt ::= 'if' { ';' } expr { ';' } block [ 'else' ( if_stmt | block ) ]
 
-while_stmt ::= 'while' expr block
+while_stmt ::= 'while' { ';' } expr { ';' } block
 
-for_stmt ::= 'for' identifier '=' expr ',' expr [ ',' expr ] block |
-             'for' identifier [ ',' identifier ] 'in' expr block
+// Also more { ';' } all over the place
+for_stmt ::= 'for' { ';' } identifier '=' expr ',' expr [ ',' expr ] block |
+             'for' { ';' } identifier [ ',' identifier ] 'in' expr block
 
 break_stmt ::= 'break'
 

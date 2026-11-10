@@ -325,12 +325,16 @@ static void read_string_literal(
 	}
 endstring:
 	ts->cur_char++; // Skip the closing double quotes
-	token->info.string = create_istring(
-		state,
-		(const char*)formatted_string.buffer,
-		formatted_string.count
-	);
-	byte_dyn_array_clear(state, &formatted_string);
+	if (formatted_string.count == 0) {
+		token->info.string = create_istring(state, "", 0);
+	} else {
+		token->info.string = create_istring(
+			state,
+			(const char*)formatted_string.buffer,
+			formatted_string.count
+		);
+		byte_dyn_array_clear(state, &formatted_string);
+	}
 }
 
 static void read_base10_number(Tokenizer* ts, Token* token) {
@@ -924,6 +928,17 @@ void read_next_token(Tokenizer* ts) {
 			insert_terminator_on_endline
 		);
 	}
+}
+
+void continue_interpolated_string(Tokenizer* ts) {
+	sno_assert_ptr(ts);
+	sno_Bool interpolated = sno_FALSE;
+	read_string_literal(ts, &ts->token, &interpolated);
+	ts->token.type = TK_STRING + interpolated;
+	ts->insert_terminator = skip_whitespace_and_comments(
+		ts,
+		sno_TRUE
+	);
 }
 
 

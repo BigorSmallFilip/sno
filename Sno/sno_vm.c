@@ -14,6 +14,7 @@ const OpCodeInfo opcode_info[NUM_OPCODES] = {
 	{ 0, 2, "NUMBER_I8" },
 	{ 0, 3, "NUMBER" },
 	{ 0, 3, "STRING" },
+	{ 1, 2, "INTERPOLATE_STRING" },
 	{ 0, 3, "BYTECODE" },
 	{ 1, 2, "NEW_LINALG" },
 	{ 1, 1, "NEW_ARRAY" },
@@ -119,6 +120,7 @@ static void print_instructions(const Bytecode* bytecode) {
 			IString* string = bytecode->string_constants[arg];
 			printf("\"%.*s\"", (unsigned int)string->length, istring_chars(string));
 		} break;
+		case OP_INTERPOLATE_STRING:
 		case OP_GET_LOCAL:
 		case OP_SET_LOCAL: {
 			printf("%i", (int)arg);
@@ -554,6 +556,7 @@ static void set_index(
 	Bytecode* bytecode_const = bytecode->bytecode_constants[const_id]
 
 
+#ifdef DEBUG_EVERY_VM_INSTRUCTION
 #define VM_DEBUG_OP \
     printf( \
         sno_ANSI_BLUE "pc=% 5u % 22s > sp=%u\n" sno_ANSI_NORMAL, \
@@ -561,6 +564,10 @@ static void set_index(
         opcode_info[op].name, \
         (unsigned int)(state->stack_top - state->stack) \
 	)
+#else
+#define VM_DEBUG_OP
+#endif
+
 
 #define VM_LOOP \
 	loop: {} \
@@ -623,6 +630,14 @@ uint8_t execute_bytecode(sno_State* state, uint8_t argc) {
 		READ_STRING_CONST;
 		state->stack_top->type = VT_STRING;
 		state->stack_top->u.string = string_const;
+		state->stack_top++;
+		VM_DISPATCH();
+	}
+	VM_CASE(OP_INTERPOLATE_STRING) {
+		uint8_t concats = READ_U8();
+		sno_assert(concats > 0);
+		state->stack_top->type = VT_STRING;
+		state->stack_top->u.string = create_istring(state, "interpolated lol haha", 21);
 		state->stack_top++;
 		VM_DISPATCH();
 	}

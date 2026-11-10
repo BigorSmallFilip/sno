@@ -57,6 +57,13 @@ static void expect_token_and_skip(
 	read_next_token(ts);
 }
 
+static void optional_terminator(Tokenizer* ts) {
+	sno_assert_ptr(ts);
+	if (ts->token.type == TK_TERMINATOR) {
+		read_next_token(ts);
+	}
+}
+
 
 
 
@@ -570,6 +577,36 @@ static void exit_block(Compiler* cs) {
 
 
 
+static void parse_interpolated_string(Tokenizer* ts) {
+	emit_string(ts, ts->token.info.string);
+	SourceCodePos pos = ts->token.pos;
+	read_next_token(ts);
+	uint8_t num_concats = 1;
+	while (1) {
+		num_concats += 2;
+		expression(ts);
+		if (ts->token.type != TK_RPAREN) {
+			syntax_error_at_cur_token(
+				ts,
+				"Invalid string interpolation expression"
+			);
+		}
+		ts->cur_char = istring_chars(ts->source_code) + ts->token.pos;
+		continue_interpolated_string(ts);
+		sno_assert(
+			ts->token.type == TK_STRING ||
+			ts->token.type == TK_INTERPOLATED_STRING
+		);
+		emit_string(ts, ts->token.info.string);
+		if (ts->token.type == TK_STRING) {
+			read_next_token(ts);
+			break;
+		}
+		read_next_token(ts);
+	}
+	emit_1(ts, pos, OP_INTERPOLATE_STRING, num_concats);
+}
+
 static void function_parameters(Tokenizer* ts) {
 	expect_token_and_skip(ts, TK_LPAREN, "Expected function parameters");
 	int num_parameters = 1;
@@ -769,6 +806,9 @@ static void operand_primary(Tokenizer* ts) {
 	case TK_STRING: {
 		emit_string(ts, ts->token.info.string);
 	} break;
+	case TK_INTERPOLATED_STRING: {
+		parse_interpolated_string(ts);
+	} return;
 	case TK_IDENTIFIER: {
 		identifier(ts, ts->token, sno_FALSE);
 	} break;
@@ -1068,8 +1108,10 @@ static int closed_expression_list(
 static void if_statement(Tokenizer* ts) {
 	sno_assert_ptr(ts);
 	read_next_token(ts);
+	optional_terminator(ts);
 	expression(ts); // Condition
 	PC jump_from = emit_2(ts, NO_POS, OP_JMP_IF_FALSE, 0);
+	optional_terminator(ts);
 	SourceCodePos lbrace_pos = ts->token.pos;
 	brace_block(ts, sno_FALSE);
 	PC jump_to = (PC)(ts->cs->instructions.count);
@@ -1109,7 +1151,7 @@ static void while_statement(Tokenizer* ts) {
 	PC back_from = emit_2(ts, NO_POS, OP_JMP_BACK, 0);
 	PC out_to = back_from;
 
-	uint16_t back_offset = (uint16_t)(back_from - back_to);
+	uint16_t back_offset = (uint16_t)(back_from - back_to + 1);
 	uint16_t out_offset = (uint16_t)(out_to - out_from);
 	ts->cs->instructions.buffer[back_from + 1] = back_offset & 0xFF;
 	ts->cs->instructions.buffer[back_from + 2] = back_offset >> 8;

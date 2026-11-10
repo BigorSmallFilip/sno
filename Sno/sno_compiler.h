@@ -132,6 +132,7 @@ typedef struct Tokenizer {
 
 void read_first_token(Tokenizer* ts);
 void read_next_token(Tokenizer* ts);
+void continue_interpolated_string(Tokenizer* ts);
 
 sno_Bool print_source_code_tokens(
 	struct sno_State* state,
