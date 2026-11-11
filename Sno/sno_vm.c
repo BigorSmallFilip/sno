@@ -556,7 +556,7 @@ static void set_index(
 	Bytecode* bytecode_const = bytecode->bytecode_constants[const_id]
 
 
-#define DEBUG_EVERY_VM_INSTRUCTION
+//#define DEBUG_EVERY_VM_INSTRUCTION
 #ifdef DEBUG_EVERY_VM_INSTRUCTION
 #define VM_DEBUG_OP \
     printf( \
@@ -903,30 +903,49 @@ uint8_t execute_bytecode(sno_State* state, uint8_t argc) {
 	VM_CASE(OP_SHL)  OP_ARITH(+=, SHL)  VM_DISPATCH();
 	VM_CASE(OP_SHR)  OP_ARITH(+=, SHR)  VM_DISPATCH();
 
-	VM_CASE(OP_LT) {
+	VM_CASE(OP_LT)
+	VM_CASE(OP_GT)
+	VM_CASE(OP_LE)
+	VM_CASE(OP_GE) {
 		state->stack_top--;
 		Value lhs = state->stack_top[-1];
 		Value rhs = state->stack_top[0];
 		if (lhs.type != VT_NUMBER || rhs.type != VT_NUMBER) {
-			
+			vm_throw(
+				state, pc,
+				"Cannot compare %s and %s",
+				get_value_type_noun_phrase(lhs.type),
+				get_value_type_noun_phrase(rhs.type)
+			);
 		}
+		sno_Number l = lhs.u.number;
+		sno_Number r = rhs.u.number;
+		sno_Bool result = sno_FALSE;
+		switch (op) {
+		case OP_LT: result = l < r; break;
+		case OP_LE: result = l <= r; break;
+		case OP_GT: result = l > r; break;
+		case OP_GE: result = l >= r; break;
+		default:
+			sno_unreachable;
+		}
+		set_bool(state->stack_top[-1], result);
 		VM_DISPATCH();
 	}
 
 	VM_CASE(OP_EQ)
+	VM_CASE(OP_NEQ) {
 		state->stack_top--;
-		set_bool(state->stack_top[-1], value_eq(
+		sno_Bool result = value_eq(
 			state->stack_top[0],
 			state->stack_top[-1]
-		));
+		);
+		if (op == OP_NEQ) {
+			result = !result;
+		}
+		set_bool(state->stack_top[-1], result);
 		VM_DISPATCH();
-	VM_CASE(OP_NEQ)
-		state->stack_top--;
-		set_bool(state->stack_top[-1], !value_eq(
-			state->stack_top[0],
-			state->stack_top[-1]
-		));
-		VM_DISPATCH();
+	}
 	VM_CASE(OP_AND)
 	VM_CASE(OP_OR) {
 		uint16_t jump = READ_U16();
@@ -1112,8 +1131,9 @@ uint8_t execute_bytecode(sno_State* state, uint8_t argc) {
 		
 	default:
 		// Invalid instruction
-		sno_assert(op != 0xFF);
-		sno_unreachable;
+		//sno_assert(op != 0xFF);
+		//sno_unreachable;
+		vm_throw(state, pc, "Invalid instruction %i\n", (int)op);
 		break;
 	}
 #ifdef sno_DEBUG
