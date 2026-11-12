@@ -153,7 +153,13 @@ void value_to_buffer_string(
 		return;
 	case VT_NUMBER: {
 		char buf[512] = { 0 };
-		int len = snprintf(buf, 511, "%g", value.u.number);
+		int len;
+		sno_Number number = value.u.number;
+		if (sno_number_is_valid_i64(number)) {
+			len = snprintf(buf, 511, "%lli", (int64_t)number);
+		} else {
+			len = snprintf(buf, 511, "%g", number);
+		}
 		byte_dyn_array_push_n(
 			state, buffer,
 			(uint8_t*)buf, (size_t)len
