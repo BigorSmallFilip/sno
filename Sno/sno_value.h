@@ -104,7 +104,7 @@ void array_push_n(
 	size_t count
 );
 Value array_pop(struct sno_State* state, Array* arr);
-
+sno_ISize array_index_of(const Array* arr, Value v);
 
 
 typedef struct TableEntry {

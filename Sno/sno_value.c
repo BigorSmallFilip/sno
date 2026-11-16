@@ -322,6 +322,17 @@ Value array_pop(sno_State* state, Array* arr) {
 	return arr->values.buffer[--arr->values.count];
 }
 
+sno_ISize array_index_of(const Array* arr, Value v) {
+	sno_assert_ptr(arr);
+	sno_assert(arr->values.count < PTRDIFF_MAX);
+	for (sno_ISize i = 0; i < (sno_ISize)arr->values.count; i++) {
+		if (value_eq(arr->values.buffer[i], v)) {
+			return i;
+		}
+	}
+	return -1;
+}
+
 Table* create_table(sno_State* state) {
 	sno_assert_ptr(state);
 	Table* table = state_alloc(state, sizeof(Table));

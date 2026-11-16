@@ -211,7 +211,7 @@ void print_bytecode(const Bytecode* bytecode) {
 
 
 
-static SourceCodePos find_pos(
+SourceCodePos pc_to_pos(
 	Bytecode* bytecode,
 	const uint8_t* pc
 ) {
@@ -264,7 +264,7 @@ static void vm_throw(
 		msg + length,
 		sno_STACK_BUFFER_LENGTH - length,
 		call_info->function.bytecode->source_code,
-		find_pos(call_info->function.bytecode, pc)
+		pc_to_pos(call_info->function.bytecode, pc)
 	);
 	va_list args;
 	va_start(args, format);
@@ -1120,7 +1120,7 @@ uint8_t execute_bytecode(sno_State* state, uint8_t argc) {
 				get_value_type_noun_phrase(func_value->type)
 			);
 		}
-		sno_call(state, call_argc, retc_expected);
+		state_call(state, call_argc, retc_expected, (uint32_t*)pc);
 		VM_DISPATCH();
 	}
 	VM_CASE(OP_RETURN) {

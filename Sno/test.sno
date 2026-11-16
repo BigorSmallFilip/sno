@@ -1,3 +1,6 @@
 
-print(2 == 2)
+var numbers = [1, 2, 5, 4]
+print(numbers)
+print(numbers.index_of(5))
 
+assert()

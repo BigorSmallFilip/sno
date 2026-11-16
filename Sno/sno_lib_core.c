@@ -70,11 +70,38 @@ static uint8_t lib_core_chr(sno_State* state, uint8_t argc) {
 	set_retc(1);
 }
 
+static uint8_t lib_core_typename(sno_State* state, uint8_t argc) {
+	sno_assert_ptr(state);
+	sno_check_argc(state, argc, 1);
+	Value v = state->stack_base[1];
+	const char* const name = get_value_type_name(v.type);
+	set_string(state->stack_base[0], create_istring(state, name, strlen(name)));
+	set_retc(1);
+}
+
 static uint8_t lib_core_perftimer(sno_State* state, uint8_t argc) {
 	sno_assert_ptr(state);
 	sno_check_argc(state, argc, 0);
 	set_number(state->stack_base[0], perftimer());
 	set_retc(1);
+}
+
+static uint8_t lib_core_assert(sno_State* state, uint8_t argc) {
+	sno_assert_ptr(state);
+	if (argc < 1 || argc > 2) {
+		sno_throw_runtime_error(
+			state,
+			"Assert expects an expression and optionally a message"
+		);
+	}
+	if (value_to_bool(state->stack_base[1])) {
+		set_retc(0);
+	} else {
+		sno_throw_runtime_error(
+			state,
+			"Assertion failed!"
+		);
+	}
 }
 
 const sno_Library lib_core[] = {
@@ -83,6 +110,8 @@ const sno_Library lib_core[] = {
 	sno_Fn(core, input),
 	sno_Fn(core, ord),
 	sno_Fn(core, chr),
+	sno_Fn(core, typename),
 	sno_Fn(core, perftimer),
+	sno_Fn(core, assert),
 	sno_FnEnd(),
 };

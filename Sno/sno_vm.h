@@ -150,6 +150,11 @@ typedef struct Bytecode {
 	struct Bytecode** bytecode_constants;
 } Bytecode;
 
+SourceCodePos pc_to_pos(
+	Bytecode* bytecode,
+	const uint8_t* pc
+);
+
 void print_bytecode(const Bytecode* bytecode);
 
 uint8_t execute_bytecode(sno_State* state, uint8_t argc);

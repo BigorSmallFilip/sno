@@ -254,6 +254,31 @@ sno_API sno_no_return void sno_throw_runtime_error(
 	sno_assert_ptr(format);
 	char msg[sno_STACK_BUFFER_LENGTH];
 	size_t length = 0;
+
+	for (long i = (long)state->call_stack.count - 1; i >= 0; i--) {
+		const CallInfo* ci = &state->call_stack.buffer[i];
+		if (!ci->is_foreign_function) {
+			Value bytecode_val = state->stack[ci->caller_base_idx];
+			sno_assert(bytecode_val.type == VT_BYTECODE);
+			Bytecode* bytecode = bytecode_val.u.bytecode;
+			length += snprintf(
+				msg + length,
+				sno_STACK_BUFFER_LENGTH - length,
+				"In function \"%.*s\"\n",
+				(unsigned int)bytecode->name->length,
+				istring_chars(bytecode->name)
+			);
+			if (ci->pc) {
+				length += sprint_source_code_context(
+					msg + length,
+					sno_STACK_BUFFER_LENGTH - length,
+					bytecode->source_code,
+					pc_to_pos(bytecode, (uint8_t*)ci->pc)
+				);
+			}
+		}
+	}
+	
 	va_list args;
 	va_start(args, format);
 	length += (size_t)vsnprintf(
@@ -321,6 +346,16 @@ sno_API uint8_t sno_call(sno_State* state, uint8_t argc, uint8_t retc) {
 		state->stack_top - state->stack >= argc + 2,
 		"Too many arguments underflowing the stack"
 	);
+	return state_call(state, argc, retc, NULL);
+}
+
+uint8_t state_call(sno_State* state, uint8_t argc, uint8_t retc, uint32_t* pc) {
+	sno_assert_ptr(state);
+	sno_assert(argc <= MAX_EXPR_PER_STMT);
+	sno_assert_msg(
+		state->stack_top - state->stack >= argc + 2,
+		"Too many arguments underflowing the stack"
+	);
 	Value* func_value = state->stack_top - (argc + 2);
 	sno_assert_msg(
 		func_value->type == VT_BYTECODE ||
@@ -332,6 +367,7 @@ sno_API uint8_t sno_call(sno_State* state, uint8_t argc, uint8_t retc) {
 	uint8_t return_values_recieved;
 	uint32_t caller_results_idx = (uint32_t)(func_value - state->stack);
 	call_info.caller_base_idx = (uint32_t)(state->stack_base - state->stack);
+	call_info.pc = pc;
 	// Move the stack_base to the slot after the function being called
 	state->stack_base = state->stack_top - (argc + 2) + 1;
 	call_info.argc = argc;
@@ -361,6 +397,7 @@ sno_API uint8_t sno_call(sno_State* state, uint8_t argc, uint8_t retc) {
 	state->call_stack.count--; // Pop the call info
 	return return_values_recieved;
 }
+
 
 
 

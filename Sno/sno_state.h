@@ -31,6 +31,7 @@ typedef struct CallInfo {
 	sno_Bool is_foreign_function;
 	uint8_t argc;
 	uint32_t caller_base_idx;
+	uint32_t* pc;
 } CallInfo;
 
 DECLARE_GENERIC_DYN_ARRAY(CallInfo, CallInfo, call_info);
@@ -77,6 +78,8 @@ sno_no_return void state_throw(
 	const char* const message,
 	size_t message_length
 );
+
+uint8_t state_call(sno_State* state, uint8_t argc, uint8_t retc, uint32_t* pc);
 
 
 

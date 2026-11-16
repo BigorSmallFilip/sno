@@ -176,6 +176,7 @@ typedef _Bool sno_Bool;
 #ifndef sno_USE_32BIT_FLOAT_NUMBERS
 typedef double sno_Number;
 typedef int32_t sno_NumberInt;
+typedef ptrdiff_t sno_ISize;
 #define sno_floor floor
 #define sno_ceil ceil
 #define sno_round round
