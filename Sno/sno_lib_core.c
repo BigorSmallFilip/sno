@@ -26,9 +26,12 @@ static uint8_t lib_core_input(sno_State* state, uint8_t argc) {
 		print_value(state->stack_base[i + 1]);
 	}
 	char inp_str[sno_STACK_BUFFER_LENGTH] = { 0 };
-	(void)fgets(inp_str, sno_STACK_BUFFER_LENGTH - 1, stdin);
+	if (!fgets(inp_str, sno_STACK_BUFFER_LENGTH - 1, stdin)) {
+		set_string(state->stack_base[0], create_istring(state, "", 0));
+		set_retc(1);
+	}
 	size_t inp_len = strlen(inp_str);
-	if (inp_str[inp_len - 1] == '\n') {
+	if (inp_str[inp_len - 1] == '\n') { // TODO: Is this the right behavior?
 		inp_len--;
 	}
 	set_string(state->stack_base[0], create_istring(state, inp_str, inp_len));
