@@ -288,7 +288,7 @@ sno_API sno_no_return void sno_throw_runtime_error(
 		length += snprintf(
 			msg + length,
 			sno_STACK_BUFFER_LENGTH - length,
-			"In \"%.*s\"\n",
+			"In the call to \"%.*s\"\n",
 			(unsigned int)name->length,
 			istring_chars(name)
 		);

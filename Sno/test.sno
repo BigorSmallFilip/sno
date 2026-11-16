@@ -1,3 +1,6 @@
 
-assert(false)
+function throws() {
+	assert(false)
+}
 
+throws()
