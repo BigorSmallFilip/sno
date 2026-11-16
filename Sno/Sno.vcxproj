@@ -201,6 +201,7 @@
   </ItemGroup>
   <ItemGroup>
     <Text Include="assignments.txt" />
+    <Text Include="makething" />
     <Text Include="error_messages.txt" />
     <Text Include="formal_syntax.txt" />
     <Text Include="sno_one.c" />

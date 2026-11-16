@@ -88,6 +88,9 @@
     <Text Include="assignments.txt">
       <Filter>Source Files</Filter>
     </Text>
+    <Text Include="makething">
+      <Filter>Source Files</Filter>
+    </Text>
   </ItemGroup>
   <ItemGroup>
     <None Include="test.sno">

@@ -1,0 +1,2 @@
+set -x
+gcc sno_one.c -lm -O2 -o sno
