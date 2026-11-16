@@ -11,7 +11,7 @@ DEFINE_GENERIC_DYN_ARRAY(Value, Value, value);
 
 static void print_number(sno_Number number) {
 	if (sno_number_is_valid_i64(number)) {
-		printf("%lli", (int64_t)number);
+		printf("%lli", (long long int)number);
 	} else {
 		printf("%g", number);
 	}
@@ -156,7 +156,7 @@ void value_to_buffer_string(
 		int len;
 		sno_Number number = value.u.number;
 		if (sno_number_is_valid_i64(number)) {
-			len = snprintf(buf, 511, "%lli", (int64_t)number);
+			len = snprintf(buf, 511, "%lli", (long long int)number);
 		} else {
 			len = snprintf(buf, 511, "%g", number);
 		}

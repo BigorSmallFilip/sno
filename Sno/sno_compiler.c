@@ -665,7 +665,7 @@ static void function(Tokenizer* ts, IString* name) {
 	bytecode_dyn_array_push(
 		ts->main_state,
 		&ts->cs->bytecode_constants,
-		&bytecode
+		(const Bytecode**)(&bytecode)
 	);
 	emit_2(ts, NO_POS, OP_BYTECODE, bytecode_const_id);
 }
