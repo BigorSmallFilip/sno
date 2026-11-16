@@ -26,12 +26,12 @@ typedef struct ExceptionJump {
 typedef struct CallInfo {
 	union {
 		struct Bytecode* bytecode;
-		sno_ForeignFunction* foreign;
+		struct ForeignFunction* foreign;
 	} function;
 	sno_Bool is_foreign_function;
 	uint8_t argc;
 	uint32_t caller_base_idx;
-	uint32_t* pc;
+	uint8_t* pc;
 } CallInfo;
 
 DECLARE_GENERIC_DYN_ARRAY(CallInfo, CallInfo, call_info);
@@ -72,6 +72,8 @@ void check_arg_type(sno_State* state, uint32_t idx, ValueType type);
 
 void create_new_global(sno_State* state, Value name, Value value);
 
+void print_stack(sno_State* state);
+
 sno_no_return void state_throw(
 	sno_State* state,
 	ExceptionType type,
@@ -79,7 +81,7 @@ sno_no_return void state_throw(
 	size_t message_length
 );
 
-uint8_t state_call(sno_State* state, uint8_t argc, uint8_t retc, uint32_t* pc);
+uint8_t state_call(sno_State* state, uint8_t argc, uint8_t retc, uint8_t* pc);
 
 
 

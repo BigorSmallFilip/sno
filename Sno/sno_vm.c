@@ -556,15 +556,18 @@ static void set_index(
 	Bytecode* bytecode_const = bytecode->bytecode_constants[const_id]
 
 
-//#define DEBUG_EVERY_VM_INSTRUCTION
+#define DEBUG_EVERY_VM_INSTRUCTION
 #ifdef DEBUG_EVERY_VM_INSTRUCTION
 #define VM_DEBUG_OP \
+    printf(sno_ANSI_BLUE); \
+	print_stack(state); \
     printf( \
-        sno_ANSI_BLUE "pc=% 5u % 22s > sp=%u\n" sno_ANSI_NORMAL, \
+        "pc=% 5u % 22s > sp=%u\n", \
         (unsigned int)(pc - bytecode->instructions), \
         opcode_info[op].name, \
         (unsigned int)(state->stack_top - state->stack) \
-	)
+	); \
+    printf(sno_ANSI_NORMAL)
 #else
 #define VM_DEBUG_OP
 #endif
@@ -598,7 +601,7 @@ uint8_t execute_bytecode(sno_State* state, uint8_t argc) {
 	const uint8_t* pc = bytecode->instructions;
 	OpCode op = (OpCode)*pc;
 	Value* locals = base;
-	state->stack_top += bytecode->num_local_slots;
+	state->stack_top = base + bytecode->num_local_slots;
 
 	VM_LOOP {
 	VM_CASE(OP_NONE)
@@ -1120,7 +1123,7 @@ uint8_t execute_bytecode(sno_State* state, uint8_t argc) {
 				get_value_type_noun_phrase(func_value->type)
 			);
 		}
-		state_call(state, call_argc, retc_expected, (uint32_t*)pc);
+		state_call(state, call_argc, retc_expected, (uint8_t*)pc);
 		VM_DISPATCH();
 	}
 	VM_CASE(OP_RETURN) {

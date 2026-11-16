@@ -210,6 +210,26 @@ void create_new_global(sno_State* state, Value name, Value value) {
 
 
 
+void print_stack(sno_State* state) {
+	sno_assert_ptr(state);
+	printf("THE STACK AT THIS TIME:\n");
+	for (size_t i = 0; i < (size_t)(state->stack_top - state->stack); i++) {
+		printf("%i ", (int)i);
+		if (value_type_is_valid(state->stack[i].type)) {
+			print_value(state->stack[i]);
+			putchar('\n');
+		} else {
+			printf(
+				"<invalid, type = %i, data = %p>\n",
+				(int)state->stack[i].type,
+				state->stack[i].u.ptr
+			);
+		}
+	}
+}
+
+
+
 sno_no_return void state_throw(
 	sno_State* state,
 	ExceptionType type,
@@ -255,28 +275,43 @@ sno_API sno_no_return void sno_throw_runtime_error(
 	char msg[sno_STACK_BUFFER_LENGTH];
 	size_t length = 0;
 
-	for (long i = (long)state->call_stack.count - 1; i >= 0; i--) {
+	print_stack(state);
+
+	for (long i = 0; i < (long)state->call_stack.count; i++) {
 		const CallInfo* ci = &state->call_stack.buffer[i];
+		IString* name;
+		if (ci->is_foreign_function) {
+			name = ci->function.foreign->name;
+		} else {
+			name = ci->function.bytecode->name;
+		}
+		length += snprintf(
+			msg + length,
+			sno_STACK_BUFFER_LENGTH - length,
+			"In \"%.*s\"\n",
+			(unsigned int)name->length,
+			istring_chars(name)
+		);
 		if (!ci->is_foreign_function) {
-			Value bytecode_val = state->stack[ci->caller_base_idx];
-			sno_assert(bytecode_val.type == VT_BYTECODE);
-			Bytecode* bytecode = bytecode_val.u.bytecode;
-			length += snprintf(
-				msg + length,
-				sno_STACK_BUFFER_LENGTH - length,
-				"In function \"%.*s\"\n",
-				(unsigned int)bytecode->name->length,
-				istring_chars(bytecode->name)
-			);
-			if (ci->pc) {
+			if (i + 1 < (long)state->call_stack.count) {
+				// Check the next ci for the PC of the call
+				const CallInfo* next_ci = &state->call_stack.buffer[i + 1];
+				sno_assert_ptr(next_ci->pc); // It has to exist
+				Bytecode* bytecode = ci->function.bytecode;
 				length += sprint_source_code_context(
 					msg + length,
 					sno_STACK_BUFFER_LENGTH - length,
 					bytecode->source_code,
-					pc_to_pos(bytecode, (uint8_t*)ci->pc)
+					pc_to_pos(bytecode, (uint8_t*)next_ci->pc)
+				);
+				length += snprintf(
+					msg + length,
+					sno_STACK_BUFFER_LENGTH - length,
+					"\n"
 				);
 			}
 		}
+		state->stack_base = state->stack + ci->caller_base_idx;
 	}
 	
 	va_list args;
@@ -349,7 +384,7 @@ sno_API uint8_t sno_call(sno_State* state, uint8_t argc, uint8_t retc) {
 	return state_call(state, argc, retc, NULL);
 }
 
-uint8_t state_call(sno_State* state, uint8_t argc, uint8_t retc, uint32_t* pc) {
+uint8_t state_call(sno_State* state, uint8_t argc, uint8_t retc, uint8_t* pc) {
 	sno_assert_ptr(state);
 	sno_assert(argc <= MAX_EXPR_PER_STMT);
 	sno_assert_msg(
@@ -380,8 +415,8 @@ uint8_t state_call(sno_State* state, uint8_t argc, uint8_t retc, uint32_t* pc) {
 		call_info.is_foreign_function = sno_TRUE;
 		call_info.function.foreign = func_value->u.foreign_function;
 		call_info_dyn_array_push(state, &state->call_stack, &call_info);
-		sno_ForeignFunction* ff = func_value->u.foreign_function;
-		return_values_recieved = ff(state, argc);
+		ForeignFunction* ff = func_value->u.foreign_function;
+		return_values_recieved = ff->fn_ptr(state, argc);
 	}
 	return_values = state->stack_top - return_values_recieved;
 	state->stack_top = state->stack + caller_results_idx + retc;
@@ -468,6 +503,21 @@ static void test_tables(sno_State* state) {
 
 
 
+static Value create_foreign_function(
+	sno_State* state,
+	const sno_Library* lib_func,
+	IString* name
+) {
+	sno_assert_ptr(state);
+	sno_assert_ptr(lib_func);
+	Value v;
+	v.type = VT_FOREIGN_FUNCTION;
+	v.u.foreign_function = state_alloc(state, sizeof(ForeignFunction));
+	v.u.foreign_function->fn_ptr = lib_func->foreign_function;
+	v.u.foreign_function->name = name;
+	return v;
+}
+
 sno_API void sno_load_library_into_global_scope(
 	sno_State* state,
 	const sno_Library* library
@@ -480,17 +530,16 @@ sno_API void sno_load_library_into_global_scope(
 		if (!lib_func->foreign_function) {
 			break;
 		}
-		Value name;
-		name.type = VT_STRING;
-		name.u.string = create_istring(
+		IString* name = create_istring(
 			state,
 			lib_func->name,
 			lib_func->name_length
 		);
-		Value v;
-		v.type = VT_FOREIGN_FUNCTION;
-		v.u.foreign_function = lib_func->foreign_function;
-		create_new_global(state, name, v);
+		Value key;
+		key.type = VT_STRING;
+		key.u.string = name;
+		Value v = create_foreign_function(state, lib_func, name);
+		create_new_global(state, key, v);
 		i++;
 	}
 	return;
@@ -506,17 +555,16 @@ static Table* load_library_into_table(sno_State* state, const sno_Library* libra
 		if (!lib_func->foreign_function) {
 			break;
 		}
-		Value name;
-		name.type = VT_STRING;
-		name.u.string = create_istring(
+		IString* name = create_istring(
 			state,
 			lib_func->name,
 			lib_func->name_length
 		);
-		Value v;
-		v.type = VT_FOREIGN_FUNCTION;
-		v.u.foreign_function = lib_func->foreign_function;
-		if (table_set_or_add_key(state, table, name, v)) {
+		Value key;
+		key.type = VT_STRING;
+		key.u.string = name;
+		Value v = create_foreign_function(state, lib_func, name);
+		if (table_set_or_add_key(state, table, key, v)) {
 			sno_throw_runtime_error(
 				state,
 				"Library defines \"%.*s\" twice",

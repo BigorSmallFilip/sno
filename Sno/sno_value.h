@@ -40,7 +40,7 @@ typedef union ValueUnion {
 	struct Array* arr;
 	struct Table* table;
 	struct Bytecode* bytecode;
-	sno_ForeignFunction* foreign_function;
+	struct ForeignFunction* foreign_function;
 } ValueUnion;
 
 typedef struct Value {
@@ -155,5 +155,10 @@ sno_Bool table_remove_key(
 	Table* table,
 	Value key
 );
+
+typedef struct ForeignFunction {
+	struct IString* name;
+	sno_ForeignFunction* fn_ptr;
+} ForeignFunction;
 
 #endif
