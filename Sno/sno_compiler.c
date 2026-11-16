@@ -101,6 +101,7 @@ static Bytecode* free_function_compiler(Tokenizer* ts, Compiler* cs) {
 	bytecode->source_code_name = ts->source_code_name;
 	bytecode->source_code = ts->source_code;
 	bytecode->num_local_slots = cs->max_active_local_slots;
+	bytecode->is_file_scope = cs->parent_function == NULL;
 
 	sno_assert(cs->instructions.count < MAX_BYTECODE_INSTRUCTIONS);
 	sno_assert(cs->instruction_pos.count <= cs->instructions.count);

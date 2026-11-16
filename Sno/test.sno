@@ -1,6 +1,6 @@
 
-function throws() {
-	assert(false)
+function recurses() {
+	return recurses()
 }
 
-throws()
+recurses()

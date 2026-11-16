@@ -556,7 +556,7 @@ static void set_index(
 	Bytecode* bytecode_const = bytecode->bytecode_constants[const_id]
 
 
-#define DEBUG_EVERY_VM_INSTRUCTION
+//#define DEBUG_EVERY_VM_INSTRUCTION
 #ifdef DEBUG_EVERY_VM_INSTRUCTION
 #define VM_DEBUG_OP \
     printf(sno_ANSI_BLUE); \

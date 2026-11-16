@@ -143,6 +143,7 @@ typedef struct Bytecode {
 	ConstID num_string_constants;
 	ConstID num_bytecode_constants;
 	LocalID num_local_slots;
+	sno_Bool is_file_scope;
 	uint8_t* instructions;
 	SourceCodePos* instruction_positions;
 	sno_Number* number_constants;

@@ -275,23 +275,41 @@ sno_API sno_no_return void sno_throw_runtime_error(
 	char msg[sno_STACK_BUFFER_LENGTH];
 	size_t length = 0;
 
-	print_stack(state);
+	//print_stack(state);
 
 	for (long i = 0; i < (long)state->call_stack.count; i++) {
 		const CallInfo* ci = &state->call_stack.buffer[i];
 		IString* name;
 		if (ci->is_foreign_function) {
 			name = ci->function.foreign->name;
+			length += snprintf(
+				msg + length,
+				sno_STACK_BUFFER_LENGTH - length,
+				"calls \"%.*s\"\n",
+				(unsigned int)name->length,
+				istring_chars(name)
+			);
 		} else {
 			name = ci->function.bytecode->name;
+			if (ci->function.bytecode->is_file_scope) {
+				length += snprintf(
+					msg + length,
+					sno_STACK_BUFFER_LENGTH - length,
+					"While running the file scope of \"%.*s\"\n",
+					(unsigned int)name->length,
+					istring_chars(name)
+				);
+			} else {
+				length += snprintf(
+					msg + length,
+					sno_STACK_BUFFER_LENGTH - length,
+					"calls \"%.*s\"\n",
+					(unsigned int)name->length,
+					istring_chars(name)
+				);
+			}
 		}
-		length += snprintf(
-			msg + length,
-			sno_STACK_BUFFER_LENGTH - length,
-			"In the call to \"%.*s\"\n",
-			(unsigned int)name->length,
-			istring_chars(name)
-		);
+		
 		if (!ci->is_foreign_function) {
 			if (i + 1 < (long)state->call_stack.count) {
 				// Check the next ci for the PC of the call
@@ -313,7 +331,12 @@ sno_API sno_no_return void sno_throw_runtime_error(
 		}
 		state->stack_base = state->stack + ci->caller_base_idx;
 	}
-	
+	length += snprintf(
+		msg + length,
+		sno_STACK_BUFFER_LENGTH - length,
+		" > "
+	);
+
 	va_list args;
 	va_start(args, format);
 	length += (size_t)vsnprintf(
@@ -391,6 +414,12 @@ uint8_t state_call(sno_State* state, uint8_t argc, uint8_t retc, uint8_t* pc) {
 		state->stack_top - state->stack >= argc + 2,
 		"Too many arguments underflowing the stack"
 	);
+	if (state->call_stack.count >= sno_MAX_RECURSION) {
+		sno_throw_runtime_error(
+			state,
+			"Too many recursive calls"
+		);
+	}
 	Value* func_value = state->stack_top - (argc + 2);
 	sno_assert_msg(
 		func_value->type == VT_BYTECODE ||
