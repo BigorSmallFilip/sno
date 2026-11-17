@@ -602,9 +602,13 @@ uint8_t execute_bytecode(sno_State* state, uint8_t argc) {
 	Bytecode* bytecode = state->stack_base[-1].u.bytecode;
 	const uint8_t* pc = bytecode->instructions;
 	OpCode op = (OpCode)*pc;
-	Value* locals = state->stack_base;
-	ensure_stack_capacity(state, bytecode->num_local_slots);
+	ensure_stack_capacity(state, bytecode->stack_capacity_needed);
 	state->stack_top = state->stack_base + bytecode->num_local_slots;
+	Value* locals = state->stack_base;
+
+	if (state->call_stack.count == 17) {
+		printf("AT 172!!!\n");
+	}
 
 	VM_LOOP {
 	VM_CASE(OP_NONE)
@@ -1112,9 +1116,9 @@ uint8_t execute_bytecode(sno_State* state, uint8_t argc) {
 	}
 
 	VM_CASE(OP_CALL) {
-		uint8_t arg = READ_U8();
-		uint8_t call_argc = arg & 0x0F;
-		uint8_t retc_expected = arg >> 4;
+		uint8_t argc_retc = READ_U8();
+		uint8_t call_argc = argc_retc & 0x0F;
+		uint8_t retc_expected = argc_retc >> 4;
 		//printf("Function call!!! argc = %i, retc = %i\n", (int)call_argc, (int)retc_expected);
 		Value* func_value = state->stack_top - (call_argc + 2);
 		if (
