@@ -169,6 +169,7 @@ typedef struct Block {
 	sno_Bool is_loop;
 	sno_Bool is_global; // Should be same as checking if no prev block
 	PC start_pc;
+	uint32_t base_stack_used;
 	PCDynArray breaks_and_continues;
 } Block;
 

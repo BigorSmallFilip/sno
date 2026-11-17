@@ -268,6 +268,17 @@ static sno_Bool is_lvalue(OpCode opcode) {
 		opcode == OP_GET_INDEX;
 }
 
+// Track the index of the stack pointer
+static void shift_sp(Compiler* cs, int shift) {
+	sno_assert_ptr(cs);
+	sno_assert((long long int)cs->current_stack_idx + shift >= 0);
+	cs->current_stack_idx += shift;
+	if (cs->current_stack_idx > cs->max_stack_idx) {
+		sno_assert(shift > 0);
+		cs->max_stack_idx = cs->current_stack_idx;
+	}
+}
+
 static void emit_variable_length(
 	Tokenizer* ts,
 	SourceCodePos pos,
@@ -358,6 +369,7 @@ static PC emit_number(
 	sno_Number number
 ) {
 	sno_assert_ptr(ts);
+	shift_sp(ts->cs, 1);
 	if (sno_number_is_valid_i8(number)) {
 		int8_t i8 = (int8_t)number;
 		return emit_1(ts, NO_POS, OP_NUMBER_I8, i8);
@@ -370,6 +382,7 @@ static PC emit_string(
 	IString* string
 ) {
 	sno_assert_ptr(ts);
+	shift_sp(ts->cs, 1);
 	return emit_2(ts, NO_POS, OP_STRING, add_string_constant(ts->cs, string));
 }
 
@@ -503,6 +516,7 @@ static sno_Bool recursive_search_local_variable(
 	if (id >= 0) {
 		// Id 0 should always be the 'self' argument
 		sno_assert(id >= 1 && id < MAX_ACTIVE_LOCAL_VARS);
+		shift_sp(cs, set ? -1 : 1);
 		emit_1(cs->ts, NO_POS, OP_GET_LOCAL + set, (LocalSlot)id);
 		return sno_TRUE;
 	} else {
@@ -525,6 +539,7 @@ static sno_Bool recursive_search_local_variable(
 static void identifier(Tokenizer* ts, Token name, sno_Bool set) {
 	if (!recursive_search_local_variable(ts->cs, name.info.string, set)) {
 		// Nothing found so treat it like a global
+		shift_sp(ts->cs, set ? -1 : 1);
 		emit_2(
 			ts,
 			name.pos,
@@ -553,6 +568,7 @@ static void enter_block(
 	block->is_loop = is_loop;
 	block->is_global = is_global;
 	block->start_pc = (PC)cs->instructions.count;
+	block->base_stack_used = cs->current_stack_idx;
 	block->num_active_local_vars = cs->num_active_local_slots;
 	block->prev = cs->current_block;
 	pc_dyn_array_init(&block->breaks_and_continues);
@@ -606,13 +622,18 @@ static void parse_interpolated_string(Tokenizer* ts) {
 			ts->token.type == TK_STRING ||
 			ts->token.type == TK_INTERPOLATED_STRING
 		);
-		emit_string(ts, ts->token.info.string);
+		if (ts->token.info.string->length > 0) {
+			emit_string(ts, ts->token.info.string);
+		} else {
+			num_concats--; // No need to concat empty strings
+		}
 		if (ts->token.type == TK_STRING) {
 			read_next_token(ts);
 			break;
 		}
 		read_next_token(ts);
 	}
+	shift_sp(ts->cs, 1 - (int)num_concats);
 	emit_1(ts, pos, OP_INTERPOLATE_STRING, num_concats);
 }
 
@@ -676,6 +697,7 @@ static void function(Tokenizer* ts, IString* name) {
 		&ts->cs->bytecode_constants,
 		(const Bytecode**)(&bytecode)
 	);
+	shift_sp(ts->cs, 1);
 	emit_2(ts, NO_POS, OP_BYTECODE, bytecode_const_id);
 }
 
@@ -690,12 +712,14 @@ static void linalg_constructor(Tokenizer* ts) {
 		);
 	}
 	int num_values = closed_expression_list(ts, TK_RPAREN, 16);
+	shift_sp(ts->cs, 1 - num_values);
 	emit_1(ts, pos, OP_NEW_LINALG, (uint8_t)(type | num_values));
 }
 
 static void array_constructor(Tokenizer* ts) {
 	sno_assert_ptr(ts);
 	sno_assert(ts->token.type == TK_LBRACKET);
+	shift_sp(ts->cs, 1);
 	emit_0(ts, ts->token.pos, OP_NEW_ARRAY);
 	read_next_token(ts);
 	if (ts->token.type == TK_RBRACKET) {
@@ -708,6 +732,7 @@ static void array_constructor(Tokenizer* ts) {
 		num_expressions++;
 		sno_assert(num_expressions <= MAX_ARRAY_CONCATS);
 		if (num_expressions == MAX_ARRAY_CONCATS) {
+			shift_sp(ts->cs, -num_expressions);
 			emit_1(
 				ts,
 				ts->token.pos,
@@ -730,6 +755,7 @@ static void array_constructor(Tokenizer* ts) {
 	}
 	sno_assert(ts->token.type == TK_RBRACKET);
 	if (num_expressions > 0) {
+		shift_sp(ts->cs, -num_expressions);
 		emit_1(ts, ts->token.pos, OP_CONCAT_ARRAY, (uint8_t)num_expressions);
 	}
 	read_next_token(ts);
@@ -764,6 +790,7 @@ static void table_constructor_item(Tokenizer* ts) {
 static void table_constructor(Tokenizer* ts) {
 	sno_assert_ptr(ts);
 	sno_assert(ts->token.type == TK_LBRACE);
+	shift_sp(ts->cs, 1);
 	emit_0(ts, ts->token.pos, OP_NEW_TABLE);
 	read_next_token(ts);
 	if (ts->token.type == TK_RBRACE) {
@@ -776,6 +803,7 @@ static void table_constructor(Tokenizer* ts) {
 		num_items++;
 		sno_assert(num_items <= MAX_TABLE_CONCATS);
 		if (num_items == MAX_TABLE_CONCATS) {
+			shift_sp(ts->cs, -num_items * 2);
 			emit_1(ts, ts->token.pos, OP_CONCAT_TABLE, (uint8_t)num_items);
 			num_items = 0;
 		}
@@ -793,6 +821,7 @@ static void table_constructor(Tokenizer* ts) {
 	}
 	sno_assert(ts->token.type == TK_RBRACE);
 	if (num_items > 0) {
+		shift_sp(ts->cs, -num_items * 2);
 		emit_1(ts, ts->token.pos, OP_CONCAT_TABLE, (uint8_t)num_items);
 	}
 	read_next_token(ts);
@@ -801,13 +830,13 @@ static void table_constructor(Tokenizer* ts) {
 static void operand_primary(Tokenizer* ts) {
 	switch (ts->token.type) {
 	case TK_NONE: {
-		emit_0(ts, NO_POS, OP_NONE);
+		shift_sp(ts->cs, 1); emit_0(ts, NO_POS, OP_NONE);
 	} break;
 	case TK_TRUE: {
-		emit_0(ts, NO_POS, OP_TRUE);
+		shift_sp(ts->cs, 1); emit_0(ts, NO_POS, OP_TRUE);
 	} break;
 	case TK_FALSE: {
-		emit_0(ts, NO_POS, OP_FALSE);
+		shift_sp(ts->cs, 1); emit_0(ts, NO_POS, OP_FALSE);
 	} break;
 	case TK_NUMBER: {
 		emit_number(ts, ts->token.info.number);
@@ -828,7 +857,7 @@ static void operand_primary(Tokenizer* ts) {
 				"No self parameter specified"
 			);
 		}
-		emit_1(ts, NO_POS, OP_GET_LOCAL, 0);
+		shift_sp(ts->cs, 1); emit_1(ts, NO_POS, OP_GET_LOCAL, 0);
 	} break;
 	case TK_FUNCTION: {
 		read_next_token(ts);
@@ -897,6 +926,7 @@ static void call(Tokenizer* ts, SourceCodePos pos) {
 		syntax_error_at_cur_token(ts, "Too many arguments");
 	}
 	sno_assert(num_args >= 0 && num_args <= MAX_EXPR_PER_STMT);
+	shift_sp(ts->cs, -2 - num_args + 1);
 	emit_1(ts, pos, OP_CALL, (uint8_t)num_args | (1 << 4));
 }
 
@@ -912,6 +942,7 @@ static void operand_postfix(Tokenizer* ts) {
 				syntax_error(ts, pos, "Missing closing bracket ']'");
 			}
 			read_next_token(ts);
+			shift_sp(ts->cs, -1);
 			emit_0(ts, pos, OP_GET_INDEX);
 		} break;
 		case TK_DOT: { // Field or method call
@@ -922,6 +953,7 @@ static void operand_postfix(Tokenizer* ts) {
 			ConstID name_const_id = add_string_constant(ts->cs, ts->token.info.string);
 			read_next_token(ts);
 			if (ts->token.type == TK_LPAREN) {
+				shift_sp(ts->cs, 1);
 				emit_2(ts, pos, OP_GET_METHOD, name_const_id);
 				call(ts, ts->token.pos);
 			} else {
@@ -929,6 +961,7 @@ static void operand_postfix(Tokenizer* ts) {
 			}
 		} break;
 		case TK_LPAREN: { // Function call
+			shift_sp(ts->cs, 1);
 			emit_0(ts, NO_POS, OP_NONE); // Self parameter = null
 			call(ts, ts->token.pos);
 		} break;
@@ -1021,6 +1054,9 @@ static BinOp subexpression(
 				binop == BINOP_LAND ? OP_AND : OP_OR,
 				0
 			);
+			// The code generator assumes the jump is not taken
+			// to keep track of the stack pointer
+			shift_sp(ts->cs, -1);
 			next_binop = subexpression(ts, operator_precedence[binop].right);
 			PC jump_to = emit_0(ts, NO_POS, OP_TO_BOOL) + 1;
 			if (jump_to - jump_from > UINT16_MAX) {
@@ -1035,6 +1071,7 @@ static BinOp subexpression(
 			ts->cs->instructions.buffer[jump_from + 2] = offset >> 8;
 		} else {
 			next_binop = subexpression(ts, operator_precedence[binop].right);
+			shift_sp(ts->cs, -1);
 			emit_0(
 				ts,
 				binop_pos,
@@ -1119,6 +1156,7 @@ static void if_statement(Tokenizer* ts) {
 	read_next_token(ts);
 	optional_terminator(ts);
 	expression(ts); // Condition
+	shift_sp(ts->cs, -1);
 	PC jump_from = emit_2(ts, NO_POS, OP_JMP_IF_FALSE, 0);
 	optional_terminator(ts);
 	SourceCodePos lbrace_pos = ts->token.pos;
@@ -1155,6 +1193,7 @@ static void while_statement(Tokenizer* ts) {
 	read_next_token(ts);
 	PC back_to = (PC)(ts->cs->instructions.count);
 	expression(ts); // Condition
+	shift_sp(ts->cs, -1);
 	PC out_from = emit_2(ts, NO_POS, OP_JMP_IF_FALSE, 0);
 	brace_block(ts, sno_TRUE);
 	PC back_from = emit_2(ts, NO_POS, OP_JMP_BACK, 0);
@@ -1230,6 +1269,7 @@ static void for_statement(Tokenizer* ts) {
 		try_declare_local_variable(ts, iter2);
 	}
 
+	shift_sp(ts->cs, is_numeric_for_loop ? 1 : 3);
 	PC start = emit_2(
 		ts,
 		NO_POS,
@@ -1239,17 +1279,21 @@ static void for_statement(Tokenizer* ts) {
 		0
 	);
 	if (is_numeric_for_loop) {
+		shift_sp(ts->cs, -1);
 		emit_1(ts, NO_POS, OP_SET_LOCAL, iter_local_id);
 	} else {
 		if (iter2.type != 0) {
+			shift_sp(ts->cs, -2);
 			emit_1(ts, NO_POS, OP_SET_LOCAL, iter_local_id);
 			emit_1(ts, NO_POS, OP_SET_LOCAL, iter_local_id + 1);
 		} else {
+			shift_sp(ts->cs, -2);
 			emit_0(ts, NO_POS, OP_POP);
 			emit_1(ts, NO_POS, OP_SET_LOCAL, iter_local_id);
 		}
 	}
 	brace_block(ts, sno_TRUE);
+	shift_sp(ts->cs, is_numeric_for_loop ? -3 : -2);
 	PC end = emit_2(
 		ts,
 		NO_POS,
@@ -1353,6 +1397,7 @@ static void declaration_statement(Tokenizer* ts) {
 	}
 
 	if (no_assignment) {
+		shift_sp(ts->cs, (int)num_declarations);
 		for (size_t i = 0; i < num_declarations; i++) {
 			emit_0(ts, NO_POS, OP_NONE);
 		}
@@ -1379,8 +1424,11 @@ static void declaration_statement(Tokenizer* ts) {
 			ts->cs->last_instruction_pc
 		];
 		if (*last_op == OP_CALL) {
+			uint8_t retc = (uint8_t)(num_declarations - num_expressions + 1);
+			sno_assert(retc >= 0 && retc <= MAX_EXPR_PER_STMT);
+			shift_sp(ts->cs, retc);
 			last_op[1] &= ~0b11110000;
-			last_op[1] |= (num_declarations - num_expressions + 1) << 4;
+			last_op[1] |= retc << 4;
 		} else if (num_expressions != (int)num_declarations) {
 			syntax_error(
 				ts,
@@ -1390,6 +1438,7 @@ static void declaration_statement(Tokenizer* ts) {
 		}
 	}
 	sno_assert(num_declarations >= 1 && num_declarations <= MAX_EXPR_PER_STMT);
+	shift_sp(ts->cs, -(int)num_declarations);
 	for (int i = (int)num_declarations - 1; i >= 0; i--) {
 		Token name_token = name_tokens[i];
 		if (ts->cs->current_block->is_global) {
@@ -1414,6 +1463,7 @@ static void function_statement(Tokenizer* ts) {
 	Token name_token = ts->token;
 	read_next_token(ts);
 	function(ts, name_token.info.string);
+	shift_sp(ts->cs, -1);
 	emit_2(
 		ts,
 		name_token.pos,
@@ -1499,6 +1549,7 @@ static void expression_statement(Tokenizer* ts) {
 				"Expected the call to be the last thing in this statement"
 			);
 		}
+		shift_sp(ts->cs, -1);
 		ts->cs->instructions.buffer[ts->cs->last_instruction_pc + 1] &=
 			0b00001111; // Set retc to 0
 		return;
@@ -1506,13 +1557,13 @@ static void expression_statement(Tokenizer* ts) {
 	if (ts->token.type == TK_COMMA) {
 		syntax_error_at_cur_token(
 			ts,
-			"Multiple assignments only work on single identifiers"
+			"Multiple assignments only work on simple identifiers"
 		);
 	}
 	if (!token_is_assignment(ts->token.type)) {
 		syntax_error_at_cur_token(
 			ts,
-			"Expected an assignment token"
+			"Expected an assignment"
 		);
 	}
 	SourceCodePos assign_pos = ts->token.pos;
@@ -1543,21 +1594,31 @@ static void expression_statement(Tokenizer* ts) {
 		last_op_info->length
 	);
 	ts->cs->instructions.count -= last_op_info->length; // Remove get
-
+	shift_sp(ts->cs, -last_op_info->sp_shift);
+	
 	if (assign_op == NOT_BINOP) {
 		expression(ts);
 	} else {
-		if      (last_op == OP_GET_FIELD) { emit_0(ts, NO_POS, OP_COPY_1); }
-		else if (last_op == OP_GET_INDEX) { emit_0(ts, NO_POS, OP_COPY_2); }
+		if (last_op == OP_GET_FIELD) {
+			shift_sp(ts->cs, 1);
+			emit_0(ts, NO_POS, OP_COPY_1);
+		} else if (last_op == OP_GET_INDEX) {
+			shift_sp(ts->cs, 2);
+			emit_0(ts, NO_POS, OP_COPY_2);
+		}
+		shift_sp(ts->cs, last_op_info->sp_shift);
 		emit_variable_length(
 			ts, get_pos, last_instruction, last_op_info->length
 		);
 		expression(ts);
+		shift_sp(ts->cs, -1);
 		emit_0(ts, assign_pos, OP_ADD + (OpCode)assign_op);
 	}
 	// Put the last instruction back as a SET instruction
 	last_instruction[0]++;
-	emit_variable_length(ts, get_pos, last_instruction, last_op_info->length);
+	const OpCodeInfo* set_op_info = &opcode_info[last_instruction[0]];
+	shift_sp(ts->cs, set_op_info->sp_shift);
+	emit_variable_length(ts, get_pos, last_instruction, set_op_info->length);
 }
 
 // return_stmt ::= 'return' expr_list_open
@@ -1573,6 +1634,7 @@ static void return_statement(Tokenizer* ts) {
 		num_returns = open_expression_list(ts);
 	}
 	sno_assert(num_returns >= 0 && num_returns <= MAX_EXPR_PER_STMT);
+	shift_sp(ts->cs, -num_returns);
 	emit_1(ts, NO_POS, OP_RETURN, (uint8_t)num_returns);
 }
 
@@ -1626,11 +1688,21 @@ static void block(Tokenizer* ts, sno_Bool is_loop, sno_Bool is_global) {
 	sno_assert(!(is_loop && is_global));
 	Block block;
 	enter_block(ts->cs, &block, is_loop, is_global);
+	sno_Bool must_be_final = sno_FALSE;
+	SourceCodePos prev_stmt_pos = NO_POS;
 	while (1) {
 		if (ts->token.type == TK_EOF || ts->token.type == TK_RBRACE) {
 			break;
 		}
-		statement(ts);
+		if (must_be_final) {
+			sno_assert(prev_stmt_pos != NO_POS);
+			syntax_error(
+				ts, prev_stmt_pos,
+				"There is unreachable code after this statement"
+			);
+		}
+		prev_stmt_pos = ts->token.pos;
+		must_be_final = statement(ts);
 		if (ts->token.type != TK_TERMINATOR) {
 			if (ts->token.type == TK_RBRACE) {
 				break;

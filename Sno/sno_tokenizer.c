@@ -451,7 +451,7 @@ static sno_Bool skip_whitespace_and_comments(
 			stmt_end = stmt_end || insert_terminator_on_endline;
 			break;
 		}
-		case '\\': {
+		/*case '\\': {
 			const char* backslash = ts->cur_char;
 			ts->cur_char++;
 			if (check_next(ts, '\n') || (check_next(ts, '\r') && check_next(ts, '\n'))) {
@@ -463,7 +463,7 @@ static sno_Bool skip_whitespace_and_comments(
 				"Backslash characters must be the last character on a line, including spaces"
 			);
 			break;
-		}
+		}*/
 		case ' ': case '\t': {
 			break;
 		}
