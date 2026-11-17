@@ -46,16 +46,16 @@ sno_API void sno_free_state(sno_State* state) {
 
 static void init_stack(sno_State* state) {
 	sno_assert_ptr(state);
-	state->stack = state_alloc(state, sizeof(Value) * INITIAL_STACK_SIZE);
+	state->stack = state_alloc(state, sizeof(Value) * sno_MIN_STACK);
 	state->stack_base = state->stack;
 	state->stack_top = state->stack;
-	state->stack_capacity = INITIAL_STACK_SIZE;
+	state->stack_capacity = sno_MIN_STACK;
 }
 
 static void resize_stack(sno_State* state, uint32_t new_capacity) {
 	sno_assert_ptr(state);
 	sno_assert(sno_is_power_of_2(new_capacity));
-	sno_assert(new_capacity >= 64 && new_capacity < sno_MAX_STACK);
+	sno_assert(new_capacity >= sno_MIN_STACK && new_capacity < sno_MAX_STACK);
 	sno_assert(new_capacity > state->stack_capacity);
 	uint32_t stack_base_idx = (uint32_t)(state->stack_base - state->stack);
 	uint32_t stack_top_idx = (uint32_t)(state->stack_top - state->stack);
@@ -68,6 +68,17 @@ static void resize_stack(sno_State* state, uint32_t new_capacity) {
 	state->stack_base = state->stack + stack_base_idx;
 	state->stack_top = state->stack + stack_top_idx;
 	state->stack_capacity = new_capacity;
+}
+
+void ensure_stack_capacity(sno_State* state, uint32_t free_slots) {
+	sno_assert_ptr(state);
+	uint32_t used_slots = (uint32_t)(state->stack_base - state->stack);
+	uint32_t unused_slots = state->stack_capacity - used_slots;
+	if (unused_slots < free_slots) {
+		uint32_t capacity_needed = used_slots + free_slots;
+		sno_assert(capacity_needed > state->stack_capacity);
+		resize_stack(state, (uint32_t)pow2_ge(capacity_needed));
+	}
 }
 
 sno_API uint32_t sno_stack_top_idx(const sno_State* state) {
@@ -207,8 +218,6 @@ void create_new_global(sno_State* state, Value name, Value value) {
 		);
 	}
 }
-
-
 
 void print_stack(sno_State* state) {
 	sno_assert_ptr(state);

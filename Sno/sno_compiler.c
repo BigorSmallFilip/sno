@@ -86,6 +86,8 @@ static void init_function_compiler(Tokenizer* ts, Compiler* cs, IString* name) {
 
 	cs->num_active_local_slots = 1;
 	cs->max_active_local_slots = 1;
+	cs->current_stack_idx = 0;
+	cs->max_stack_idx = 0;
 
 	cs->parent_function = ts->cs;
 	ts->cs = cs;
@@ -101,6 +103,8 @@ static Bytecode* free_function_compiler(Tokenizer* ts, Compiler* cs) {
 	bytecode->source_code_name = ts->source_code_name;
 	bytecode->source_code = ts->source_code;
 	bytecode->num_local_slots = cs->max_active_local_slots;
+	bytecode->stack_capacity_needed =
+		cs->max_stack_idx + cs->max_active_local_slots;
 	bytecode->is_file_scope = cs->parent_function == NULL;
 
 	sno_assert(cs->instructions.count < MAX_BYTECODE_INSTRUCTIONS);
@@ -264,12 +268,16 @@ static sno_Bool is_lvalue(OpCode opcode) {
 		opcode == OP_GET_INDEX;
 }
 
-static void emit_direct(
+static void emit_variable_length(
 	Tokenizer* ts,
 	SourceCodePos pos,
 	uint8_t* data,
 	size_t length
 ) {
+	sno_assert_ptr(ts);
+	sno_assert_ptr(data);
+	PC pc = (PC)ts->cs->instructions.count;
+	ts->cs->last_instruction_pc = pc;
 	byte_dyn_array_push_n(
 		ts->main_state,
 		&ts->cs->instructions,
@@ -365,57 +373,57 @@ static PC emit_string(
 	return emit_2(ts, NO_POS, OP_STRING, add_string_constant(ts->cs, string));
 }
 
-static void insert_copy(Tokenizer* ts, uint8_t back, OpCode copy_opcode) {
-	sno_assert(back < ts->cs->instructions.count);
-	uint8_t temp = 0;
-	byte_dyn_array_push(ts->main_state, &ts->cs->instructions, &temp);
-	PC pc = (PC)(ts->cs->instructions.count - 1 - back);
-	memmove(
-		&ts->cs->instructions.buffer[pc + 1],
-		&ts->cs->instructions.buffer[pc],
-		back
-	);
-	ts->cs->instructions.buffer[pc] = copy_opcode;
-}
-
-static uint8_t remove_op(Tokenizer* ts, PC pc) {
-	sno_assert(pc < ts->cs->instructions.count);
-	sno_assert(pc != ts->cs->last_instruction_pc); // Don't use it for this
-	OpCode opcode = ts->cs->instructions.buffer[pc];
-	sno_assert(opcode < NUM_OPCODES);
-	const OpCodeInfo* info = &opcode_info[opcode];
-	memmove(
-		&ts->cs->instructions.buffer[pc],
-		&ts->cs->instructions.buffer[pc + info->length],
-		ts->cs->instructions.count - pc + info->length
-	);
-	ts->cs->instructions.count -= info->length;
-	return info->length;
-}
-
-static PC emit_copy_of_get_op_as_set(
-	Tokenizer* ts,
-	SourceCodePos pos,
-	PC get_pc
-) {
-	sno_assert(ts);
-	sno_assert(ts->cs);
-	sno_assert(ts->cs->instructions.count > 0);
-	OpCode* get = &ts->cs->instructions.buffer[get_pc];
-	sno_assert(is_lvalue(*get));
-	OpCode set = *get + 1;
-	if (*get == OP_GET_GLOBAL || *get == OP_GET_FIELD) {
-		// copy 2 bytes arg
-		uint16_t arg = get[1] | (get[2] << 8);
-		return emit_2(ts, pos, set, arg);
-	} else if (*get == OP_GET_LOCAL) {
-		sno_assert(*get + 1 == OP_SET_LOCAL);
-		return emit_1(ts, pos, set, get[1]);
-	} else {
-		sno_assert(*get == OP_GET_INDEX);
-		return emit_0(ts, pos, set);
-	}
-}
+//static void insert_copy(Tokenizer* ts, uint8_t back, OpCode copy_opcode) {
+//	sno_assert(back < ts->cs->instructions.count);
+//	uint8_t temp = 0;
+//	byte_dyn_array_push(ts->main_state, &ts->cs->instructions, &temp);
+//	PC pc = (PC)(ts->cs->instructions.count - 1 - back);
+//	memmove(
+//		&ts->cs->instructions.buffer[pc + 1],
+//		&ts->cs->instructions.buffer[pc],
+//		back
+//	);
+//	ts->cs->instructions.buffer[pc] = copy_opcode;
+//}
+//
+//static uint8_t remove_op(Tokenizer* ts, PC pc) {
+//	sno_assert(pc < ts->cs->instructions.count);
+//	sno_assert(pc != ts->cs->last_instruction_pc); // Don't use it for this
+//	OpCode opcode = ts->cs->instructions.buffer[pc];
+//	sno_assert(opcode < NUM_OPCODES);
+//	const OpCodeInfo* info = &opcode_info[opcode];
+//	memmove(
+//		&ts->cs->instructions.buffer[pc],
+//		&ts->cs->instructions.buffer[pc + info->length],
+//		ts->cs->instructions.count - pc + info->length
+//	);
+//	ts->cs->instructions.count -= info->length;
+//	return info->length;
+//}
+//
+//static PC emit_copy_of_get_op_as_set(
+//	Tokenizer* ts,
+//	SourceCodePos pos,
+//	PC get_pc
+//) {
+//	sno_assert(ts);
+//	sno_assert(ts->cs);
+//	sno_assert(ts->cs->instructions.count > 0);
+//	OpCode* get = &ts->cs->instructions.buffer[get_pc];
+//	sno_assert(is_lvalue(*get));
+//	OpCode set = *get + 1;
+//	if (*get == OP_GET_GLOBAL || *get == OP_GET_FIELD) {
+//		// copy 2 bytes arg
+//		uint16_t arg = get[1] | (get[2] << 8);
+//		return emit_2(ts, pos, set, arg);
+//	} else if (*get == OP_GET_LOCAL) {
+//		sno_assert(*get + 1 == OP_SET_LOCAL);
+//		return emit_1(ts, pos, set, get[1]);
+//	} else {
+//		sno_assert(*get == OP_GET_INDEX);
+//		return emit_0(ts, pos, set);
+//	}
+//}
 
 
 
@@ -1541,13 +1549,15 @@ static void expression_statement(Tokenizer* ts) {
 	} else {
 		if      (last_op == OP_GET_FIELD) { emit_0(ts, NO_POS, OP_COPY_1); }
 		else if (last_op == OP_GET_INDEX) { emit_0(ts, NO_POS, OP_COPY_2); }
-		emit_direct(ts, get_pos, last_instruction, last_op_info->length);
+		emit_variable_length(
+			ts, get_pos, last_instruction, last_op_info->length
+		);
 		expression(ts);
 		emit_0(ts, assign_pos, OP_ADD + (OpCode)assign_op);
 	}
 	// Put the last instruction back as a SET instruction
 	last_instruction[0]++;
-	emit_direct(ts, get_pos, last_instruction, last_op_info->length);
+	emit_variable_length(ts, get_pos, last_instruction, last_op_info->length);
 }
 
 // return_stmt ::= 'return' expr_list_open

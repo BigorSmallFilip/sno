@@ -1,6 +1,13 @@
 
-function recurses() {
-	return recurses()
-}
+var a = 10 + 10 + 10
+assert(a == 30)
+a += 15
+assert(a == 45)
 
-recurses()
+var numbers = [1, 2, 3, 4, 5]
+numbers[2] += 100
+assert(numbers[1] == 2)
+assert(numbers[2] == 103)
+assert(numbers[3] == 4)
+assert(numbers.count == 5)
+

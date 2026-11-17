@@ -226,6 +226,7 @@ typedef int32_t sno_NumberInt;
 
 typedef struct sno_State sno_State;
 
+#define sno_MIN_STACK 64
 #define sno_MAX_STACK 65536
 #define sno_MAX_RECURSION 1024
 

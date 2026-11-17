@@ -115,6 +115,7 @@ typedef uint8_t OpCode;
 typedef struct OpCodeInfo {
 	uint8_t has_pos;
 	uint8_t length; // 1, 2 or 3 bytes
+	int8_t sp_shift; // Stack pointer shift
 	const char* const name;
 } OpCodeInfo;
 extern const OpCodeInfo opcode_info[NUM_OPCODES];
@@ -144,6 +145,7 @@ typedef struct Bytecode {
 	ConstID num_bytecode_constants;
 	LocalID num_local_slots;
 	sno_Bool is_file_scope;
+	uint32_t stack_capacity_needed;
 	uint8_t* instructions;
 	SourceCodePos* instruction_positions;
 	sno_Number* number_constants;

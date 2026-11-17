@@ -188,6 +188,8 @@ typedef struct Compiler {
 	sno_Bool has_self_parameter;
 	LocalSlot num_active_local_slots;
 	LocalSlot max_active_local_slots;
+	uint32_t current_stack_idx; // Does not include locals
+	uint32_t max_stack_idx; // Does not include locals
 	LocalID active_local_vars[MAX_ACTIVE_LOCAL_VARS]; // Indexes into the local_vars dynarray
 } Compiler;
 

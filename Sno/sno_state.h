@@ -6,8 +6,6 @@
 #include "sno_value.h"
 #include <setjmp.h>
 
-#define INITIAL_STACK_SIZE (128)
-
 // Simple index of a character in some source code string
 typedef uint32_t SourceCodePos;
 
@@ -66,6 +64,8 @@ extern const sno_Library lib_array[];
 extern const sno_Library lib_table[];
 
 
+
+void ensure_stack_capacity(sno_State* state, uint32_t free_slots);
 
 void check_arg_type(sno_State* state, uint32_t idx, ValueType type);
 #define set_retc(retc) state->stack_top = state->stack_base + retc; return retc

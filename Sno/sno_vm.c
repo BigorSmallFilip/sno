@@ -8,65 +8,65 @@
 
 
 const OpCodeInfo opcode_info[NUM_OPCODES] = {
-	{ 0, 1, "NONE" },
-	{ 0, 1, "FALSE" },
-	{ 0, 1, "TRUE" },
-	{ 0, 2, "NUMBER_I8" },
-	{ 0, 3, "NUMBER" },
-	{ 0, 3, "STRING" },
-	{ 1, 2, "INTERPOLATE_STRING" },
-	{ 0, 3, "BYTECODE" },
-	{ 1, 2, "NEW_LINALG" },
-	{ 1, 1, "NEW_ARRAY" },
-	{ 1, 2, "CONCAT_ARRAY" },
-	{ 1, 1, "NEW_TABLE" },
-	{ 1, 2, "CONCAT_TABLE" },
-	{ 0, 2, "GET_LOCAL" },
-	{ 0, 2, "SET_LOCAL" },
-	{ 1, 3, "GET_GLOBAL" },
-	{ 1, 3, "SET_GLOBAL" },
-	{ 1, 3, "GET_FIELD" },
-	{ 1, 3, "SET_FIELD" },
-	{ 1, 1, "GET_INDEX" },
-	{ 1, 1, "SET_INDEX" },
-	{ 1, 3, "SET_NEW_GLOBAL" },
-	{ 1, 3, "GET_METHOD" },
-	{ 0, 1, "POP" },
-	{ 0, 1, "COPY_1" },
-	{ 0, 1, "COPY_2" },
-	{ 0, 1, "TO_BOOL" },
-	{ 0, 1, "TO_BOOL_LNOT" },
-	{ 1, 1, "NEG" },
-	{ 1, 1, "BITFLIP" },
-	{ 1, 1, "ADD" },
-	{ 1, 1, "SUB" },
-	{ 1, 1, "MUL" },
-	{ 1, 1, "DIV" },
-	{ 1, 1, "IDIV" },
-	{ 1, 1, "MOD" },
-	{ 1, 1, "POW" },
-	{ 1, 1, "BAND" },
-	{ 1, 1, "BOR" },
-	{ 1, 1, "BXOR" },
-	{ 1, 1, "SHL" },
-	{ 1, 1, "SHR" },
-	{ 1, 1, "LT" },
-	{ 1, 1, "GT" },
-	{ 1, 1, "LE" },
-	{ 1, 1, "GE" },
-	{ 0, 1, "EQ" },
-	{ 0, 1, "NEQ" },
-	{ 0, 3, "AND" },
-	{ 0, 3, "OR" },
-	{ 0, 3, "JMP_IF_FALSE" },
-	{ 0, 3, "JMP" },
-	{ 0, 3, "JMP_BACK" },
-	{ 0, 3, "START_NUMERIC_FOR_LOOP" },
-	{ 0, 3, "END_NUMERIC_FOR_LOOP" },
-	{ 0, 3, "START_CONTAINER_FOR_LOOP" },
-	{ 0, 3, "END_CONTAINER_FOR_LOOP" },
-	{ 1, 2, "CALL" },
-	{ 0, 2, "RETURN" },
+	{ 0, 1,  1, "NONE" },
+	{ 0, 1,  1, "FALSE" },
+	{ 0, 1,  1, "TRUE" },
+	{ 0, 2,  1, "NUMBER_I8" },
+	{ 0, 3,  1, "NUMBER" },
+	{ 0, 3,  1, "STRING" },
+	{ 1, 2,  1, "INTERPOLATE_STRING" },
+	{ 0, 3,  1, "BYTECODE" },
+	{ 1, 2,  1, "NEW_LINALG" },
+	{ 1, 1,  1, "NEW_ARRAY" },
+	{ 1, 2,  0, "CONCAT_ARRAY" },
+	{ 1, 1,  1, "NEW_TABLE" },
+	{ 1, 2,  0, "CONCAT_TABLE" },
+	{ 0, 2,  1, "GET_LOCAL" },
+	{ 0, 2, -1, "SET_LOCAL" },
+	{ 1, 3,  1, "GET_GLOBAL" },
+	{ 1, 3, -1, "SET_GLOBAL" },
+	{ 1, 3,  0, "GET_FIELD" },
+	{ 1, 3, -2, "SET_FIELD" },
+	{ 1, 1, -1, "GET_INDEX" },
+	{ 1, 1, -3, "SET_INDEX" },
+	{ 1, 3, -1, "SET_NEW_GLOBAL" },
+	{ 1, 3,  1, "GET_METHOD" },
+	{ 0, 1, -1, "POP" },
+	{ 0, 1,  1, "COPY_1" },
+	{ 0, 1,  2, "COPY_2" },
+	{ 0, 1,  0, "TO_BOOL" },
+	{ 0, 1,  0, "TO_BOOL_LNOT" },
+	{ 1, 1,  0, "NEG" },
+	{ 1, 1,  0, "BITFLIP" },
+	{ 1, 1, -1, "ADD" },
+	{ 1, 1, -1, "SUB" },
+	{ 1, 1, -1, "MUL" },
+	{ 1, 1, -1, "DIV" },
+	{ 1, 1, -1, "IDIV" },
+	{ 1, 1, -1, "MOD" },
+	{ 1, 1, -1, "POW" },
+	{ 1, 1, -1, "BAND" },
+	{ 1, 1, -1, "BOR" },
+	{ 1, 1, -1, "BXOR" },
+	{ 1, 1, -1, "SHL" },
+	{ 1, 1, -1, "SHR" },
+	{ 1, 1, -1, "LT" },
+	{ 1, 1, -1, "GT" },
+	{ 1, 1, -1, "LE" },
+	{ 1, 1, -1, "GE" },
+	{ 0, 1, -1, "EQ" },
+	{ 0, 1, -1, "NEQ" },
+	{ 0, 3, -1, "AND" },
+	{ 0, 3, -1, "OR" },
+	{ 0, 3, -1, "JMP_IF_FALSE" },
+	{ 0, 3,  0, "JMP" },
+	{ 0, 3,  0, "JMP_BACK" },
+	{ 0, 3,  0, "START_NUMERIC_FOR_LOOP" },
+	{ 0, 3, -3, "END_NUMERIC_FOR_LOOP" },
+	{ 0, 3,  2, "START_CONTAINER_FOR_LOOP" },
+	{ 0, 3, -2, "END_CONTAINER_FOR_LOOP" },
+	{ 1, 2, -1, "CALL" },
+	{ 0, 2,  0, "RETURN" },
 };
 
 
@@ -188,6 +188,8 @@ void print_bytecode(const Bytecode* bytecode) {
 		(unsigned int)bytecode->source_code_name->length,
 		istring_chars(bytecode->source_code_name)
 	);
+	printf("Stack capacity needed: %u\n", (unsigned int)bytecode->stack_capacity_needed);
+	printf("Local slots needed: %u\n", (unsigned int)bytecode->num_local_slots);
 	print_instructions(bytecode);
 	/*for (PC i = 0; i < bytecode->instructions_size;) {
 		i = print_instructions(bytecode, i);
@@ -594,14 +596,15 @@ uint8_t execute_bytecode(sno_State* state, uint8_t argc) {
 	Value* base = state->stack_top - (argc + 2) + 1;
 	sno_assert(state->stack_base == base);
 	sno_assert_msg(
-		base[-1].type == VT_BYTECODE,
+		state->stack_base[-1].type == VT_BYTECODE,
 		"Tried to call something which wasn't a function"
 	);
-	Bytecode* bytecode = base[-1].u.bytecode;
+	Bytecode* bytecode = state->stack_base[-1].u.bytecode;
 	const uint8_t* pc = bytecode->instructions;
 	OpCode op = (OpCode)*pc;
-	Value* locals = base;
-	state->stack_top = base + bytecode->num_local_slots;
+	Value* locals = state->stack_base;
+	ensure_stack_capacity(state, bytecode->num_local_slots);
+	state->stack_top = state->stack_base + bytecode->num_local_slots;
 
 	VM_LOOP {
 	VM_CASE(OP_NONE)
