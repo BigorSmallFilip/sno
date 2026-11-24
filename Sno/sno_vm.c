@@ -738,7 +738,7 @@ uint8_t execute_bytecode(sno_State* state, uint8_t argc) {
 		key.u.string = string_const;
 		if (!table_get_key(state, state->globals, key, state->stack_top)) {
 			vm_throw(state, pc,
-				"There is no global variable named \"%.*s\"",
+				"There is no declared variable named \"%.*s\"",
 				(unsigned int)string_const->length,
 				istring_chars(string_const)
 			);
@@ -754,7 +754,7 @@ uint8_t execute_bytecode(sno_State* state, uint8_t argc) {
 		key.u.string = string_const;
 		if (!table_set_key(state, state->globals, key, *state->stack_top)) {
 			vm_throw(state, pc,
-				"There is no global variable named \"%.*s\"",
+				"There is no declared variable named \"%.*s\"",
 				(unsigned int)string_const->length,
 				istring_chars(string_const)
 			);

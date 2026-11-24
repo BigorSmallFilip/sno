@@ -860,10 +860,14 @@ static TokenType lex_token(Tokenizer* ts, Token* token) {
 	case 'Y': case 'Z': case '_':
 	identifier:
 	{
-		if (is_alpha(*ts->cur_char) || is_digit(*ts->cur_char)) {
+		if (
+			ts->cur_char < ts->source_code_end &&
+			(is_alpha(*ts->cur_char) || is_digit(*ts->cur_char))
+		) {
 			ts->cur_char++;
 			goto identifier;
 		}
+		
 		size_t length = ts->cur_char - ts->token_start;
 		sno_assert(length < UINT32_MAX);
 		token->info.string = create_istring(
