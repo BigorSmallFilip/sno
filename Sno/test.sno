@@ -1,8 +1,2 @@
 
-var avg = 0
-var iters = 10000
-for i = 0, iters {
-	avg += random() / iters
-}
-//print("Average output of random() after \(iters) iterations is \(avg)")
-assert(avg > 0.4 and avg < 0.6)
+print(1 and 2)

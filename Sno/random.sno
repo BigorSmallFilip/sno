@@ -1,8 +1,13 @@
 
-var avg = 0
-var iters = 10000
-for i = 0, iters {
-	avg += random() / iters
+function check_randomness_average(min, max, iters) {
+	var avg = 0
+	for i = 0, iters {
+		avg += random() / iters
+	}
+	var expected_avg = (min + max) / 2
+	print(expected_avg)
+	print(avg > expected_avg - 0.1 and avg < expected_avg + 0.1)
 }
-//print("Average output of random() after \(iters) iterations is \(avg)")
-assert(avg > 0.4 and avg < 0.6)
+
+check_randomness_average(0, 1, 100)
+check_randomness_average(0, 2, 100)

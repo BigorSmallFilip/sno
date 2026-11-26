@@ -558,7 +558,7 @@ static void set_index(
 	Bytecode* bytecode_const = bytecode->bytecode_constants[const_id]
 
 
-//#define DEBUG_EVERY_VM_INSTRUCTION
+#define DEBUG_EVERY_VM_INSTRUCTION
 #ifdef DEBUG_EVERY_VM_INSTRUCTION
 #define VM_DEBUG_OP \
     printf(sno_ANSI_BLUE); \
@@ -605,10 +605,6 @@ uint8_t execute_bytecode(sno_State* state, uint8_t argc) {
 	ensure_stack_capacity(state, bytecode->stack_capacity_needed);
 	state->stack_top = state->stack_base + bytecode->num_local_slots;
 	Value* locals = state->stack_base;
-
-	if (state->call_stack.count == 17) {
-		printf("AT 172!!!\n");
-	}
 
 	VM_LOOP {
 	VM_CASE(OP_NONE)
