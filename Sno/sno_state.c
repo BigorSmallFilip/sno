@@ -27,12 +27,14 @@ sno_API sno_State* sno_create_state(void) {
 	init_stack(state);
 	state->globals = create_table(state);
 	sno_load_library_into_global_scope(state, lib_core);
+	sno_load_library_into_global_scope(state, lib_math);
 	state->string_prototype = load_library_into_table(state, lib_string);
 	state->array_prototype = load_library_into_table(state, lib_array);
 	state->table_prototype = load_library_into_table(state, lib_table);
 	state->count_builtin_string = create_istring(
 		state, sno_string_comma_length("count")
 	);
+	state->random_seed = 0;
 	
 	return state;
 }
@@ -199,6 +201,13 @@ sno_API void sno_check_argc_range(
 			(int)argc
 		);
 	}
+}
+
+sno_API sno_Number sno_check_number(sno_State* state, uint32_t idx) {
+	sno_assert_ptr(state);
+	sno_assert(idx < state->stack_top - state->stack_base);
+	check_arg_type(state, idx, VT_NUMBER);
+	return state->stack_base[0].u.number;
 }
 
 void check_arg_type(sno_State* state, uint32_t idx, ValueType type) {

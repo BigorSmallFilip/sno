@@ -56,9 +56,12 @@ typedef struct sno_State {
 	const IString* exception_message;
 
 	const IString* count_builtin_string;
+
+	uint64_t random_seed;
 } sno_State;
 
 extern const sno_Library lib_core[];
+extern const sno_Library lib_math[];
 extern const sno_Library lib_string[];
 extern const sno_Library lib_array[];
 extern const sno_Library lib_table[];

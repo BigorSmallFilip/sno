@@ -253,6 +253,7 @@ sno_API void sno_check_argc_range(
 	uint8_t min_expected,
 	uint8_t max_expected
 );
+sno_API sno_Number sno_check_number(sno_State* state, uint32_t idx);
 
 sno_API sno_no_return void sno_throw_runtime_error(
 	sno_State* state,

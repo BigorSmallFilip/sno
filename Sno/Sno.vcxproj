@@ -210,6 +210,7 @@
     <Text Include="sno_one.c" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="random.sno" />
     <None Include="test.sno" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
