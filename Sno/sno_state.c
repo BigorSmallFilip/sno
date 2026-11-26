@@ -183,6 +183,24 @@ sno_API void sno_check_argc(sno_State* state, uint8_t argc, uint8_t expected) {
 	}
 }
 
+sno_API void sno_check_argc_range(
+	sno_State* state,
+	uint8_t argc,
+	uint8_t min_expected,
+	uint8_t max_expected
+) {
+	sno_assert_ptr(state);
+	if (!(argc >= min_expected && argc <= max_expected)) {
+		sno_throw_runtime_error(
+			state,
+			"Call expected between %i and %i arguments but recieved %i",
+			(int)min_expected,
+			(int)max_expected,
+			(int)argc
+		);
+	}
+}
+
 void check_arg_type(sno_State* state, uint32_t idx, ValueType type) {
 	sno_assert_ptr(state);
 	sno_assert(idx < state->stack_top - state->stack_base);

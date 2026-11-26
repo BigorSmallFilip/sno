@@ -1,6 +1,7 @@
 #include "sno_compiler.c"
 #include "sno_lib_array.c"
 #include "sno_lib_core.c"
+#include "sno_lib_math.c"
 #include "sno_lib_string.c"
 #include "sno_lib_table.c"
 #include "sno_mem.c"

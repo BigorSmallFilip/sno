@@ -247,6 +247,12 @@ sno_API void sno_create_string(
 );
 sno_API sno_Bool sno_load_string_from_file(sno_State* state, uint32_t idx);
 sno_API void sno_check_argc(sno_State* state, uint8_t argc, uint8_t expected);
+sno_API void sno_check_argc_range(
+	sno_State* state,
+	uint8_t argc,
+	uint8_t min_expected,
+	uint8_t max_expected
+);
 
 sno_API sno_no_return void sno_throw_runtime_error(
 	sno_State* state,

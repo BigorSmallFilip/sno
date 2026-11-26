@@ -51,6 +51,12 @@
     <ClCompile Include="sno_lib_table.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="sno_lib_math.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="sno_math.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="sno.h">
@@ -72,6 +78,9 @@
       <Filter>Source Files</Filter>
     </ClInclude>
     <ClInclude Include="sno_vm.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="sno_math.h">
       <Filter>Source Files</Filter>
     </ClInclude>
   </ItemGroup>
