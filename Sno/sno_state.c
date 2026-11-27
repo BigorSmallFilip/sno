@@ -266,6 +266,74 @@ void print_stack(sno_State* state) {
 
 
 
+int sprint_call_stack(
+	char* buffer,
+	int buffer_length,
+	sno_State* state
+) {
+	sno_assert_ptr(buffer);
+	sno_assert_ptr(state);
+	int length = 0;
+
+	for (long i = 0; i < (long)state->call_stack.count; i++) {
+		const CallInfo* ci = &state->call_stack.buffer[i];
+		IString* name;
+		if (ci->is_foreign_function) {
+			name = ci->function.foreign->name;
+			length += snprintf(
+				buffer + length,
+				buffer_length - length,
+				"calls \"%.*s\"\n",
+				(unsigned int)name->length,
+				istring_chars(name)
+			);
+		} else {
+			name = ci->function.bytecode->name;
+			if (ci->function.bytecode->is_file_scope) {
+				length += snprintf(
+					buffer + length,
+					buffer_length - length,
+					"While running the file scope of \"%.*s\"\n",
+					(unsigned int)name->length,
+					istring_chars(name)
+				);
+			} else {
+				length += snprintf(
+					buffer + length,
+					buffer_length - length,
+					"calls \"%.*s\"\n",
+					(unsigned int)name->length,
+					istring_chars(name)
+				);
+			}
+		}
+
+		if (!ci->is_foreign_function) {
+			if (i + 1 < (long)state->call_stack.count) {
+				// Check the next ci for the PC of the call
+				const CallInfo* next_ci = &state->call_stack.buffer[i + 1];
+				sno_assert_ptr(next_ci->pc); // It has to exist
+				Bytecode* bytecode = ci->function.bytecode;
+				length += (int)sprint_source_code_context(
+					buffer + length,
+					buffer_length - length,
+					bytecode->source_code,
+					pc_to_pos(bytecode, (uint8_t*)next_ci->pc)
+				);
+				length += snprintf(
+					buffer + length,
+					buffer_length - length,
+					"\n"
+				);
+			}
+		}
+		state->stack_base = state->stack + ci->caller_base_idx;
+	}
+	return length;
+}
+
+
+
 sno_no_return void state_throw(
 	sno_State* state,
 	ExceptionType type,
@@ -294,13 +362,6 @@ sno_no_return void state_throw(
 
 
 
-void push_table(sno_State* state, Table* table) {
-	sno_assert_ptr(state);
-	sno_assert_ptr(table);
-	sno_reserve_stack(state, 1);
-	// I don't know how to do this...
-}
-
 sno_API sno_no_return void sno_throw_runtime_error(
 	sno_State* state,
 	const char* const format,
@@ -309,64 +370,11 @@ sno_API sno_no_return void sno_throw_runtime_error(
 	sno_assert_ptr(state);
 	sno_assert_ptr(format);
 	char msg[sno_STACK_BUFFER_LENGTH];
-	size_t length = 0;
+	int length = 0;
 
 	//print_stack(state);
+	length += sprint_call_stack(msg + length, sno_STACK_BUFFER_LENGTH - length, state);
 
-	for (long i = 0; i < (long)state->call_stack.count; i++) {
-		const CallInfo* ci = &state->call_stack.buffer[i];
-		IString* name;
-		if (ci->is_foreign_function) {
-			name = ci->function.foreign->name;
-			length += snprintf(
-				msg + length,
-				sno_STACK_BUFFER_LENGTH - length,
-				"calls \"%.*s\"\n",
-				(unsigned int)name->length,
-				istring_chars(name)
-			);
-		} else {
-			name = ci->function.bytecode->name;
-			if (ci->function.bytecode->is_file_scope) {
-				length += snprintf(
-					msg + length,
-					sno_STACK_BUFFER_LENGTH - length,
-					"While running the file scope of \"%.*s\"\n",
-					(unsigned int)name->length,
-					istring_chars(name)
-				);
-			} else {
-				length += snprintf(
-					msg + length,
-					sno_STACK_BUFFER_LENGTH - length,
-					"calls \"%.*s\"\n",
-					(unsigned int)name->length,
-					istring_chars(name)
-				);
-			}
-		}
-		
-		if (!ci->is_foreign_function) {
-			if (i + 1 < (long)state->call_stack.count) {
-				// Check the next ci for the PC of the call
-				const CallInfo* next_ci = &state->call_stack.buffer[i + 1];
-				sno_assert_ptr(next_ci->pc); // It has to exist
-				Bytecode* bytecode = ci->function.bytecode;
-				length += sprint_source_code_context(
-					msg + length,
-					sno_STACK_BUFFER_LENGTH - length,
-					bytecode->source_code,
-					pc_to_pos(bytecode, (uint8_t*)next_ci->pc)
-				);
-				length += snprintf(
-					msg + length,
-					sno_STACK_BUFFER_LENGTH - length,
-					"\n"
-				);
-			}
-		}
-		state->stack_base = state->stack + ci->caller_base_idx;
-	}
 	length += snprintf(
 		msg + length,
 		sno_STACK_BUFFER_LENGTH - length,
@@ -375,7 +383,7 @@ sno_API sno_no_return void sno_throw_runtime_error(
 
 	va_list args;
 	va_start(args, format);
-	length += (size_t)vsnprintf(
+	length += vsnprintf(
 		msg + length,
 		sno_STACK_BUFFER_LENGTH - length,
 		format,

@@ -76,6 +76,11 @@ void check_arg_type(sno_State* state, uint32_t idx, ValueType type);
 void create_new_global(sno_State* state, Value name, Value value);
 
 void print_stack(sno_State* state);
+int sprint_call_stack(
+	char* buffer,
+	int buffer_length,
+	sno_State* state
+);
 
 sno_no_return void state_throw(
 	sno_State* state,
@@ -87,8 +92,6 @@ sno_no_return void state_throw(
 uint8_t state_call(sno_State* state, uint8_t argc, uint8_t retc, uint8_t* pc);
 
 
-
-void push_table(sno_State* state, Table* table);
 
 double perftimer(void);
 

@@ -1058,7 +1058,7 @@ static BinOp subexpression(
 			// to keep track of the stack pointer
 			shift_sp(ts->cs, -1);
 			next_binop = subexpression(ts, operator_precedence[binop].right);
-			PC jump_to = emit_0(ts, NO_POS, OP_TO_BOOL) + 1;
+			PC jump_to = emit_0(ts, NO_POS, OP_TO_BOOL);
 			if (jump_to - jump_from > UINT16_MAX) {
 				syntax_error(
 					ts,

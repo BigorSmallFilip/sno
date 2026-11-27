@@ -261,16 +261,17 @@ static void vm_throw(
 		state->call_stack.count - 1
 	];
 	char msg[sno_STACK_BUFFER_LENGTH];
-	size_t length = 0;
-	length += sprint_source_code_context(
+	int length = 0;
+	length += sprint_call_stack(msg + length, sno_STACK_BUFFER_LENGTH - length, state);
+	length += (int)sprint_source_code_context(
 		msg + length,
-		sno_STACK_BUFFER_LENGTH - length,
+		(int)(sno_STACK_BUFFER_LENGTH - length),
 		call_info->function.bytecode->source_code,
 		pc_to_pos(call_info->function.bytecode, pc)
 	);
 	va_list args;
 	va_start(args, format);
-	length += (size_t)vsnprintf(
+	length += vsnprintf(
 		msg + length,
 		sno_STACK_BUFFER_LENGTH - length,
 		format,
@@ -558,7 +559,7 @@ static void set_index(
 	Bytecode* bytecode_const = bytecode->bytecode_constants[const_id]
 
 
-#define DEBUG_EVERY_VM_INSTRUCTION
+//#define DEBUG_EVERY_VM_INSTRUCTION
 #ifdef DEBUG_EVERY_VM_INSTRUCTION
 #define VM_DEBUG_OP \
     printf(sno_ANSI_BLUE); \
@@ -868,7 +869,10 @@ uint8_t execute_bytecode(sno_State* state, uint8_t argc) {
 		state->stack_top--;
 		if (state->stack_top[0].type == VT_NUMBER &&
 			state->stack_top[-1].type == VT_NUMBER
-			) {
+		) {
+			if ((int32_t)(state->stack_top[0].u.number) == 0) {
+				vm_throw(state, pc, "Integer division by 0");
+			}
 			state->stack_top[-1].u.number = (sno_Number)(
 				(int32_t)(state->stack_top[-1].u.number) /
 				(int32_t)(state->stack_top[0].u.number)
@@ -955,13 +959,13 @@ uint8_t execute_bytecode(sno_State* state, uint8_t argc) {
 	VM_CASE(OP_AND)
 	VM_CASE(OP_OR) {
 		uint16_t jump = READ_U16();
-		pc += 2;
 		sno_Bool b = value_to_bool(state->stack_top[-1]);
 		if (b == (op == OP_OR)) {
 			set_bool(state->stack_top[-1], b);
 			pc += jump;
 		} else {
 			state->stack_top--;
+			pc += 2;
 		}
 		VM_DISPATCH();
 	}
